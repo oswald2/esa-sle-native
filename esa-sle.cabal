@@ -59,6 +59,31 @@ library
   -- Modules exported by the library.
   exposed-modules:
     Data.SLE.TMLMessage
+    Data.SLE.TMLConfig
+    Data.SLE.TMLProtocol
+    Conduit.SocketReconnector
+    State.AppState
+    State.Classes
+    State.SLEEvents
+
+  -- Other library packages from which modules are imported.
+  build-depends:       
+    base ^>=4.12.0.0,
+    rio,
+    attoparsec,
+    attoparsec-binary,
+    bytestring-strict-builder,
+    asn1-encoding,
+    asn1-types,
+    lens,
+    bytestring,
+    aeson,
+    conduit-extra,
+    timers-updatable,
+    text,
+    conduit,
+    conduit-extra
+
 
   -- Modules included in this library but not exported.
   -- other-modules:
@@ -106,18 +131,7 @@ library
         TypeSynonymInstances
         TypeApplications
         ViewPatterns
-
-  -- Other library packages from which modules are imported.
-  build-depends:       
-    base ^>=4.12.0.0,
-    rio,
-    attoparsec,
-    attoparsec-binary,
-    bytestring-strict-builder,
-    asn1-encoding,
-    asn1-types,
-    lens,
-    bytestring
+        NumericUnderscores
 
 
 

@@ -4,6 +4,8 @@
 module Data.SLE.TMLMessage
   ( TMLTypeID(..)
   , TMLHeader(..)
+  , TMLCtxtMessage(..)
+  , TMLMessage(..)
   , tmlHeaderBuilder
   , tmlMessageBuilder
   , tmlContextMsgBuilder
