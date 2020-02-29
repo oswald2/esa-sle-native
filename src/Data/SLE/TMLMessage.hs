@@ -5,7 +5,9 @@ module Data.SLE.TMLMessage
   ( TMLTypeID(..)
   , TMLHeader(..)
   , TMLCtxtMessage(..)
+  , TMLContextMsgRead(..)
   , TMLMessage(..)
+  , TMLPDU(..)
   , tmlHeaderBuilder
   , tmlMessageBuilder
   , tmlContextMsgBuilder
@@ -21,6 +23,7 @@ module Data.SLE.TMLMessage
   , tmlCtxVersion
   , tmlCtxHeartbeatInterval
   , tmlCtxDeadFactor
+  , chkContextMsg
   )
 where
 
@@ -67,6 +70,12 @@ data TMLContextMsgRead = TMLContextMsgRead {
   , _tmlCtxDeadFactor :: Word16
   } deriving (Generic)
 makeLenses ''TMLContextMsgRead
+
+
+chkContextMsg :: TMLContextMsgRead -> Bool 
+chkContextMsg TMLContextMsgRead {..} = True 
+  
+
 
 data TMLCtxtMessage = TMLCtxtMessage {
   _tmlCtxHbt :: Word16

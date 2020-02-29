@@ -12,5 +12,7 @@ data SleEvent =
   | TMLCouldNotConnect
   | TMLDisconnect
   | TMLProtocolAbort
+  | TMLParseError Text 
+  | TMLPeerAbort
 
 type SleEventHandler = SleEvent -> IO ()

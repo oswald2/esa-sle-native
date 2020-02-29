@@ -4,11 +4,13 @@ module Data.SLE.TMLProtocol
 where
 
 import           RIO
+import qualified RIO.Text as T
 import qualified Data.Text.IO as T 
 import           Conduit 
 import           Conduit.SocketReconnector
 import           Data.Conduit.Network
 import           Data.Conduit.List 
+import           Data.Conduit.Attoparsec
 import           System.Timer.Updatable
 import           Control.Concurrent.Killable
 import           ByteString.StrictBuilder
@@ -82,10 +84,56 @@ onDisconnect = do
 processReadTML :: (MonadUnliftIO m
     , MonadReader env m
     , HasConfig env 
+    , HasEventHandler env 
     , HasTimer env)
     => ConduitT ByteString Void m () 
-processReadTML = awaitForever $ \_ -> do 
-  lift $ restartHBTTimer
+processReadTML = do 
+  conduitParserEither tmlPduParser .| worker .| processPDU .| Conduit.sinkNull
+  where 
+    worker = do 
+      x <- await  
+      case x of 
+        Nothing -> return () 
+        Just val -> do 
+          case val of 
+            Left err -> do
+              env <- ask 
+              liftIO $ do
+                sleRaiseEvent env (TMLParseError (T.pack (errorMessage err)))
+                protocolAbort env 
+            Right (_, pdu) -> do 
+              lift $ restartHBTTimer
+              -- process pdu
+              yield pdu 
+              worker 
+        
+
+processPDU :: (MonadUnliftIO m
+    , MonadReader env m
+    , HasConfig env 
+    , HasEventHandler env 
+    , HasTimer env)
+    => ConduitT TMLPDU TMLMessage m () 
+processPDU = do 
+  awaitForever $ \case 
+    TMLPDUHeartBeat -> lift $ restartHBTTimer  
+    TMLPDUCtxt ctxt -> lift $ processContext ctxt 
+    TMLPDUMessage msg -> yield msg 
+
+
+processContext :: (MonadUnliftIO m
+  , MonadReader env m
+  , HasTimer env
+  , HasEventHandler env) 
+    => TMLContextMsgRead -> m () 
+processContext msg = do
+  if chkContextMsg msg 
+    then do
+      stopTimers 
+      startTimersWith (_tmlCtxHeartbeatInterval msg) (_tmlCtxDeadFactor msg)
+    else do 
+      env <- ask
+      liftIO $ peerAbort env 
 
 
 processWriteTML :: ConduitT () ByteString m () 
@@ -100,8 +148,17 @@ startTimers :: (MonadUnliftIO m
 startTimers = do 
   env <- ask 
   let cfg = env ^. getTMLConfig
-      hbTime = fromIntegral (cfgHeartbeat cfg) * 1_000_000
-      hbrTime = fromIntegral (cfgHeartbeat cfg) * fromIntegral (cfgDeadFactor cfg) * 1_000_000
+  startTimersWith (cfgHeartbeat cfg) (cfgDeadFactor cfg)
+
+
+startTimersWith :: (MonadUnliftIO m
+  , MonadReader env m
+  , HasEventHandler env 
+  , HasTimer env) => Word16 -> Word16 -> m () 
+startTimersWith hbTime' deadFactor = do 
+  env <- ask
+  let hbTime = fromIntegral hbTime' * 1_000_000
+      hbrTime = fromIntegral hbTime' * fromIntegral deadFactor * 1_000_000
 
   hbTimer <- liftIO $ replacer heartBeatTimeOut hbTime
   hbrTimer <- liftIO $ replacer (heartBeatReceiveTimeOut env) hbrTime
@@ -157,4 +214,14 @@ heartBeatTimeOut = do
 
 heartBeatReceiveTimeOut :: (HasEventHandler env) => env -> IO () 
 heartBeatReceiveTimeOut env = do 
+  protocolAbort env 
+
+
+protocolAbort :: (HasEventHandler env) => env -> IO () 
+protocolAbort env = do 
   sleRaiseEvent env TMLProtocolAbort
+
+
+peerAbort :: (HasEventHandler env) => env -> IO () 
+peerAbort env = do 
+  sleRaiseEvent env TMLPeerAbort
