@@ -19,6 +19,8 @@ data AppState = AppState {
   _appTimerHBT :: TVar (Maybe (Updatable ()))
   , _appTimerHBR :: TVar (Maybe (Updatable ()))
   , _appTMLConfig :: !TMLConfig
+  , _appHeartBeat :: TVar Int64 
+  , _appHeartBeatReceive :: TVar Int64
   , _appLogFunc :: !LogFunc
   , _appEventHandler :: !SleEventHandler
   , _appSleInput :: TBQueue SLEInput
@@ -30,6 +32,9 @@ initialState
 initialState cfg logFunc eventHandler = do
   var   <- liftIO $ newTVarIO Nothing
   var1  <- liftIO $ newTVarIO Nothing
+  hbrec <- liftIO $ newTVarIO (fromIntegral (cfgHeartbeat cfg) 
+                        * fromIntegral (cfgDeadFactor  cfg) * 1_000_000)
+  hbtr <- liftIO $ newTVarIO (fromIntegral (cfgHeartbeat cfg) * 1_000_000)
   queue <- liftIO $ newTBQueueIO 5000
   return $! AppState { _appTimerHBT     = var
                      , _appTimerHBR     = var1
@@ -37,13 +42,16 @@ initialState cfg logFunc eventHandler = do
                      , _appLogFunc      = logFunc
                      , _appEventHandler = eventHandler
                      , _appSleInput     = queue
+                     , _appHeartBeat    = hbtr
+                     , _appHeartBeatReceive = hbrec
                      }
 
 
 instance HasTimer AppState where
   getTimerHBT = lens _appTimerHBT (\c v -> c { _appTimerHBT = v })
   getTimerHBR = lens _appTimerHBR (\c v -> c { _appTimerHBR = v })
-
+  hbr = lens _appHeartBeatReceive (\c v -> c { _appHeartBeatReceive = v })
+  hbt = lens _appHeartBeat (\c v -> c { _appHeartBeat = v })
 
 -- | Instance of the logging function for the global state
 instance HasLogFunc AppState where

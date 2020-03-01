@@ -1,8 +1,14 @@
 module Data.SLE.SLEInput
-(SLEInput)
-where 
+  ( SLEInput(..)
+  )
+where
 
-import RIO 
+import           RIO
+
+import Data.SLE.TMLMessage
 
 
-data SLEInput 
+data SLEInput =
+  SLEAbort
+  | SLEAbortPeer
+  | SLEMsg TMLMessage

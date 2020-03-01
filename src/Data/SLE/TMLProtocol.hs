@@ -10,7 +10,7 @@ import           Conduit.SocketReconnector
 import           Data.Conduit.Network
 import           Data.Conduit.List 
 import           Data.Conduit.Attoparsec
-import           Data.Conduit.TQueue
+--import           Data.Conduit.TQueue
 import           System.Timer.Updatable
 import           Control.Concurrent.Killable
 import           ByteString.StrictBuilder
@@ -71,7 +71,7 @@ processConnect appData = do
 
   logDebug "Running chains..."
   race_ (runConduitRes (appSource appData .| processReadTML))
-        (runConduitRes (sourceTBQueue (env ^. getInput) .| processWriteTML .| appSink appData))
+        (runConduitRes (processWriteTML .| appSink appData))
 
   return ()
 
@@ -96,6 +96,7 @@ processReadTML :: (MonadUnliftIO m
     , HasConfig env 
     , HasEventHandler env 
     , HasLogFunc env 
+    , HasSleInput env
     , HasTimer env)
     => ConduitT ByteString Void m () 
 processReadTML = do 
@@ -124,6 +125,7 @@ processPDU :: (MonadUnliftIO m
     , MonadReader env m
     , HasEventHandler env 
     , HasLogFunc env 
+    , HasSleInput env 
     , HasTimer env)
     => ConduitT TMLPDU TMLMessage m () 
 processPDU = do 
@@ -142,6 +144,7 @@ processContext :: (MonadUnliftIO m
   , MonadReader env m
   , HasTimer env
   , HasLogFunc env 
+  , HasSleInput env 
   , HasEventHandler env) 
     => TMLContextMsgRead -> m () 
 processContext msg = do
@@ -153,14 +156,62 @@ processContext msg = do
       peerAbort
 
 
-processWriteTML :: (Monad m) => ConduitT SLEInput ByteString m () 
-processWriteTML = awaitForever $ \_ -> return ()
+
+heartBeatMessage :: ByteString 
+heartBeatMessage = builderBytes $ tmlHeartBeatMsgBuilder TMLHeartBeatMessage
+
+processWriteTML :: (MonadUnliftIO m
+  , MonadReader env m 
+  , HasTimer env
+  , HasSleInput env
+  , HasLogFunc env) => ConduitT () ByteString m () 
+processWriteTML = go 
+  where 
+    go = do 
+      val <- readSLEInput 
+      case val of 
+        Just inp -> do 
+          terminate <- processSLEInput inp  
+          if terminate 
+            then logDebug "Received termination request, terminating write chain"
+            else go 
+        Nothing -> do
+          logDebug "Sending heartbeat message..."
+          yield heartBeatMessage
+          go 
+
+
+readSLEInput :: (MonadIO m
+  , MonadReader env m
+  , HasTimer env
+  , HasSleInput env) => m (Maybe SLEInput)
+readSLEInput = do 
+  env <- ask 
+  val <- liftIO $ readTVarIO (env ^. hbt)
+  delay <- registerDelay (fromIntegral val)
+  atomically $ 
+    Just <$> readTBQueue (env ^. getInput)
+    <|> (readTVar delay >>= checkSTM >> pure Nothing)
+
+
+processSLEInput :: (MonadUnliftIO m
+  , MonadReader env m 
+  , HasTimer env
+  , HasSleInput env
+  , HasLogFunc env) => SLEInput -> ConduitT () ByteString m Bool
+processSLEInput SLEAbort = return True 
+processSLEInput SLEAbortPeer = return True 
+processSLEInput (SLEMsg msg) = do 
+  yield $ builderBytes $ tmlMessageBuilder msg 
+  return False 
+
 
 
 startTimers :: (MonadUnliftIO m
   , MonadReader env m
   , HasConfig env
   , HasLogFunc env 
+  , HasSleInput env 
   , HasEventHandler env 
   , HasTimer env) => m () 
 startTimers = do 
@@ -173,18 +224,19 @@ startTimersWith :: (MonadUnliftIO m
   , MonadReader env m
   , HasEventHandler env 
   , HasLogFunc env 
+  , HasSleInput env
   , HasTimer env) => Word16 -> Word16 -> m () 
 startTimersWith hbTime' deadFactor = do 
   env <- ask
-  let hbTime = fromIntegral hbTime' * 1_000_000
+  let --hbTime = fromIntegral hbTime' * 1_000_000
       hbrTime = fromIntegral hbTime' * fromIntegral deadFactor * 1_000_000
 
   logDebug "Starting timers..."
-  hbTimer <- liftIO $ replacer (runRIO env heartBeatTimeOut) hbTime
+  --hbTimer <- liftIO $ replacer (runRIO env heartBeatTimeOut) hbTime
   hbrTimer <- liftIO $ replacer (runRIO env heartBeatReceiveTimeOut) hbrTime
 
   atomically $ do 
-    writeTVar (env ^. getTimerHBT) (Just hbTimer)
+    --writeTVar (env ^. getTimerHBT) (Just hbTimer)
     writeTVar (env ^. getTimerHBR) (Just hbrTimer)
 
   return () 
@@ -210,22 +262,22 @@ stopTimers = do
 
 
 
-restartHBTTimer :: (MonadUnliftIO m
-  , MonadReader env m
-  , HasConfig env
-  , HasLogFunc env 
-  , HasTimer env) => m () 
-restartHBTTimer = do 
-  env <- ask 
-  let cfg = env ^. getTMLConfig
-      hbTime = fromIntegral (cfgHeartbeat cfg) * 1_000_000
-  logDebug "Restarting HeartBeat Timer"
-  atomically $ do 
-    let tvar = env ^. getTimerHBT
-    timer <- readTVar tvar
-    case timer of 
-      Nothing -> return () 
-      Just t -> renew t hbTime 
+-- restartHBTTimer :: (MonadUnliftIO m
+--   , MonadReader env m
+--   , HasConfig env
+--   , HasLogFunc env 
+--   , HasTimer env) => m () 
+-- restartHBTTimer = do 
+--   env <- ask 
+--   let cfg = env ^. getTMLConfig
+--       hbTime = fromIntegral (cfgHeartbeat cfg) * 1_000_000
+--   logDebug "Restarting HeartBeat Timer"
+--   atomically $ do 
+--     let tvar = env ^. getTimerHBT
+--     timer <- readTVar tvar
+--     case timer of 
+--       Nothing -> return () 
+--       Just t -> renew t hbTime 
 
 
 restartHBRTimer :: (MonadUnliftIO m
@@ -247,25 +299,33 @@ restartHBRTimer = do
 
 
 
-heartBeatTimeOut :: (HasLogFunc env) => RIO env () 
-heartBeatTimeOut = do 
-  logWarn "heartBeatTimeOut"
+-- heartBeatTimeOut :: (HasLogFunc env) => RIO env () 
+-- heartBeatTimeOut = do 
+--   logWarn "heartBeatTimeOut"
 
 
-heartBeatReceiveTimeOut :: (HasLogFunc env, HasEventHandler env) => RIO env () 
+heartBeatReceiveTimeOut :: (HasLogFunc env, HasSleInput env, HasEventHandler env) => RIO env () 
 heartBeatReceiveTimeOut = do 
+  logWarn "heartBeatReceiveTimeout"
   protocolAbort  
 
 
-protocolAbort :: (HasLogFunc env, HasEventHandler env) => RIO env () 
+protocolAbort :: (HasLogFunc env, HasEventHandler env, HasSleInput env) => RIO env () 
 protocolAbort = do 
   logDebug "ProtocolAbort!"
   env <- ask
   liftIO $ sleRaiseEvent env TMLProtocolAbort
+  atomically $ writeTBQueue (env ^. getInput) SLEAbort 
 
 
-peerAbort :: (MonadIO m, MonadReader env m, HasLogFunc env, HasEventHandler env) => m () 
+peerAbort :: (MonadIO m
+  , MonadReader env m
+  , HasLogFunc env
+  , HasSleInput env
+  , HasEventHandler env) => m () 
 peerAbort = do 
   logDebug "PeerAbort!"
   env <- ask
   liftIO $ sleRaiseEvent env TMLPeerAbort
+  liftIO $ sleRaiseEvent env TMLProtocolAbort
+  atomically $ writeTBQueue (env ^. getInput) SLEAbort 

@@ -6,6 +6,7 @@ module Data.SLE.TMLMessage
   , TMLHeader(..)
   , TMLCtxtMessage(..)
   , TMLContextMsgRead(..)
+  , TMLHeartBeatMessage(..)
   , TMLMessage(..)
   , TMLPDU(..)
   , tmlHeaderBuilder
