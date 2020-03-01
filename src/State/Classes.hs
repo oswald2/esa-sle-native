@@ -2,6 +2,7 @@ module State.Classes
   ( HasTimer(..)
   , HasEventHandler(..)
   , HasConfig(..)
+  , HasSleInput(..)
   )
 where
 
@@ -11,7 +12,7 @@ import           System.Timer.Updatable
 
 import           State.SLEEvents
 import           Data.SLE.TMLConfig
-
+import           Data.SLE.SLEInput              ( SLEInput )
 
 class HasConfig env where
   getTMLConfig :: Getter env TMLConfig
@@ -23,4 +24,5 @@ class HasTimer env where
 class HasEventHandler env where
   sleRaiseEvent :: env -> SleEvent -> IO ()
 
-
+class HasSleInput env where
+  getInput :: Getter env (TBQueue SLEInput)

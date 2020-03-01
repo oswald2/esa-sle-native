@@ -51,14 +51,14 @@ data TMLHeader = TMLHeader {
   _tmlType :: TMLTypeID
   , _tmlLength :: Word32
   }
-  deriving (Generic)
+  deriving (Show, Generic)
 makeLenses ''TMLHeader
 
 
 data TMLMessage = TMLMessage {
   _tmlMsgHdr :: TMLHeader
   , _tmlMsgData :: ByteString
-  } deriving (Generic)
+  } deriving (Show, Generic)
 makeLenses ''TMLMessage
 
 
@@ -68,7 +68,7 @@ data TMLContextMsgRead = TMLContextMsgRead {
   , _tmlCtxVersion :: Int
   , _tmlCtxHeartbeatInterval :: Word16
   , _tmlCtxDeadFactor :: Word16
-  } deriving (Generic)
+  } deriving (Show, Generic)
 makeLenses ''TMLContextMsgRead
 
 
@@ -80,17 +80,17 @@ chkContextMsg TMLContextMsgRead {..} = True
 data TMLCtxtMessage = TMLCtxtMessage {
   _tmlCtxHbt :: Word16
   , _tmlCtxDeadf :: Word16
-  } deriving (Generic)
+  } deriving (Show, Generic)
 
 data TMLHeartBeatMessage = TMLHeartBeatMessage
-  deriving (Generic)
+  deriving (Show, Generic)
 
 
 data TMLPDU =
   TMLPDUMessage TMLMessage
   | TMLPDUCtxt TMLContextMsgRead
   | TMLPDUHeartBeat
-  deriving (Generic)
+  deriving (Show, Generic)
 
 
 

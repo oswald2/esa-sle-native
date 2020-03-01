@@ -7,11 +7,12 @@ where
 import           RIO
 --import           Control.Lens
 import           System.Timer.Updatable
+
 import           State.Classes
 import           State.SLEEvents
 
 import           Data.SLE.TMLConfig
-
+import           Data.SLE.SLEInput
 
 
 data AppState = AppState {
@@ -20,20 +21,23 @@ data AppState = AppState {
   , _appTMLConfig :: !TMLConfig
   , _appLogFunc :: !LogFunc
   , _appEventHandler :: !SleEventHandler
+  , _appSleInput :: TBQueue SLEInput
   }
 
 
-initialState :: (MonadIO m) => TMLConfig -> LogFunc -> SleEventHandler -> m AppState
+initialState
+  :: (MonadIO m) => TMLConfig -> LogFunc -> SleEventHandler -> m AppState
 initialState cfg logFunc eventHandler = do
-  var <- liftIO $ newTVarIO Nothing
-  var1 <- liftIO $ newTVarIO Nothing
-  return $! AppState {
-    _appTimerHBT = var 
-    , _appTimerHBR = var1 
-    , _appTMLConfig = cfg
-    , _appLogFunc = logFunc 
-    , _appEventHandler = eventHandler
-    }
+  var   <- liftIO $ newTVarIO Nothing
+  var1  <- liftIO $ newTVarIO Nothing
+  queue <- liftIO $ newTBQueueIO 5000
+  return $! AppState { _appTimerHBT     = var
+                     , _appTimerHBR     = var1
+                     , _appTMLConfig    = cfg
+                     , _appLogFunc      = logFunc
+                     , _appEventHandler = eventHandler
+                     , _appSleInput     = queue
+                     }
 
 
 instance HasTimer AppState where
@@ -50,5 +54,9 @@ instance HasEventHandler AppState where
   sleRaiseEvent = _appEventHandler
 
 
-instance HasConfig AppState where 
+instance HasConfig AppState where
   getTMLConfig = lens _appTMLConfig (\c cfg -> c { _appTMLConfig = cfg })
+
+
+instance HasSleInput AppState where 
+  getInput = lens _appSleInput (\c inp -> c { _appSleInput = inp })

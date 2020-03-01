@@ -14,5 +14,6 @@ data SleEvent =
   | TMLProtocolAbort
   | TMLParseError Text 
   | TMLPeerAbort
+  deriving (Show, Generic)
 
 type SleEventHandler = SleEvent -> IO ()

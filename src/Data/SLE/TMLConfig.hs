@@ -32,7 +32,7 @@ instance ToJSON TMLConfig where
 
 
 defaultConfig :: TMLConfig
-defaultConfig = TMLConfig { cfgHeartbeat = 3, cfgDeadFactor = 3 }
+defaultConfig = TMLConfig { cfgHeartbeat = 30, cfgDeadFactor = 2 }
 
 
 -- | write the config in JSON format to a file. Uses the aeson for conversion to/from JSON
