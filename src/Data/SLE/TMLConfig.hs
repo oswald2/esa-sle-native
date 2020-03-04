@@ -34,7 +34,6 @@ data TMLConfig = TMLConfig {
   , cfgMaxHeartBeat :: Word16
   , cfgMinDeadFactor :: Word16
   , cfgMaxDeadFactor :: Word16
-  , cfgSupportedVersions :: [Int]
   } deriving (Show, Generic)
 
 
@@ -51,7 +50,6 @@ defaultConfig = TMLConfig { cfgHeartbeat = 30
   , cfgMaxHeartBeat = 3600 
   , cfgMinDeadFactor = 2
   , cfgMaxDeadFactor = 60
-  , cfgSupportedVersions = [1]
   }
 
 

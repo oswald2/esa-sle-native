@@ -63,6 +63,7 @@ library
     Data.SLE.TMLMessage
     Data.SLE.TMLConfig
     Data.SLE.TMLProtocol
+    Data.SLE.RAF
     Conduit.SocketReconnector
     State.AppState
     State.Classes
@@ -75,8 +76,6 @@ library
     attoparsec,
     attoparsec-binary,
     bytestring-strict-builder,
-    asn1-encoding,
-    asn1-types,
     lens,
     bytestring,
     aeson,
@@ -85,7 +84,8 @@ library
     text,
     conduit,
     conduit-extra,
-    stm-conduit
+    stm-conduit,
+    language-asn
 
 
   -- Modules included in this library but not exported.

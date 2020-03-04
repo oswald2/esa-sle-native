@@ -11,4 +11,5 @@ import           Data.SLE.TMLMessage
 data SLEInput =
   SLEAbort
   | SLEAbortPeer
+  | SLEStopListen
   | SLEMsg TMLMessage

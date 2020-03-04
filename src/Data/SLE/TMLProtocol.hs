@@ -205,6 +205,7 @@ processSLEInput :: (MonadUnliftIO m
   , HasLogFunc env) => SLEInput -> ConduitT () ByteString m Bool
 processSLEInput SLEAbort = return True 
 processSLEInput SLEAbortPeer = return True 
+processSLEInput SLEStopListen = return True 
 processSLEInput (SLEMsg msg) = do 
   yield $ builderBytes $ tmlMessageBuilder msg 
   return False 

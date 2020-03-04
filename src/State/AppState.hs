@@ -28,14 +28,18 @@ data AppState = AppState {
 
 
 initialState
-  :: (MonadIO m) => TMLConfig -> LogFunc -> SleEventHandler -> m AppState
-initialState cfg logFunc eventHandler = do
+  :: (MonadIO m) 
+  => TMLConfig 
+  -> LogFunc 
+  -> SleEventHandler 
+  -> TBQueue SLEInput 
+  -> m AppState
+initialState cfg logFunc eventHandler queue = do
   var   <- liftIO $ newTVarIO Nothing
   var1  <- liftIO $ newTVarIO Nothing
   hbrec <- liftIO $ newTVarIO (fromIntegral (cfgHeartbeat cfg) 
                         * fromIntegral (cfgDeadFactor  cfg) * 1_000_000)
   hbtr <- liftIO $ newTVarIO (fromIntegral (cfgHeartbeat cfg) * 1_000_000)
-  queue <- liftIO $ newTBQueueIO 5000
   return $! AppState { _appTimerHBT     = var
                      , _appTimerHBR     = var1
                      , _appTMLConfig    = cfg

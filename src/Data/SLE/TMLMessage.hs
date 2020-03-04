@@ -97,7 +97,7 @@ chkContextMsg cfg TMLContextMsgRead {..} =
             && _tmlCtxDeadFactor
             <= cfgMaxDeadFactor cfg
       chkProtocol = _tmlCtxProtocolID == "ISP1"
-      chkVersion = _tmlCtxVersion `elem` cfgSupportedVersions cfg
+      chkVersion = _tmlCtxVersion == 1
   in
   if | not chkProtocol -> Left IllegalProtocol
      | not chkVersion -> Left IllegalVersion
