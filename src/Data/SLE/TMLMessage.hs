@@ -9,6 +9,7 @@ module Data.SLE.TMLMessage
   , TMLHeartBeatMessage(..)
   , TMLMessage(..)
   , TMLPDU(..)
+  , CtxtMsgError(..)
   , tmlHeaderBuilder
   , tmlMessageBuilder
   , tmlContextMsgBuilder
@@ -37,8 +38,10 @@ import           Data.Attoparsec.ByteString     ( Parser )
 import qualified Data.Attoparsec.ByteString    as A
 import qualified Data.Attoparsec.Binary        as A
 
-import           ByteString.StrictBuilder       ( Builder )
+--import           ByteString.StrictBuilder       ( Builder )
 import           ByteString.StrictBuilder      as B
+
+import           Data.SLE.TMLConfig
 
 
 data TMLTypeID =
@@ -73,10 +76,34 @@ data TMLContextMsgRead = TMLContextMsgRead {
 makeLenses ''TMLContextMsgRead
 
 
-chkContextMsg :: TMLContextMsgRead -> Bool 
-chkContextMsg TMLContextMsgRead {..} = True 
-  
 
+data CtxtMsgError = 
+  IllegalHeartBeat
+  | IllegalDeadFactor
+  | IllegalProtocol 
+  | IllegalVersion
+  deriving (Eq, Ord, Enum, Show, Read, Generic)
+
+chkContextMsg :: TMLConfig -> TMLContextMsgRead -> Either CtxtMsgError ()
+chkContextMsg cfg TMLContextMsgRead {..} =
+  let chkHB =
+          cfgMinHeartBeat cfg
+            <= _tmlCtxHeartbeatInterval
+            && _tmlCtxHeartbeatInterval
+            <= cfgMaxHeartBeat cfg
+      chkDF =
+          cfgMinDeadFactor cfg
+            <= _tmlCtxDeadFactor
+            && _tmlCtxDeadFactor
+            <= cfgMaxDeadFactor cfg
+      chkProtocol = _tmlCtxProtocolID == "ISP1"
+      chkVersion = _tmlCtxVersion `elem` cfgSupportedVersions cfg
+  in
+  if | not chkProtocol -> Left IllegalProtocol
+     | not chkVersion -> Left IllegalVersion
+     | not chkHB -> Left IllegalHeartBeat
+     | not chkDF -> Left IllegalDeadFactor 
+     | otherwise -> Right () 
 
 data TMLCtxtMessage = TMLCtxtMessage {
   _tmlCtxHbt :: Word16
@@ -123,28 +150,36 @@ tmlMessageBuilder TMLMessage {..} =
   tmlHeaderBuilder _tmlMsgHdr <> bytes _tmlMsgData
 
 
-tmlPduParser :: Parser TMLPDU 
-tmlPduParser = do 
+tmlPduParser :: Parser TMLPDU
+tmlPduParser = do
   hdr <- tmlHeaderParser
-  case hdr ^. tmlType of 
-    TMLSlePdu -> do 
+  case hdr ^. tmlType of
+    TMLSlePdu -> do
       dat <- A.take (fromIntegral (hdr ^. tmlLength))
       return $ TMLPDUMessage $ TMLMessage hdr dat
-    TMLHeartbeat -> do 
-      if hdr ^. tmlLength == 0 
-        then return TMLPDUHeartBeat 
-        else fail "TML PDU Parser: error for heartbeat message: length is not 0!"
-    TMLContextMsg -> do 
-      when (hdr ^. tmlLength /= 12) $ fail "TML PDU Parser: error for context message: length is not 12!"
+    TMLHeartbeat -> do
+      if hdr ^. tmlLength == 0
+        then return TMLPDUHeartBeat
+        else fail
+          "TML PDU Parser: error for heartbeat message: length is not 0!"
+    TMLContextMsg -> do
+      when (hdr ^. tmlLength /= 12)
+        $ fail "TML PDU Parser: error for context message: length is not 12!"
       protocol <- A.take 4
-      when (protocol /= "ISP1") $ fail $ "TML PDU Parser: error: illegal protocol: " <> BC.unpack protocol
-      void $ A.take 3 
-      void $ A.word8 1 
-      hb <- A.anyWord16be 
+      when (protocol /= "ISP1")
+        $  fail
+        $  "TML PDU Parser: error: illegal protocol: "
+        <> BC.unpack protocol
+      void $ A.take 3
+      void $ A.word8 1
+      hb <- A.anyWord16be
       df <- A.anyWord16be
-      case decodeUtf8' protocol of 
-        Left err -> fail $ "TML PDU Parser: could not decode protocol from UTF8: " <> show err
-        Right p -> return $ TMLPDUCtxt $ TMLContextMsgRead hdr p 1 hb df 
+      case decodeUtf8' protocol of
+        Left err ->
+          fail
+            $  "TML PDU Parser: could not decode protocol from UTF8: "
+            <> show err
+        Right p -> return $ TMLPDUCtxt $ TMLContextMsgRead hdr p 1 hb df
 
 
 tmlContextMsgBuilder :: TMLCtxtMessage -> Builder

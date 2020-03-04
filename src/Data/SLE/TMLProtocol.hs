@@ -1,5 +1,6 @@
 module Data.SLE.TMLProtocol
   ( connectSLE
+  , listenSLE
   )
 where
 
@@ -90,7 +91,6 @@ onDisconnect = do
   return ()
 
 
-
 processReadTML :: (MonadUnliftIO m
     , MonadReader env m
     , HasConfig env 
@@ -125,6 +125,7 @@ processPDU :: (MonadUnliftIO m
     , MonadReader env m
     , HasEventHandler env 
     , HasLogFunc env 
+    , HasConfig env 
     , HasSleInput env 
     , HasTimer env)
     => ConduitT TMLPDU TMLMessage m () 
@@ -144,15 +145,18 @@ processContext :: (MonadUnliftIO m
   , MonadReader env m
   , HasTimer env
   , HasLogFunc env 
+  , HasConfig env 
   , HasSleInput env 
   , HasEventHandler env) 
     => TMLContextMsgRead -> m () 
 processContext msg = do
-  if chkContextMsg msg 
-    then do
+  cfg <- view getTMLConfig
+  case chkContextMsg cfg msg of
+    Right _ -> do
       stopTimers 
       startTimersWith (_tmlCtxHeartbeatInterval msg) (_tmlCtxDeadFactor msg)
-    else do 
+    Left err -> do 
+      logError $ "Received illegal context message: " <> displayShow err 
       peerAbort
 
 
@@ -304,13 +308,13 @@ restartHBRTimer = do
 --   logWarn "heartBeatTimeOut"
 
 
-heartBeatReceiveTimeOut :: (HasLogFunc env, HasSleInput env, HasEventHandler env) => RIO env () 
+heartBeatReceiveTimeOut :: (MonadUnliftIO m, MonadReader env m, HasLogFunc env, HasSleInput env, HasEventHandler env) => m () 
 heartBeatReceiveTimeOut = do 
   logWarn "heartBeatReceiveTimeout"
   protocolAbort  
 
 
-protocolAbort :: (HasLogFunc env, HasEventHandler env, HasSleInput env) => RIO env () 
+protocolAbort :: (MonadUnliftIO m, MonadReader env m, HasLogFunc env, HasEventHandler env, HasSleInput env) => m () 
 protocolAbort = do 
   logDebug "ProtocolAbort!"
   env <- ask
@@ -329,3 +333,113 @@ peerAbort = do
   liftIO $ sleRaiseEvent env TMLPeerAbort
   liftIO $ sleRaiseEvent env TMLProtocolAbort
   atomically $ writeTBQueue (env ^. getInput) SLEAbort 
+
+
+
+
+listenSLE
+  :: (MonadUnliftIO m
+    , MonadReader env m
+    , HasLogFunc env
+    , HasEventHandler env
+    , HasConfig env
+    , HasSleInput env 
+    , HasTimer env)
+  => Word16
+  -> m ()
+listenSLE serverPort = do
+  void $ runGeneralTCPServer (serverSettings (fromIntegral (serverPort)) "*") $ \app ->
+    race_ (processServerReadSLE app) (processServerSendSLE app)
+  onServerDisconnect 
+
+
+processServerReadSLE
+  :: (MonadUnliftIO m
+    , MonadReader env m
+    , HasLogFunc env
+    , HasEventHandler env
+    , HasConfig env
+    , HasTimer env 
+    , HasSleInput env)
+  => AppData -> m ()  
+processServerReadSLE app = do
+  env <- ask
+  let initChain = appSource app .| conduitParserEither tmlPduParser .| sink
+      initTime = fromIntegral (cfgServerInitTime (env ^. getTMLConfig)) + 1_000_000
+
+  -- first, run initial waiting for context message
+  result <- race (runConduitRes initChain) (threadDelay initTime)
+  case result of 
+    Right _ -> do 
+      logDebug "Timeout waiting for context message, aborting"
+      protocolAbort
+    Left (Left err) -> do 
+      logDebug (display err)
+      protocolAbort 
+    Left (Right Nothing) -> do -- we should terminate
+      logDebug "Conduit told us to terminate..."
+      protocolAbort 
+    Left (Right (Just ctxtMsg)) -> 
+      processContext ctxtMsg 
+
+  -- now, if we are still here, start the normal processing
+  runConduitRes $ appSource app .| processReadTML  
+
+  where 
+    sink = do 
+      x <- await  
+      case x of 
+        Nothing -> return $ Right Nothing
+        Just val -> do 
+          env <- ask 
+          case val of 
+            Left err -> return $ Left (T.pack (errorMessage err))
+            Right (_, pdu) -> do 
+              logDebug $ "Received PDU: " <> displayShow pdu
+              -- process pdu
+              case checkPDU (env ^. getTMLConfig) pdu of 
+                Left err -> return $ Left err 
+                Right ctxtMsg -> return $ Right (Just ctxtMsg)              
+
+
+
+
+
+checkPDU :: TMLConfig -> TMLPDU -> Either Text TMLContextMsgRead
+checkPDU _cfg TMLPDUMessage {} = Left "Received PDU, expected Context message"
+checkPDU _cfg TMLPDUHeartBeat  = Left "Received HeartBeat, expected Context message"
+checkPDU cfg (TMLPDUCtxt msg) = 
+  case chkContextMsg cfg msg of
+    Left IllegalHeartBeat -> Left "Context message contained illegal hearbeat value"
+    Left IllegalDeadFactor -> Left "Context message contained illegal dead-factor"
+    Left IllegalProtocol -> Left "Context message contained illegal protocol"
+    Left IllegalVersion -> Left "Context message contained illegal version"
+    Right _ -> Right msg 
+
+
+onServerDisconnect
+  :: (MonadUnliftIO m
+    , MonadReader env m
+    , HasLogFunc env
+    , HasEventHandler env)
+  => m ()  
+onServerDisconnect = do
+  env <- ask 
+  logWarn "Server is disconnecting..."
+  liftIO $ sleRaiseEvent env TMLDisconnect
+  return ()
+
+
+
+
+processServerSendSLE
+  :: (MonadUnliftIO m
+    , MonadReader env m
+    , HasLogFunc env
+    , HasEventHandler env
+    , HasConfig env
+    , HasSleInput env 
+    , HasTimer env)
+  => AppData -> m ()  
+processServerSendSLE app = runConduitRes $ processWriteTML .| appSink app
+

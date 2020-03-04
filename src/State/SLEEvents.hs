@@ -13,6 +13,7 @@ data SleEvent =
   | TMLDisconnect
   | TMLProtocolAbort
   | TMLParseError Text 
+  | TMLError Text 
   | TMLPeerAbort
   deriving (Show, Generic)
 

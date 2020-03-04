@@ -5,7 +5,7 @@ where
 
 import           RIO
 
-import Data.SLE.TMLMessage
+import           Data.SLE.TMLMessage
 
 
 data SLEInput =

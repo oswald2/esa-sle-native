@@ -4,6 +4,7 @@ module Data.SLE.TMLConfig
   , defaultConfig
   , writeConfigJSON
   , loadConfigJSON
+  , mkServerAddr
   )
 where
 
@@ -15,14 +16,25 @@ import           Data.ByteString.Lazy          as B
 
 
 data ConnectAddr = ConnectAddr {
-  host :: Text 
+  host :: Text
   , port :: Word16
   }
+
+
+mkServerAddr :: Word16 -> ConnectAddr
+mkServerAddr = ConnectAddr "*"
+
 
 
 data TMLConfig = TMLConfig {
   cfgHeartbeat :: Word16
   , cfgDeadFactor :: Word16
+  , cfgServerInitTime :: Word16
+  , cfgMinHeartBeat :: Word16
+  , cfgMaxHeartBeat :: Word16
+  , cfgMinDeadFactor :: Word16
+  , cfgMaxDeadFactor :: Word16
+  , cfgSupportedVersions :: [Int]
   } deriving (Show, Generic)
 
 
@@ -32,7 +44,15 @@ instance ToJSON TMLConfig where
 
 
 defaultConfig :: TMLConfig
-defaultConfig = TMLConfig { cfgHeartbeat = 30, cfgDeadFactor = 2 }
+defaultConfig = TMLConfig { cfgHeartbeat = 30
+  , cfgDeadFactor = 2 
+  , cfgServerInitTime = 30 
+  , cfgMinHeartBeat = 3
+  , cfgMaxHeartBeat = 3600 
+  , cfgMinDeadFactor = 2
+  , cfgMaxDeadFactor = 60
+  , cfgSupportedVersions = [1]
+  }
 
 
 -- | write the config in JSON format to a file. Uses the aeson for conversion to/from JSON

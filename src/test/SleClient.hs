@@ -10,15 +10,13 @@ import qualified Data.Text.IO                  as T
 import           Data.SLE.TMLProtocol
 import           Data.SLE.TMLConfig
 import           State.AppState
+import           Data.SLE.Api
+
 
 main :: IO ()
 main = do
   let addr = ConnectAddr { host = "localhost", port = 55529 }
 
-  defLogOptions <- logOptionsHandle stdout True
-  let logOptions = setLogMinLevel LevelDebug defLogOptions
-  withLogFunc logOptions $ \logFunc -> do
-    state <- initialState defaultConfig logFunc (T.putStrLn . T.pack . show)
+      handler msg = T.putStrLn (T.pack (show msg))
 
-    runRIO state $ do
-      connectSLE addr
+  startClient addr handler
