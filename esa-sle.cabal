@@ -64,6 +64,8 @@ library
     Data.SLE.TMLConfig
     Data.SLE.TMLProtocol
     Data.SLE.RAF
+    Data.SLE.CCSDSTime
+    Data.SLE.ServiceInstanceID
     Conduit.SocketReconnector
     State.AppState
     State.Classes
@@ -85,7 +87,8 @@ library
     conduit,
     conduit-extra,
     stm-conduit,
-    language-asn
+    language-asn,
+    primitive
 
 
   -- Modules included in this library but not exported.
