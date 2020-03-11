@@ -14,7 +14,7 @@ module Data.SLE.ServiceInstanceID
   , rcfsh
   , ServiceInstanceAttribute(..)
   , serviceInstanceAttribute
-  , ServiceInstanceIdentifier
+  , ServiceInstanceIdentifier(..)
   , serviceInstanceIdentifier
   )
 where

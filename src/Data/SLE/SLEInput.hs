@@ -3,7 +3,7 @@ module Data.SLE.SLEInput
   )
 where
 
-import           RIO
+--import           RIO
 
 import           Data.SLE.TMLMessage
 

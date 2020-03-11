@@ -9,6 +9,7 @@ module Data.SLE.RAF
   , AuthorityIdentifier(..)
   , PortID(..)
   , VersionNumber(..)
+  , ApplicationIdentifier(..)
   , time
   , sleBindInvocation
   , sleBindCredentials

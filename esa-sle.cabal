@@ -67,6 +67,8 @@ library
     Data.SLE.CCSDSTime
     Data.SLE.ServiceInstanceID
     Data.SLE.Common
+    Data.SLE.DEL
+    Data.SLE.SlePdu
     Conduit.SocketReconnector
     State.AppState
     State.Classes
@@ -89,7 +91,9 @@ library
     conduit-extra,
     stm-conduit,
     asn1-types,
-    asn1-encoding
+    asn1-encoding,
+    thyme,
+    splitmix
     
 
 
