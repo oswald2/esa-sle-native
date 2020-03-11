@@ -66,6 +66,7 @@ library
     Data.SLE.RAF
     Data.SLE.CCSDSTime
     Data.SLE.ServiceInstanceID
+    Data.SLE.Common
     Conduit.SocketReconnector
     State.AppState
     State.Classes
@@ -88,7 +89,10 @@ library
     conduit-extra,
     stm-conduit,
     language-asn,
-    primitive
+    primitive,
+    asn1-types,
+    asn1-encoding
+    
 
 
   -- Modules included in this library but not exported.

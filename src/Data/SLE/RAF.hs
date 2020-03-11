@@ -11,66 +11,40 @@ module Data.SLE.RAF
   , VersionNumber(..)
   , time
   , sleBindInvocation
+  , sleBindCredentials
+  , sleBindInitiatorID
+  , sleBindResponderPortID
+  , sleBindServiceType
+  , sleVersionNumber
+  , sleServiceInstanceID
   )
 where
 
 import           RIO
-import qualified RIO.ByteString                as B
---import qualified RIO.ByteString.Lazy as BL
-import           Control.Lens 
-import           ByteString.StrictBuilder 
-import           Language.Asn.Encoding as ASN1
-import           Language.Asn.Types
-import           Language.Asn.Types.Internal
+import           Control.Lens
 
-import           Data.SLE.CCSDSTime
+import           Data.ASN1.Types
+import           Data.ASN1.Encoding 
+import           Data.ASN1.BinaryEncoding 
 
-
--- newtype IntPosLong = IntPosLong Word32
-
--- intPosLong :: AsnEncoding Integer 
--- intPosLong = integerRanged 0 4294967295
-
-newtype IntPosShort = IntPosShort { getIntPosShort :: Word16 }
-
-
-intPosShort :: AsnEncoding Integer 
-intPosShort = integerRanged 1 65535
-
-
-type Credentials = Maybe ByteString
-
-credentials :: AsnEncoding Credentials
-credentials = choice [Nothing, Just B.empty] $ 
-  \case 
-    Nothing -> option 0 "unused" Nothing ASN1.null'  
-    Just bs -> option 1 "used" bs octetString
-
-
-data Time = 
-  Time CCSDSTime 
-  | TimePico CCSDSTimePico
-
-time :: AsnEncoding Time 
-time = choice [Time ccsdsNullTime, TimePico ccsdsPicoNullTime] $
-  \case 
-    Time t -> option 0 "ccsdsFormat" (builderBytes (ccsdsTimeBuilder t)) octetString 
-    TimePico t -> option 1 "ccsdsPicoFormat" (builderBytes (ccsdsTimePicoBuilder t)) octetString
-
---type ConditionalTime = Maybe 
-
---conditionalTime :: AsnEndoding ConditionalTime 
-
-visibleString :: AsnEncoding Text 
-visibleString = EncUniversalValue (UniversalValueTextualString VisibleString id mempty mempty)
+import           Data.SLE.Common
+import           Data.SLE.ServiceInstanceID
 
 
 newtype AuthorityIdentifier = AuthorityIdentifier { getAuthorityID :: Text }
 
+authorityIdentifier :: AuthorityIdentifier -> ASN1
+authorityIdentifier (AuthorityIdentifier x) = visibleString x
+
+
 newtype PortID = PortID { getPortID :: Text }
 
+portID :: PortID -> ASN1
+portID (PortID x) = visibleString x
 
-data ApplicationIdentifier = 
+
+
+data ApplicationIdentifier =
   RtnAllFrames
   | RtnInsert
   | RtnChFrames
@@ -82,58 +56,65 @@ data ApplicationIdentifier =
   | FwdAosVca
   | FwdBitstr
   | FwdProtoVcdu
-  | FwdInsert 
+  | FwdInsert
   | FwdCVcdu
-  | FwdTcSpacePkt 
-  | FwdTcVca 
-  | FwdTcFrame 
+  | FwdTcSpacePkt
+  | FwdTcVca
+  | FwdTcFrame
   | FwdCltu
   deriving (Eq, Ord, Enum, Show, Generic)
 
-class ToASNInteger a where 
-  toASNInteger :: a -> Integer 
 
-instance ToASNInteger ApplicationIdentifier where 
-  toASNInteger RtnAllFrames = 0
-  toASNInteger RtnInsert = 1
-  toASNInteger RtnChFrames = 2
-  toASNInteger RtnChFsh = 3
-  toASNInteger RtnChOcf = 4
-  toASNInteger RtnBitstr = 5
-  toASNInteger RtnSpacePkt = 6 
-  toASNInteger FwdAosSpacePkt = 7
-  toASNInteger FwdAosVca = 8
-  toASNInteger FwdBitstr = 9
-  toASNInteger FwdProtoVcdu = 10
-  toASNInteger FwdInsert  = 11
-  toASNInteger FwdCVcdu = 12
-  toASNInteger FwdTcSpacePkt  = 13
-  toASNInteger FwdTcVca  = 14
-  toASNInteger FwdTcFrame  = 15
-  toASNInteger FwdCltu = 16
-
-
+applicationIdentifier :: ApplicationIdentifier -> ASN1
+applicationIdentifier RtnAllFrames   = Enumerated 0
+applicationIdentifier RtnInsert      = Enumerated 1
+applicationIdentifier RtnChFrames    = Enumerated 2
+applicationIdentifier RtnChFsh       = Enumerated 3
+applicationIdentifier RtnChOcf       = Enumerated 4
+applicationIdentifier RtnBitstr      = Enumerated 5
+applicationIdentifier RtnSpacePkt    = Enumerated 6
+applicationIdentifier FwdAosSpacePkt = Enumerated 7
+applicationIdentifier FwdAosVca      = Enumerated 8
+applicationIdentifier FwdBitstr      = Enumerated 9
+applicationIdentifier FwdProtoVcdu   = Enumerated 10
+applicationIdentifier FwdInsert      = Enumerated 11
+applicationIdentifier FwdCVcdu       = Enumerated 12
+applicationIdentifier FwdTcSpacePkt  = Enumerated 13
+applicationIdentifier FwdTcVca       = Enumerated 14
+applicationIdentifier FwdTcFrame     = Enumerated 15
+applicationIdentifier FwdCltu        = Enumerated 16
 
 
 newtype VersionNumber = VersionNumber { getVersionNumber :: Word16 }
 
+versionNumber :: VersionNumber -> ASN1
+versionNumber (VersionNumber x) = IntVal (fromIntegral x)
+
+
 
 data SleBindInvocation = SleBindInvocation {
-  _sleBindCredentials :: Credentials 
+  _sleBindCredentials :: Credentials
   , _sleBindInitiatorID :: AuthorityIdentifier
-  , _sleBindResponderPortID :: PortID 
+  , _sleBindResponderPortID :: PortID
   , _sleBindServiceType :: ApplicationIdentifier
   , _sleVersionNumber :: VersionNumber
+  , _sleServiceInstanceID :: ServiceInstanceIdentifier
   }
 makeLenses ''SleBindInvocation
 
 
+sleBindInvocation :: SleBindInvocation -> [ASN1]
+sleBindInvocation SleBindInvocation {..} =
+  [ Start Sequence
+    , credentials _sleBindCredentials
+    , authorityIdentifier _sleBindInitiatorID
+    , portID _sleBindResponderPortID
+    , applicationIdentifier _sleBindServiceType
+    , versionNumber _sleVersionNumber
+    ]
+    ++ serviceInstanceIdentifier _sleServiceInstanceID
+    ++ [End Sequence]
 
-sleBindInvocation :: AsnEncoding SleBindInvocation 
-sleBindInvocation = ASN1.sequence [
-  required "invokerCredentials" _sleBindCredentials credentials 
-  , required "initiatorIdentifier" (getAuthorityID . _sleBindInitiatorID) visibleString
-  , required "responderPortIdentifier" (getPortID . _sleBindResponderPortID) visibleString
-  , required "serviceType" (toASNInteger . _sleBindServiceType) integer
-  , required "versionNumber" (fromIntegral . getVersionNumber . _sleVersionNumber) intPosShort
-  ]
+
+instance EncodeASN1 SleBindInvocation where 
+  encode val = encodeASN1' DER (sleBindInvocation val)
