@@ -88,8 +88,6 @@ library
     conduit,
     conduit-extra,
     stm-conduit,
-    language-asn,
-    primitive,
     asn1-types,
     asn1-encoding
     
