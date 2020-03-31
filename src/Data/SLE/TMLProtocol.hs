@@ -6,6 +6,7 @@ where
 
 import           RIO
 import qualified RIO.Text as T
+import qualified RIO.ByteString.Lazy as BL
 import           Conduit 
 import           Conduit.SocketReconnector
 import           Data.Conduit.Network
@@ -15,6 +16,8 @@ import           Data.Conduit.Attoparsec
 import           System.Timer.Updatable
 import           Control.Concurrent.Killable
 import           ByteString.StrictBuilder
+import Network.Socket (PortNumber)
+
 
 import           Data.SLE.TMLConfig
 import           Data.SLE.TMLMessage
@@ -22,6 +25,12 @@ import           Data.SLE.SLEInput
 
 import           State.SLEEvents
 import           State.Classes
+
+import           Data.ASN1.Encoding 
+import           Data.ASN1.BinaryEncoding
+
+
+
 
 connectSLE
   :: (MonadUnliftIO m
@@ -100,7 +109,7 @@ processReadTML :: (MonadUnliftIO m
     , HasTimer env)
     => ConduitT ByteString Void m () 
 processReadTML = do 
-  conduitParserEither tmlPduParser .| worker .| processPDU .| Conduit.sinkNull
+  conduitParserEither tmlPduParser .| worker .| processPDU .| processSLEMsg
   where 
     worker = do 
       x <- await  
@@ -139,6 +148,19 @@ processPDU = do
     TMLPDUMessage msg -> do 
       lift $ logDebug $ "Yielding PDU:" <> displayShow msg
       yield msg 
+
+
+processSLEMsg :: (MonadUnliftIO m
+  , MonadReader env m 
+  , HasLogFunc env) => ConduitT TMLMessage Void m () 
+processSLEMsg = do 
+  awaitForever $ \msg -> do 
+    let encSle = msg ^. tmlMsgData
+    case decodeASN1 DER (BL.fromStrict encSle) of
+      Left err -> logError $ "Error decoding ASN1 message: " <> displayShow err
+      Right ls -> do
+        lift $ logDebug $ "Received ASN1: " <> displayShow ls
+
 
 
 processContext :: (MonadUnliftIO m
@@ -346,7 +368,7 @@ listenSLE
     , HasConfig env
     , HasSleInput env 
     , HasTimer env)
-  => Word16
+  => PortNumber
   -> m ()
 listenSLE serverPort = do
   void $ runGeneralTCPServer (serverSettings (fromIntegral (serverPort)) "*") $ \app ->

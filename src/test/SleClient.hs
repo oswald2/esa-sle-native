@@ -42,7 +42,7 @@ sendPDU queue = do
       , _sleBindServiceType     = RtnAllFrames
       , _sleVersionNumber       = VersionNumber 1
       , _sleServiceInstanceID   = ServiceInstanceIdentifier
-        [ServiceInstanceAttribute { _siAttrID = raf, _siAttrValue = "onlc1" }]
+        [ServiceInstanceAttribute { _siAttrID = RAF, _siAttrValue = "onlc1" }]
       }
     pdu = SlePduBind bind
 
