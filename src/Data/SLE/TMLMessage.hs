@@ -147,7 +147,10 @@ tmlHeaderParser = do
 
 tmlMessageBuilder :: TMLMessage -> Builder
 tmlMessageBuilder TMLMessage {..} =
-  tmlHeaderBuilder _tmlMsgHdr <> bytes _tmlMsgData
+  let len = BC.length _tmlMsgData
+      newHdr = _tmlMsgHdr { _tmlLength = fromIntegral len }
+  in
+  tmlHeaderBuilder newHdr <> bytes _tmlMsgData
 
 
 tmlPduParser :: Parser TMLPDU

@@ -22,6 +22,10 @@ import Network.Socket (PortNumber)
 import           Data.SLE.TMLConfig
 import           Data.SLE.TMLMessage
 import           Data.SLE.SLEInput
+import           Data.SLE.Common
+import           Data.SLE.RAF
+import           Data.SLE.DEL
+import           Data.SLE.SlePdu
 
 import           State.SLEEvents
 import           State.Classes
@@ -150,16 +154,72 @@ processPDU = do
       yield msg 
 
 
+
 processSLEMsg :: (MonadUnliftIO m
   , MonadReader env m 
-  , HasLogFunc env) => ConduitT TMLMessage Void m () 
+  , HasLogFunc env
+  , HasSleInput env 
+  ) => ConduitT TMLMessage Void m () 
 processSLEMsg = do 
+  processSLEBind 
   awaitForever $ \msg -> do 
     let encSle = msg ^. tmlMsgData
     case decodeASN1 DER (BL.fromStrict encSle) of
       Left err -> logError $ "Error decoding ASN1 message: " <> displayShow err
       Right ls -> do
         lift $ logDebug $ "Received ASN1: " <> displayShow ls
+
+
+processSLEBind :: (MonadUnliftIO m
+  , MonadReader env m 
+  , HasLogFunc env
+  , HasSleInput env
+  ) => ConduitT TMLMessage Void m () 
+processSLEBind = do 
+  x <- await 
+  case x of 
+    Nothing -> return () 
+    Just msg -> do 
+      let encSle = msg ^. tmlMsgData
+      case decodeASN1 DER (BL.fromStrict encSle) of
+        Left err -> logError $ "Error decoding ASN1 message: " <> displayShow err
+        Right ls -> do
+          lift $ logDebug $ "Received ASN1: " <> displayShow ls
+          let result = parseASN1 parseSleBind ls 
+          case result of 
+            Left err -> logError $ "Error decoding SLE BIND message: " <> display err 
+            Right bind -> do 
+              lift $ processSleBind bind 
+
+
+
+processSleBind :: (MonadIO m
+  , MonadReader env m
+  , HasLogFunc env
+  , HasSleInput env 
+  ) 
+  => SleBindInvocation 
+  -> m ()
+processSleBind msg = do 
+  logDebug $ "Received SLE Bind Invocation: " <> displayShow msg
+
+  -- TODO: for now, we just send a positive result back 
+  let ret = SleBindReturn {
+          _sleBindRetCredentials = Nothing
+          , _sleBindRetResponderID = AuthorityIdentifier "SLE_PROVIDER"
+          , _sleBindRetResult = Left (VersionNumber 2)
+        }
+      pdu = SlePduBindReturn ret 
+
+  enc <- liftIO $ encodePDUwoCreds pdu
+
+  let tml = TMLMessage (TMLHeader TMLSlePdu 0) enc  
+
+  -- send the bind response
+  env <- ask
+  atomically $ writeTBQueue (env ^. getInput) (SLEMsg tml)
+
+  return ()  
 
 
 
@@ -229,6 +289,7 @@ processSLEInput SLEAbort = return True
 processSLEInput SLEAbortPeer = return True 
 processSLEInput SLEStopListen = return True 
 processSLEInput (SLEMsg msg) = do 
+  logDebug $ "processSLEInput: " <> displayShow msg
   yield $ builderBytes $ tmlMessageBuilder msg 
   return False 
 

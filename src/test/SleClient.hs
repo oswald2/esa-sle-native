@@ -27,7 +27,6 @@ main = do
   queue <- newTBQueueIO 5000
 
   void $ concurrently (startClient addr handler queue) (sendPDU queue)
-  return ()
 
 
 
@@ -37,12 +36,17 @@ sendPDU queue = do
   let
     bind = SleBindInvocation
       { _sleBindCredentials     = Nothing
-      , _sleBindInitiatorID     = AuthorityIdentifier "Test"
-      , _sleBindResponderPortID = PortID "TestPort"
+      , _sleBindInitiatorID     = AuthorityIdentifier "SLE_USER"
+      , _sleBindResponderPortID = PortID "55529"
       , _sleBindServiceType     = RtnAllFrames
-      , _sleVersionNumber       = VersionNumber 1
+      , _sleVersionNumber       = VersionNumber 2
       , _sleServiceInstanceID   = ServiceInstanceIdentifier
-        [ServiceInstanceAttribute { _siAttrID = RAF, _siAttrValue = "onlc1" }]
+                                    [ ServiceInstanceAttribute SAGR "1"
+                                    , ServiceInstanceAttribute SPACK
+                                                               "VST-PASS0001"
+                                    , ServiceInstanceAttribute RSLFG "1"
+                                    , ServiceInstanceAttribute RAF   "onlt1"
+                                    ]
       }
     pdu = SlePduBind bind
 

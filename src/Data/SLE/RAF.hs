@@ -22,10 +22,18 @@ module Data.SLE.RAF
   , parseAuthorityIdentifier
   , parsePortID
   , parseApplicationIdentifier
+  , SleBindReturn(..)
+  , sleBindReturn
+  , sleBindRetCredentials
+  , sleBindRetResponderID
+  , sleBindRetResult
+  , parseSleBindReturn
   )
 where
 
 import           RIO
+import qualified RIO.Text                      as T
+import qualified RIO.ByteString.Lazy           as BL
 import           Control.Lens            hiding ( Context )
 import           Control.Monad.Except
 
@@ -205,63 +213,115 @@ parseSleBind = do
  where
   startContainer = parseBasicASN1 (== Start (Container Context 100)) (const ())
   endContainer   = parseBasicASN1 (== End (Container Context 100)) (const ())
-  
-  content = do 
-    creds <- parseCredentials 
-    authority <- parseAuthorityIdentifier 
-    port <- parsePortID 
-    appID <- parseApplicationIdentifier
-    version <- parseVersionNumber
-    attrs <- parseServiceInstanceIdentifier 
-    return SleBindInvocation { 
-        _sleBindCredentials = creds 
-        , _sleBindInitiatorID = authority 
-        , _sleBindResponderPortID = port 
-        , _sleBindServiceType = appID 
-        , _sleVersionNumber = version 
-        , _sleServiceInstanceID = attrs
-      }
+
+  content        = do
+    creds     <- parseCredentials
+    authority <- parseAuthorityIdentifier
+    port      <- parsePortID
+    appID     <- parseApplicationIdentifier
+    version   <- parseVersionNumber
+    attrs     <- parseServiceInstanceIdentifier
+    return SleBindInvocation { _sleBindCredentials     = creds
+                             , _sleBindInitiatorID     = authority
+                             , _sleBindResponderPortID = port
+                             , _sleBindServiceType     = appID
+                             , _sleVersionNumber       = version
+                             , _sleServiceInstanceID   = attrs
+                             }
 
 
 instance EncodeASN1 SleBindInvocation where
   encode val = encodeASN1' DER (sleBindInvocation val)
 
 
--- getSleBind :: [ASN1] -> Maybe SleBindInvocation 
--- getSleBind (Start (Container Context 100) : creds : auth : port : apid : vers : rest ) = 
---   let creds = getCredentials rest
---   getAuthorityIdentifier
 
--- Received ASN1: [Start (Container Context 100)
-  -- , Other Context 0 ""
-  -- , ASN1String (ASN1CharacterString {characterEncoding = Visible, getCharacterStringRawData = "SLE_USER"})
-  -- , ASN1String (ASN1CharacterString {characterEncoding = Visible, getCharacterStringRawData = "55529"})
-  -- , IntVal 0
-  -- , IntVal 2
-  -- , Start Sequence
-  -- , Start Set
-  -- , Start Sequence
-  -- , OID [1,3,112,4,3,1,2,52]
-  -- , ASN1String (ASN1CharacterString {characterEncoding = Visible, getCharacterStringRawData = "1"})
-  -- , End Sequence
-  -- , End Set
-  -- , Start Set
-  -- , Start Sequence
-  -- , OID [1,3,112,4,3,1,2,53]
-  -- , ASN1String (ASN1CharacterString {characterEncoding = Visible, getCharacterStringRawData = "VST-PASS0001"})
-  -- , End Sequence
-  -- , End Set
-  -- , Start Set
-  -- , Start Sequence
-  -- , OID [1,3,112,4,3,1,2,38]
-  -- , ASN1String (ASN1CharacterString {characterEncoding = Visible, getCharacterStringRawData = "1"})
-  -- , End Sequence
-  -- , End Set
-  -- , Start Set
-  -- , Start Sequence
-  -- , OID [1,3,112,4,3,1,2,22]
-  -- , ASN1String (ASN1CharacterString {characterEncoding = Visible, getCharacterStringRawData = "onlt1"})
-  -- , End Sequence
-  -- , End Set
-  -- , End Sequence
-  -- , End (Container Context 100)]
+data BindDiagnostic =
+  AccesDenied
+  | ServiceTypeNotSupported
+  | VersionNotSupported
+  | NoSuchServiceInstance
+  | AlreadyBound
+  | SiNotAccessibleToThisInitiator
+  | InconsistentServiceType
+  | InvalidTime
+  | OutOfService
+  | OtherReason
+  deriving (Eq, Ord, Enum, Show, Generic)
+
+bindDiagnostic :: BindDiagnostic -> ASN1
+bindDiagnostic AccesDenied                    = IntVal 0
+bindDiagnostic ServiceTypeNotSupported        = IntVal 1
+bindDiagnostic VersionNotSupported            = IntVal 2
+bindDiagnostic NoSuchServiceInstance          = IntVal 3
+bindDiagnostic AlreadyBound                   = IntVal 4
+bindDiagnostic SiNotAccessibleToThisInitiator = IntVal 5
+bindDiagnostic InconsistentServiceType        = IntVal 6
+bindDiagnostic InvalidTime                    = IntVal 7
+bindDiagnostic OutOfService                   = IntVal 8
+bindDiagnostic OtherReason                    = IntVal 127
+
+parseBindDiagnostic :: Parser BindDiagnostic
+parseBindDiagnostic = do
+  x <- parseIntVal
+  case x of
+    0   -> return AccesDenied
+    1   -> return ServiceTypeNotSupported
+    2   -> return VersionNotSupported
+    3   -> return NoSuchServiceInstance
+    4   -> return AlreadyBound
+    5   -> return SiNotAccessibleToThisInitiator
+    6   -> return InconsistentServiceType
+    7   -> return InvalidTime
+    8   -> return OutOfService
+    127 -> return OtherReason
+    _ -> throwError $ "parseBindDiagnostic: illegal value: " <> T.pack (show x)
+
+
+
+data SleBindReturn = SleBindReturn {
+  _sleBindRetCredentials :: Credentials
+  , _sleBindRetResponderID :: AuthorityIdentifier
+  , _sleBindRetResult :: Either VersionNumber BindDiagnostic
+} deriving (Eq, Show, Generic)
+makeLenses ''SleBindReturn
+
+retResult :: Either VersionNumber BindDiagnostic -> ASN1
+retResult (Left vn) =
+  Other Context 0 (BL.toStrict (encodeASN1 DER [versionNumber vn]))
+retResult (Right bd) =
+  Other Context 1 (BL.toStrict (encodeASN1 DER [bindDiagnostic bd]))
+
+parseRet :: Parser (Either VersionNumber BindDiagnostic)
+parseRet = do
+  return (Left (VersionNumber 2))
+
+
+sleBindReturn :: SleBindReturn -> [ASN1]
+sleBindReturn SleBindReturn {..} =
+  [ Start Sequence
+  , credentials _sleBindRetCredentials
+  , authorityIdentifier _sleBindRetResponderID
+  , retResult _sleBindRetResult
+  , End Sequence
+  ]
+
+
+instance EncodeASN1 SleBindReturn where
+  encode val = encodeASN1' DER (sleBindReturn val)
+
+
+parseSleBindReturn :: Parser SleBindReturn
+parseSleBindReturn = do
+  between startContainer endContainer content
+ where
+  startContainer = parseBasicASN1 (== Start (Container Context 101)) (const ())
+  endContainer   = parseBasicASN1 (== End (Container Context 101)) (const ())
+
+  content        = do
+    creds     <- parseCredentials
+    authority <- parseAuthorityIdentifier
+    ret       <- parseRet
+    return SleBindReturn { _sleBindRetCredentials = creds
+                         , _sleBindRetResponderID = authority
+                         , _sleBindRetResult      = ret
+                         }

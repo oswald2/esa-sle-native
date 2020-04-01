@@ -7,7 +7,8 @@ module Main where
 import           RIO
 --import qualified RIO.Text                      as T
 --import qualified Data.Text.IO                  as T
---import           Data.ASN1.Encoding
+import           Data.ASN1.Encoding
+import           Data.ASN1.BinaryEncoding
 import           Data.ASN1.Types
 
 import           Data.SLE.RAF
@@ -92,7 +93,36 @@ attribute =
   , End Set
   ]
 
+sleBindReturn :: [ASN1]
+sleBindReturn =
+  [ Start (Container Context 101)
+  , Other Context 0 ""
+  , ASN1String
+    (ASN1CharacterString { characterEncoding         = Visible
+                         , getCharacterStringRawData = "SLE_PROVIDER"
+                         }
+    )
+  , Other Context 0 "\STX"
+  , End (Container Context 101)
+  ]
 
+
+
+
+sleBind :: SleBindInvocation
+sleBind = SleBindInvocation
+  { _sleBindCredentials     = Nothing
+  , _sleBindInitiatorID     = AuthorityIdentifier "SLE_USER"
+  , _sleBindResponderPortID = PortID "55529"
+  , _sleBindServiceType     = RtnAllFrames
+  , _sleVersionNumber       = VersionNumber 2
+  , _sleServiceInstanceID   = ServiceInstanceIdentifier
+                                [ ServiceInstanceAttribute SAGR  "1"
+                                , ServiceInstanceAttribute SPACK "VST-PASS0001"
+                                , ServiceInstanceAttribute RSLFG "1"
+                                , ServiceInstanceAttribute RAF   "onlt1"
+                                ]
+  }
 
 main :: IO ()
 main = hspec $ do
@@ -145,16 +175,21 @@ main = hspec $ do
     it "Sle Bind Invocation" $ do
       let result = parseASN1 parseSleBind bind
       result `shouldSatisfy` isRight
-      result `shouldBe` Right (SleBindInvocation {
-          _sleBindCredentials = Nothing
-          , _sleBindInitiatorID = AuthorityIdentifier "SLE_USER"
-          , _sleBindResponderPortID = PortID "55529"
-          , _sleBindServiceType = RtnAllFrames
-          , _sleVersionNumber = VersionNumber 2
-          , _sleServiceInstanceID = ServiceInstanceIdentifier [
-            ServiceInstanceAttribute SAGR "1"
-            , ServiceInstanceAttribute SPACK "VST-PASS0001"
-            , ServiceInstanceAttribute RSLFG "1"
-            , ServiceInstanceAttribute RAF "onlt1"
-            ]
-        })
+      result `shouldBe` Right sleBind
+
+    it "Sle encode/decode test" $ do
+      let bind   = sleBindInvocation sleBind
+          bind'  = encodeASN1 DER bind
+          bind'' = decodeASN1 DER bind'
+
+      bind'' `shouldSatisfy` isRight
+      case bind'' of
+        Left  _err    -> return ()
+        Right asnBind -> do
+          let result = parseASN1 parseSleBind asnBind
+          result `shouldSatisfy` isRight
+          case result of
+            Left  _err -> return ()
+            Right msg  -> do
+              msg `shouldBe` sleBind
+
