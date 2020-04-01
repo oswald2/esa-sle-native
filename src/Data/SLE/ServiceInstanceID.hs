@@ -14,17 +14,18 @@ module Data.SLE.ServiceInstanceID
   , rcfsh
   , ServiceInstanceAttribute(..)
   , serviceInstanceAttribute
+  , parseServiceInstanceAttribute
   , ServiceInstanceIdentifier(..)
   , serviceInstanceIdentifier
-  , getServiceInstanceIdentifier
-  , SerID(..)
+  , parseServiceInstanceIdentifier
+  , ServiceID(..)
   )
 where
 
 import           RIO
+import qualified RIO.Text as T
 import           RIO.State
 import           Control.Monad.Except
-import           RIO.List
 import           Data.ASN1.Types
 
 import           Data.SLE.Common
@@ -72,7 +73,7 @@ rcfsh :: ASN1
 rcfsh = OID [1, 3, 112, 4, 3, 1, 2, 44]
 
 
-data SerID =
+data ServiceID =
   RSP
   | FCLTU
   | SPACK
@@ -86,9 +87,9 @@ data SerID =
   | ROCF
   | TCF
   | RCFSH
-  deriving (Eq, Ord, Enum, Show)
+  deriving (Eq, Ord, Enum, Show, Generic)
 
-toOid :: SerID -> ASN1
+toOid :: ServiceID -> ASN1
 toOid RSP   = rsp
 toOid FCLTU = cltu
 toOid SPACK = spack
@@ -103,30 +104,53 @@ toOid ROCF  = rocf
 toOid TCF   = tcf
 toOid RCFSH = rcfsh
 
-fromOid :: ASN1 -> Maybe SerID
-fromOid (OID [_x1, _x2, _x3, _x4, _x5, _x6, _x7, x]) = 
-  if | x == 40 -> Just RSP 
-     | x == 7 -> Just FCLTU 
-     | x == 53 -> Just SPACK 
-     | x == 46 -> Just RCF 
-     | x == 16 -> Just TCVA 
-     | x == 38 -> Just RSLFG 
-     | x == 22 -> Just RAF 
-     | x == 14 -> Just FSLFG 
-     | x == 10 -> Just FSP 
-     | x == 52 -> Just SAGR 
-     | x == 49 -> Just ROCF 
-     | x == 12 -> Just TCF 
-     | x == 44 -> Just RCFSH 
-     | otherwise -> Nothing 
-fromOid _ = Nothing  
+-- fromOid :: ASN1 -> Maybe ServiceID
+-- fromOid (OID [_x1, _x2, _x3, _x4, _x5, _x6, _x7, x]) = 
+--   if | x == 40 -> Just RSP 
+--      | x == 7 -> Just FCLTU 
+--      | x == 53 -> Just SPACK 
+--      | x == 46 -> Just RCF 
+--      | x == 16 -> Just TCVA 
+--      | x == 38 -> Just RSLFG 
+--      | x == 22 -> Just RAF 
+--      | x == 14 -> Just FSLFG 
+--      | x == 10 -> Just FSP 
+--      | x == 52 -> Just SAGR 
+--      | x == 49 -> Just ROCF 
+--      | x == 12 -> Just TCF 
+--      | x == 44 -> Just RCFSH 
+--      | otherwise -> Nothing 
+-- fromOid _ = Nothing  
+
+parseServiceID :: Parser ServiceID 
+parseServiceID = do 
+  x1 <- get 
+  case x1 of 
+    (OID [_x1, _x2, _x3, _x4, _x5, _x6, _x7, x] : rest) -> do 
+      put rest 
+      case x of 
+        40 -> return RSP 
+        7  -> return FCLTU 
+        53 -> return SPACK 
+        46 -> return RCF 
+        16 -> return TCVA 
+        38 -> return RSLFG 
+        22 -> return RAF 
+        14 -> return FSLFG 
+        10 -> return FSP 
+        52 -> return SAGR 
+        49 -> return ROCF 
+        12 -> return TCF 
+        44 -> return RCFSH 
+        _ -> throwError $ "parseServiceID: illegal number for service ID in OID: " <> T.pack (show x)
+    _ -> throwError "parseServiceID: no OID detected"    
 
 
 
 data ServiceInstanceAttribute = ServiceInstanceAttribute {
-  _siAttrID :: SerID
+  _siAttrID :: ServiceID
   , _siAttrValue :: Text
-  }
+  } deriving (Eq, Show, Generic)
 
 serviceInstanceAttribute :: ServiceInstanceAttribute -> [ASN1]
 serviceInstanceAttribute ServiceInstanceAttribute {..} =
@@ -138,17 +162,30 @@ serviceInstanceAttribute ServiceInstanceAttribute {..} =
   , End Set
   ]
 
-getServiceInstanceAttribute :: [ASN1] -> (Maybe ServiceInstanceAttribute, [ASN1])
-getServiceInstanceAttribute (Start Set : Start Sequence : oid : str : End Sequence : End Set : rest) = 
-  let sia = do ServiceInstanceAttribute <$> fromOid oid <*> getVisibleString str
-  in 
-  (sia, rest)
-getServiceInstanceAttribute x = (Nothing, x)
+-- getServiceInstanceAttribute :: [ASN1] -> (Maybe ServiceInstanceAttribute, [ASN1])
+-- getServiceInstanceAttribute (Start Set : Start Sequence : oid : str : End Sequence : End Set : rest) = 
+--   let sia = do ServiceInstanceAttribute <$> fromOid oid <*> getVisibleString str
+--   in 
+--   (sia, rest)
+-- getServiceInstanceAttribute x = (Nothing, x)
+
+
+parseServiceInstanceAttribute :: Parser ServiceInstanceAttribute 
+parseServiceInstanceAttribute = do 
+  x <- between parseStartSet parseEndSet sequ 
+  case x of 
+    (attr : _) -> return attr 
+    _ -> throwError "parseServiceInstanceAttribute: no attribute found"
+  where 
+    sequ = parseSequence element 
+    element = ServiceInstanceAttribute <$> parseServiceID <*> parseVisibleString 
+
+
 
 
 newtype ServiceInstanceIdentifier = ServiceInstanceIdentifier {
   _siIDs :: [ServiceInstanceAttribute]
-  }
+  } deriving (Eq, Show, Generic)
 
 
 serviceInstanceIdentifier :: ServiceInstanceIdentifier -> [ASN1]
@@ -156,60 +193,18 @@ serviceInstanceIdentifier ServiceInstanceIdentifier {..} =
   Start Sequence : concatMap serviceInstanceAttribute _siIDs <> [End Sequence]
 
 
-getServiceInstanceIdentifier :: [ASN1] -> (Maybe ServiceInstanceIdentifier, [ASN1])
-getServiceInstanceIdentifier full@(Start Sequence : sias) =
-  loop sias []
-  where 
-    loop ls acc = 
-      case getServiceInstanceAttribute ls of 
-        (Nothing, End Sequence : rest) -> (Just (ServiceInstanceIdentifier (reverse acc)), rest) 
-        (Nothing, _rest) -> (Nothing, full)
-        (Just attr, rest) -> loop rest (attr : acc)
-getServiceInstanceIdentifier full = (Nothing, full)
+-- getServiceInstanceIdentifier :: [ASN1] -> (Maybe ServiceInstanceIdentifier, [ASN1])
+-- getServiceInstanceIdentifier full@(Start Sequence : sias) =
+--   loop sias []
+--   where 
+--     loop ls acc = 
+--       case getServiceInstanceAttribute ls of 
+--         (Nothing, End Sequence : rest) -> (Just (ServiceInstanceIdentifier (reverse acc)), rest) 
+--         (Nothing, _rest) -> (Nothing, full)
+--         (Just attr, rest) -> loop rest (attr : acc)
+-- getServiceInstanceIdentifier full = (Nothing, full)
 
 
-type Parser a = ExceptT Text (State [ASN1]) a
-
-
-parseASN1 :: (ASN1 -> Bool) -> (ASN1 -> a) -> Parser a
-parseASN1 p f = do 
-  x <- get 
-  case x of 
-    (val : rest) -> if p val 
-      then do 
-        put rest 
-        return (f val)
-      else throwError "parseASN1: Predicate did not match"
-    _ -> throwError "parseASN1: list empty, could not parse value"
-
-
-parseStartSequence :: Parser () 
-parseStartSequence = parseASN1 (== Start Sequence) (const ())
-
-parseEndSequence :: Parser () 
-parseEndSequence = parseASN1 (== End Sequence) (const ())
-
-between :: Parser a -> Parser b -> Parser c -> Parser c 
-between begin end bet = do 
-  begin 
-  val <- bet
-  end 
-  return val 
-
-manyA :: Parser a -> Parser [a]
-manyA p = loop []
-  where 
-    loop acc = do 
-      action acc `catchError` const (return (reverse acc))
-    
-    action acc = do 
-      val <- p 
-      loop (val : acc)
-
-parseSequence :: Parser e -> Parser [e]
-parseSequence p = do 
-  between parseStartSequence parseEndSequence (manyA p)
-
-
-parseStartSet :: Parser () 
-parseStartSet = parseASN1 (== Start Set) (const ())
+parseServiceInstanceIdentifier :: Parser ServiceInstanceIdentifier
+parseServiceInstanceIdentifier = do 
+  ServiceInstanceIdentifier <$> parseSequence parseServiceInstanceAttribute

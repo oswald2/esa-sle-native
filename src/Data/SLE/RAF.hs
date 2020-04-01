@@ -18,11 +18,16 @@ module Data.SLE.RAF
   , sleBindServiceType
   , sleVersionNumber
   , sleServiceInstanceID
+  , parseSleBind
+  , parseAuthorityIdentifier
+  , parsePortID
+  , parseApplicationIdentifier
   )
 where
 
 import           RIO
 import           Control.Lens            hiding ( Context )
+import           Control.Monad.Except
 
 import           Data.ASN1.Types
 import           Data.ASN1.Encoding
@@ -33,20 +38,36 @@ import           Data.SLE.ServiceInstanceID
 
 
 newtype AuthorityIdentifier = AuthorityIdentifier { unAuthorityID :: Text }
+  deriving (Eq, Ord, Show, Generic)
+
 
 authorityIdentifier :: AuthorityIdentifier -> ASN1
 authorityIdentifier (AuthorityIdentifier x) = visibleString x
 
-getAuthorityIdentifier :: ASN1 -> Maybe AuthorityIdentifier 
-getAuthorityIdentifier x = AuthorityIdentifier <$> getVisibleString x 
+-- getAuthorityIdentifier :: ASN1 -> Maybe AuthorityIdentifier 
+-- getAuthorityIdentifier x = AuthorityIdentifier <$> getVisibleString x 
+
+parseAuthorityIdentifier :: Parser AuthorityIdentifier
+parseAuthorityIdentifier = do
+  AuthorityIdentifier <$> parseVisibleString
+
+
+
 
 newtype PortID = PortID { unPortID :: Text }
+  deriving (Eq, Ord, Show, Generic)
+
 
 portID :: PortID -> ASN1
 portID (PortID x) = visibleString x
 
-getPortID :: ASN1 -> Maybe PortID 
-getPortID x = PortID <$> getVisibleString x
+-- getPortID :: ASN1 -> Maybe PortID 
+-- getPortID x = PortID <$> getVisibleString x
+
+parsePortID :: Parser PortID
+parsePortID = do
+  PortID <$> parseVisibleString
+
 
 
 data ApplicationIdentifier =
@@ -90,35 +111,68 @@ applicationIdentifier FwdTcFrame     = IntVal 15
 applicationIdentifier FwdCltu        = IntVal 16
 
 
-getApplicationIdentifier :: ASN1 -> Maybe ApplicationIdentifier 
-getApplicationIdentifier (IntVal 0) = Just RtnAllFrames
-getApplicationIdentifier (IntVal 1) = Just RtnInsert      
-getApplicationIdentifier (IntVal 2) = Just RtnChFrames    
-getApplicationIdentifier (IntVal 3) = Just RtnChFsh       
-getApplicationIdentifier (IntVal 4) = Just RtnChOcf       
-getApplicationIdentifier (IntVal 5) = Just RtnBitstr      
-getApplicationIdentifier (IntVal 6) = Just RtnSpacePkt    
-getApplicationIdentifier (IntVal 7) = Just FwdAosSpacePkt 
-getApplicationIdentifier (IntVal 8) = Just FwdAosVca      
-getApplicationIdentifier (IntVal 9) = Just FwdBitstr      
-getApplicationIdentifier (IntVal 10) = Just FwdProtoVcdu   
-getApplicationIdentifier (IntVal 11) = Just FwdInsert      
-getApplicationIdentifier (IntVal 12) = Just FwdCVcdu       
-getApplicationIdentifier (IntVal 13) = Just FwdTcSpacePkt  
-getApplicationIdentifier (IntVal 14) = Just FwdTcVca       
-getApplicationIdentifier (IntVal 15) = Just FwdTcFrame     
-getApplicationIdentifier (IntVal 16) = Just FwdCltu        
-getApplicationIdentifier _ = Nothing
+-- getApplicationIdentifier :: ASN1 -> Maybe ApplicationIdentifier
+-- getApplicationIdentifier (IntVal 0 ) = Just RtnAllFrames
+-- getApplicationIdentifier (IntVal 1 ) = Just RtnInsert
+-- getApplicationIdentifier (IntVal 2 ) = Just RtnChFrames
+-- getApplicationIdentifier (IntVal 3 ) = Just RtnChFsh
+-- getApplicationIdentifier (IntVal 4 ) = Just RtnChOcf
+-- getApplicationIdentifier (IntVal 5 ) = Just RtnBitstr
+-- getApplicationIdentifier (IntVal 6 ) = Just RtnSpacePkt
+-- getApplicationIdentifier (IntVal 7 ) = Just FwdAosSpacePkt
+-- getApplicationIdentifier (IntVal 8 ) = Just FwdAosVca
+-- getApplicationIdentifier (IntVal 9 ) = Just FwdBitstr
+-- getApplicationIdentifier (IntVal 10) = Just FwdProtoVcdu
+-- getApplicationIdentifier (IntVal 11) = Just FwdInsert
+-- getApplicationIdentifier (IntVal 12) = Just FwdCVcdu
+-- getApplicationIdentifier (IntVal 13) = Just FwdTcSpacePkt
+-- getApplicationIdentifier (IntVal 14) = Just FwdTcVca
+-- getApplicationIdentifier (IntVal 15) = Just FwdTcFrame
+-- getApplicationIdentifier (IntVal 16) = Just FwdCltu
+-- getApplicationIdentifier _           = Nothing
+
+
+parseApplicationIdentifier :: Parser ApplicationIdentifier
+parseApplicationIdentifier = do
+  v <- parseIntVal
+  case v of
+    0  -> return RtnAllFrames
+    1  -> return RtnInsert
+    2  -> return RtnChFrames
+    3  -> return RtnChFsh
+    4  -> return RtnChOcf
+    5  -> return RtnBitstr
+    6  -> return RtnSpacePkt
+    7  -> return FwdAosSpacePkt
+    8  -> return FwdAosVca
+    9  -> return FwdBitstr
+    10 -> return FwdProtoVcdu
+    11 -> return FwdInsert
+    12 -> return FwdCVcdu
+    13 -> return FwdTcSpacePkt
+    14 -> return FwdTcVca
+    15 -> return FwdTcFrame
+    16 -> return FwdCltu
+    _  -> throwError
+      "parseApplicationIdentifier: no int value for application identifier"
+
+
 
 
 newtype VersionNumber = VersionNumber { unVersionNumber :: Word16 }
+  deriving (Eq, Show, Generic)
 
 versionNumber :: VersionNumber -> ASN1
 versionNumber (VersionNumber x) = IntVal (fromIntegral x)
 
-getVersionNumber :: ASN1 -> Maybe VersionNumber 
-getVersionNumber (IntVal x) = Just (VersionNumber (fromIntegral x))
-getVersionNumber _ = Nothing
+-- getVersionNumber :: ASN1 -> Maybe VersionNumber
+-- getVersionNumber (IntVal x) = Just (VersionNumber (fromIntegral x))
+-- getVersionNumber _          = Nothing
+
+parseVersionNumber :: Parser VersionNumber
+parseVersionNumber = do
+  VersionNumber . fromIntegral <$> parseIntVal
+
 
 
 data SleBindInvocation = SleBindInvocation {
@@ -128,7 +182,7 @@ data SleBindInvocation = SleBindInvocation {
   , _sleBindServiceType :: ApplicationIdentifier
   , _sleVersionNumber :: VersionNumber
   , _sleServiceInstanceID :: ServiceInstanceIdentifier
-  }
+  } deriving (Eq, Show, Generic)
 makeLenses ''SleBindInvocation
 
 
@@ -143,6 +197,30 @@ sleBindInvocation SleBindInvocation {..} =
     ]
     <> serviceInstanceIdentifier _sleServiceInstanceID
     <> [End (Container Context 100)]
+
+
+parseSleBind :: Parser SleBindInvocation
+parseSleBind = do
+  between startContainer endContainer content
+ where
+  startContainer = parseBasicASN1 (== Start (Container Context 100)) (const ())
+  endContainer   = parseBasicASN1 (== End (Container Context 100)) (const ())
+  
+  content = do 
+    creds <- parseCredentials 
+    authority <- parseAuthorityIdentifier 
+    port <- parsePortID 
+    appID <- parseApplicationIdentifier
+    version <- parseVersionNumber
+    attrs <- parseServiceInstanceIdentifier 
+    return SleBindInvocation { 
+        _sleBindCredentials = creds 
+        , _sleBindInitiatorID = authority 
+        , _sleBindResponderPortID = port 
+        , _sleBindServiceType = appID 
+        , _sleVersionNumber = version 
+        , _sleServiceInstanceID = attrs
+      }
 
 
 instance EncodeASN1 SleBindInvocation where
