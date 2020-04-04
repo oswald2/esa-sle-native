@@ -9,7 +9,7 @@ import           RIO
 import           System.Timer.Updatable
 
 import           State.Classes
-import           State.SLEEvents
+import           State.Events
 
 import           Data.SLE.Config
 import           Data.SLE.TMLConfig

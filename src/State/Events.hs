@@ -1,4 +1,4 @@
-module State.SLEEvents
+module State.Events
 (
   SleEvent(..)
   , SleEventHandler

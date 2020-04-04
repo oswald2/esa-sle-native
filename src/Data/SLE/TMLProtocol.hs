@@ -28,7 +28,7 @@ import           Data.SLE.Bind
 --import           Data.SLE.PDU
 import           Data.SLE.Handle
 
-import           State.SLEEvents
+import           State.Events
 import           State.Classes
 
 import           Data.ASN1.Encoding 
@@ -250,6 +250,10 @@ processContext msg = do
 heartBeatMessage :: ByteString 
 heartBeatMessage = builderBytes $ tmlHeartBeatMsgBuilder TMLHeartBeatMessage
 
+
+-- | Listen on the queue in the 'SleHandle'. If it returns 'Nothing', this means that 
+-- a timeout occured and a heartbeat message is yielded. Otherwise, 'processSLEInput'
+-- is called.
 processWriteTML :: (MonadUnliftIO m
   , MonadReader env m 
   , HasTimer env
@@ -270,7 +274,9 @@ processWriteTML = go
           yield heartBeatMessage
           go 
 
-
+-- | Read input from the queue from the 'SleHandle'. If there is nothing received 
+-- within the configured timeout (send heartbeat), returns 'Nothing'. This indicates
+-- that a heartbeat message should be sent
 readSLEInput :: (MonadIO m
   , MonadReader env m
   , HasTimer env
@@ -284,6 +290,8 @@ readSLEInput = do
     <|> (readTVar delay >>= checkSTM >> pure Nothing)
 
 
+-- | Processes the SleInput and yields a 'ByteString' which is the encoded message 
+-- if there is one. Returns 'True' if the loop should terminate and 'False' otherwise.
 processSLEInput :: (MonadUnliftIO m
   , MonadReader env m 
   , HasLogFunc env) => SleInput -> ConduitT () ByteString m Bool
@@ -354,25 +362,6 @@ stopTimers = do
 
 
 
-
--- restartHBTTimer :: (MonadUnliftIO m
---   , MonadReader env m
---   , HasConfig env
---   , HasLogFunc env 
---   , HasTimer env) => m () 
--- restartHBTTimer = do 
---   env <- ask 
---   let cfg = env ^. getTMLConfig
---       hbTime = fromIntegral (cfgHeartbeat cfg) * 1_000_000
---   logDebug "Restarting HeartBeat Timer"
---   atomically $ do 
---     let tvar = env ^. getTimerHBT
---     timer <- readTVar tvar
---     case timer of 
---       Nothing -> return () 
---       Just t -> renew t hbTime 
-
-
 restartHBRTimer :: (MonadUnliftIO m
   , MonadReader env m
   , HasConfig env
@@ -390,11 +379,6 @@ restartHBRTimer = do
       Nothing -> return () 
       Just t -> renew t hbTime 
 
-
-
--- heartBeatTimeOut :: (HasLogFunc env) => RIO env () 
--- heartBeatTimeOut = do 
---   logWarn "heartBeatTimeOut"
 
 
 heartBeatReceiveTimeOut :: (MonadUnliftIO m, MonadReader env m, HasLogFunc env, HasSleHandle env, HasEventHandler env) => m () 
@@ -425,7 +409,9 @@ peerAbort = do
 
 
 
-
+-- | Runs a server socket and listens for incoming connections. Calls 'onServerDisconnect'
+-- in case the client disconnects and calls 'processServerReadSLE' and 
+-- 'processServerSendSLE' in parallel threads for reading/writing the socket
 listenSLE
   :: (MonadUnliftIO m
     , MonadReader env m
@@ -441,7 +427,10 @@ listenSLE serverPort = do
     race_ (processServerReadSLE app) (processServerSendSLE app)
   onServerDisconnect 
 
-
+-- | Reads from the socket and forwards the data to the TML Message parser conduit.
+-- On the first run, it is waitet the configured time for a TML Context Message. 
+-- If one is received, regular processing of TML messages start. Otherwise, a protocol
+-- abort is sent.
 processServerReadSLE
   :: (MonadUnliftIO m
     , MonadReader env m
@@ -493,7 +482,7 @@ processServerReadSLE app = do
 
 
 
-
+-- | Check a incoming 'TMLPDU' for errors
 checkPDU :: TMLConfig -> TMLPDU -> Either Text TMLContextMsgRead
 checkPDU _cfg TMLPDUMessage {} = Left "Received PDU, expected Context message"
 checkPDU _cfg TMLPDUHeartBeat  = Left "Received HeartBeat, expected Context message"
@@ -506,6 +495,7 @@ checkPDU cfg (TMLPDUCtxt msg) =
     Right _ -> Right msg 
 
 
+-- | Called when the server side TML layer looses the connection to the client
 onServerDisconnect
   :: (MonadUnliftIO m
     , MonadReader env m
@@ -519,8 +509,8 @@ onServerDisconnect = do
   return ()
 
 
-
-
+-- | Processes the writing side of the socket. This function uses 'processWriteTML' 
+-- internally, which is also used for the client side.
 processServerSendSLE
   :: (MonadUnliftIO m
     , MonadReader env m

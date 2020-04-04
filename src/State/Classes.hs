@@ -10,7 +10,7 @@ import           RIO                     hiding ( Lens' )
 import           Control.Lens
 import           System.Timer.Updatable
 
-import           State.SLEEvents
+import           State.Events
 import           Data.SLE.TMLConfig
 import           Data.SLE.Handle
 

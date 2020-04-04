@@ -75,7 +75,7 @@ library
     Conduit.SocketReconnector
     State.AppState
     State.Classes
-    State.SLEEvents
+    State.Events
 
   -- Other library packages from which modules are imported.
   build-depends:       
@@ -98,7 +98,8 @@ library
     thyme,
     splitmix,
     network,
-    mtl
+    mtl,
+    text-builder
     
 
 

@@ -2,41 +2,43 @@
   TemplateHaskell
 #-}
 module Data.SLE.Handle
-(
-  SleHandle 
-  , newSleHandle 
+  ( SleHandle
+  , newSleHandle
   , queueSize
-  , sleInput
   , writeSLEInput
-)
+  , sleInput
+  , slePort
+  )
 where
 
 
-import RIO
-import Control.Lens 
+import           RIO
+import           Control.Lens
 
-import Data.SLE.Input
+import           Data.SLE.Input
+import           Network.Socket         ( PortNumber )
 
-
-newtype SleHandle = SleHandle {
-  _sleInput :: TBQueue SleInput 
+data SleHandle = SleHandle {
+  _sleInput :: TBQueue SleInput
+  , _slePort :: !PortNumber
   }
 makeLenses ''SleHandle
 
-queueSize :: Natural 
+queueSize :: Natural
 queueSize = 5000
 
 
-newSleHandle :: IO SleHandle 
-newSleHandle = do 
-  inp <- newTBQueueIO queueSize 
-  return $ SleHandle {
-    _sleInput = inp
-    }
+newSleHandle :: PortNumber -> IO SleHandle
+newSleHandle port = do
+  inp <- newTBQueueIO queueSize
+  return $ SleHandle { 
+      _sleInput = inp 
+      , _slePort = port
+      }
 
 
 
-writeSLEInput :: (MonadIO m) => SleHandle -> SleInput -> m () 
-writeSLEInput hdl inp = do 
-  atomically $ do 
+writeSLEInput :: (MonadIO m) => SleHandle -> SleInput -> m ()
+writeSLEInput hdl inp = do
+  atomically $ do
     writeTBQueue (_sleInput hdl) inp

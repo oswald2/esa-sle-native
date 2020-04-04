@@ -1,10 +1,10 @@
 {-# LANGUAGE 
   TemplateHaskell
 #-}
-module Data.SLE.Bind 
-  ( SleAttributes(..)
-  , Credentials
-  , SleBindInvocation(..)
+module Data.SLE.Bind
+  ( Credentials
+  , SleBindInvocation
+  , mkSleBindInvocation
   , Time(..)
   , IntPosShort(..)
   , AuthorityIdentifier(..)
@@ -45,16 +45,6 @@ import           Data.ASN1.BinaryEncoding
 
 import           Data.SLE.Common
 import           Data.SLE.ServiceInstanceID
-
-
-
-data SleAttributes = 
-  Sagr Text 
-  | Spack Text 
-  | Raf Text 
-  deriving (Show, Generic) 
-
-
 
 
 
@@ -199,15 +189,31 @@ parseVersionNumber = do
 
 
 data SleBindInvocation = SleBindInvocation {
-  _sleBindCredentials :: Credentials
-  , _sleBindInitiatorID :: AuthorityIdentifier
-  , _sleBindResponderPortID :: PortID
-  , _sleBindServiceType :: ApplicationIdentifier
-  , _sleVersionNumber :: VersionNumber
-  , _sleServiceInstanceID :: ServiceInstanceIdentifier
+  _sleBindCredentials :: !Credentials
+  , _sleBindInitiatorID :: !AuthorityIdentifier
+  , _sleBindResponderPortID :: !PortID
+  , _sleBindServiceType :: !ApplicationIdentifier
+  , _sleVersionNumber :: !VersionNumber
+  , _sleServiceInstanceID :: !ServiceInstanceIdentifier
   } deriving (Eq, Show, Generic)
 makeLenses ''SleBindInvocation
 
+mkSleBindInvocation :: 
+  AuthorityIdentifier 
+  -> PortID 
+  -> ApplicationIdentifier
+  -> VersionNumber 
+  -> ServiceInstanceIdentifier
+  -> SleBindInvocation
+mkSleBindInvocation authID portID appID vn siID = 
+  SleBindInvocation {
+  _sleBindCredentials = Nothing 
+  , _sleBindInitiatorID = authID
+  , _sleBindResponderPortID = portID
+  , _sleBindServiceType = appID
+  , _sleVersionNumber = vn
+  , _sleServiceInstanceID = siID
+  }
 
 sleBindInvocation :: SleBindInvocation -> [ASN1]
 sleBindInvocation SleBindInvocation {..} =
