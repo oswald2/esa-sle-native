@@ -11,11 +11,7 @@ import qualified Data.Text.IO                  as T
 import           Data.SLE.TMLConfig
 import           Data.SLE.Api
 import           Data.SLE.Bind
---import           Data.SLE.DEL
---import           Data.SLE.Input
 import           Data.SLE.ServiceInstanceID
---import           Data.SLE.TMLMessage
---import           Data.SLE.PDU
 import           Data.SLE.Config
 
 

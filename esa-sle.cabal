@@ -68,6 +68,7 @@ library
     Data.SLE.ServiceInstanceID
     Data.SLE.Common
     Data.SLE.DEL
+    Data.SLE.AUL
     Data.SLE.PDU
     Data.SLE.Bind
     Data.SLE.Config
@@ -99,7 +100,8 @@ library
     splitmix,
     network,
     mtl,
-    text-builder
+    text-builder,
+    cryptohash-sha256
     
 
 

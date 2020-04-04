@@ -24,7 +24,6 @@ import           Data.SLE.PDU
 import           State.Events
 import           State.AppState
 
-import           Network.Socket                 ( PortNumber )
 import           Text.Builder
 
 

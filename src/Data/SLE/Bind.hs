@@ -38,6 +38,8 @@ import qualified RIO.Text                      as T
 import qualified RIO.ByteString.Lazy           as BL
 import           Control.Lens            hiding ( Context )
 import           Control.Monad.Except
+import           Data.Aeson
+
 
 import           Data.ASN1.Types
 import           Data.ASN1.Encoding
@@ -52,6 +54,10 @@ import           Data.SLE.ServiceInstanceID
 
 newtype AuthorityIdentifier = AuthorityIdentifier { unAuthorityID :: Text }
   deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON AuthorityIdentifier
+instance ToJSON AuthorityIdentifier where
+  toEncoding = genericToEncoding defaultOptions
 
 
 authorityIdentifier :: AuthorityIdentifier -> ASN1
@@ -205,11 +211,11 @@ mkSleBindInvocation ::
   -> VersionNumber 
   -> ServiceInstanceIdentifier
   -> SleBindInvocation
-mkSleBindInvocation authID portID appID vn siID = 
+mkSleBindInvocation authID pID appID vn siID = 
   SleBindInvocation {
   _sleBindCredentials = Nothing 
   , _sleBindInitiatorID = authID
-  , _sleBindResponderPortID = portID
+  , _sleBindResponderPortID = pID
   , _sleBindServiceType = appID
   , _sleVersionNumber = vn
   , _sleServiceInstanceID = siID
