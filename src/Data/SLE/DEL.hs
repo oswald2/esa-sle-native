@@ -16,7 +16,7 @@ import           Data.ASN1.BinaryEncoding
 
 import           Data.SLE.Common
 import           Data.SLE.CCSDSTime
-import           Data.SLE.SlePdu
+import           Data.SLE.PDU
 
 import           System.Random.SplitMix
 

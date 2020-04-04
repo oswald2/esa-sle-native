@@ -11,9 +11,10 @@ import           System.Timer.Updatable
 import           State.Classes
 import           State.SLEEvents
 
+import           Data.SLE.Config
 import           Data.SLE.TMLConfig
-import           Data.SLE.SLEInput
-
+--import           Data.SLE.Input
+import           Data.SLE.Handle
 
 data AppState = AppState {
   _appTimerHBT :: TVar (Maybe (Updatable ()))
@@ -23,29 +24,30 @@ data AppState = AppState {
   , _appHeartBeatReceive :: TVar Int64
   , _appLogFunc :: !LogFunc
   , _appEventHandler :: !SleEventHandler
-  , _appSleInput :: TBQueue SLEInput
+  , _appSleHandle :: SleHandle
   }
 
 
 initialState
   :: (MonadIO m) 
-  => TMLConfig 
+  => Config 
   -> LogFunc 
   -> SleEventHandler 
-  -> TBQueue SLEInput 
+  -> SleHandle
   -> m AppState
-initialState cfg logFunc eventHandler queue = do
+initialState cfg logFunc eventHandler hdl = do
   var   <- liftIO $ newTVarIO Nothing
   var1  <- liftIO $ newTVarIO Nothing
-  hbrec <- liftIO $ newTVarIO (fromIntegral (cfgHeartbeat cfg) 
-                        * fromIntegral (cfgDeadFactor  cfg) * 1_000_000)
-  hbtr <- liftIO $ newTVarIO (fromIntegral (cfgHeartbeat cfg) * 1_000_000)
+  let tmlCfg = _cfgTML cfg 
+  hbrec <- liftIO $ newTVarIO (fromIntegral (cfgHeartbeat tmlCfg) 
+                        * fromIntegral (cfgDeadFactor  tmlCfg) * 1_000_000)
+  hbtr <- liftIO $ newTVarIO (fromIntegral (cfgHeartbeat tmlCfg) * 1_000_000)
   return $! AppState { _appTimerHBT     = var
                      , _appTimerHBR     = var1
-                     , _appTMLConfig    = cfg
+                     , _appTMLConfig    = tmlCfg
                      , _appLogFunc      = logFunc
                      , _appEventHandler = eventHandler
-                     , _appSleInput     = queue
+                     , _appSleHandle    = hdl
                      , _appHeartBeat    = hbtr
                      , _appHeartBeatReceive = hbrec
                      }
@@ -70,5 +72,5 @@ instance HasConfig AppState where
   getTMLConfig = lens _appTMLConfig (\c cfg -> c { _appTMLConfig = cfg })
 
 
-instance HasSleInput AppState where 
-  getInput = lens _appSleInput (\c inp -> c { _appSleInput = inp })
+instance HasSleHandle AppState where 
+  getHandle = lens _appSleHandle (\c inp -> c { _appSleHandle = inp })

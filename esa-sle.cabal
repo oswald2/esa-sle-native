@@ -59,7 +59,7 @@ library
   -- Modules exported by the library.
   exposed-modules:
     Data.SLE.Api
-    Data.SLE.SLEInput
+    Data.SLE.Input
     Data.SLE.TMLMessage
     Data.SLE.TMLConfig
     Data.SLE.TMLProtocol
@@ -68,7 +68,10 @@ library
     Data.SLE.ServiceInstanceID
     Data.SLE.Common
     Data.SLE.DEL
-    Data.SLE.SlePdu
+    Data.SLE.PDU
+    Data.SLE.Bind
+    Data.SLE.Config
+    Data.SLE.Handle
     Conduit.SocketReconnector
     State.AppState
     State.Classes

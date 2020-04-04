@@ -10,7 +10,7 @@ import qualified Data.Text.IO                  as T
 
 import           Data.SLE.TMLConfig
 import           Data.SLE.Api
-import           Data.SLE.RAF
+import           Data.SLE.Bind
 import           Data.SLE.DEL
 import           Data.SLE.SLEInput
 import           Data.SLE.ServiceInstanceID

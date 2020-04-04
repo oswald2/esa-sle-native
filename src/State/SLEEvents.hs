@@ -7,6 +7,9 @@ where
 
 import RIO
 
+import Data.SLE.Bind 
+
+
 data SleEvent = 
   TMLConnect 
   | TMLCouldNotConnect
@@ -15,6 +18,7 @@ data SleEvent =
   | TMLParseError Text 
   | TMLError Text 
   | TMLPeerAbort
+  | SLEBindReceived SleBindInvocation
   deriving (Show, Generic)
 
 type SleEventHandler = SleEvent -> IO ()

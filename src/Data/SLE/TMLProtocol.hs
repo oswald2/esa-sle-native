@@ -21,11 +21,12 @@ import Network.Socket (PortNumber)
 
 import           Data.SLE.TMLConfig
 import           Data.SLE.TMLMessage
-import           Data.SLE.SLEInput
+import           Data.SLE.Input
 import           Data.SLE.Common
-import           Data.SLE.RAF
-import           Data.SLE.DEL
-import           Data.SLE.SlePdu
+import           Data.SLE.Bind
+--import           Data.SLE.DEL
+--import           Data.SLE.PDU
+import           Data.SLE.Handle
 
 import           State.SLEEvents
 import           State.Classes
@@ -42,7 +43,7 @@ connectSLE
     , HasLogFunc env
     , HasEventHandler env
     , HasConfig env
-    , HasSleInput env 
+    , HasSleHandle env 
     , HasTimer env)
   => ConnectAddr
   -> m ()
@@ -60,7 +61,7 @@ processConnect
     , HasEventHandler env
     , HasLogFunc env 
     , HasConfig env
-    , HasSleInput env 
+    , HasSleHandle env 
     , HasTimer env)
   => AppData
   -> m ()
@@ -109,7 +110,7 @@ processReadTML :: (MonadUnliftIO m
     , HasConfig env 
     , HasEventHandler env 
     , HasLogFunc env 
-    , HasSleInput env
+    , HasSleHandle env
     , HasTimer env)
     => ConduitT ByteString Void m () 
 processReadTML = do 
@@ -139,7 +140,7 @@ processPDU :: (MonadUnliftIO m
     , HasEventHandler env 
     , HasLogFunc env 
     , HasConfig env 
-    , HasSleInput env 
+    , HasSleHandle env 
     , HasTimer env)
     => ConduitT TMLPDU TMLMessage m () 
 processPDU = do 
@@ -158,7 +159,7 @@ processPDU = do
 processSLEMsg :: (MonadUnliftIO m
   , MonadReader env m 
   , HasLogFunc env
-  , HasSleInput env 
+  , HasEventHandler env
   ) => ConduitT TMLMessage Void m () 
 processSLEMsg = do 
   processSLEBind 
@@ -173,7 +174,7 @@ processSLEMsg = do
 processSLEBind :: (MonadUnliftIO m
   , MonadReader env m 
   , HasLogFunc env
-  , HasSleInput env
+  , HasEventHandler env
   ) => ConduitT TMLMessage Void m () 
 processSLEBind = do 
   x <- await 
@@ -196,28 +197,31 @@ processSLEBind = do
 processSleBind :: (MonadIO m
   , MonadReader env m
   , HasLogFunc env
-  , HasSleInput env 
+  , HasEventHandler env
   ) 
   => SleBindInvocation 
   -> m ()
 processSleBind msg = do 
   logDebug $ "Received SLE Bind Invocation: " <> displayShow msg
+  env <- ask 
+  liftIO $ sleRaiseEvent env (SLEBindReceived msg)
+
 
   -- TODO: for now, we just send a positive result back 
-  let ret = SleBindReturn {
-          _sleBindRetCredentials = Nothing
-          , _sleBindRetResponderID = AuthorityIdentifier "SLE_PROVIDER"
-          , _sleBindRetResult = Left (VersionNumber 2)
-        }
-      pdu = SlePduBindReturn ret 
+  -- let ret = SleBindReturn {
+  --         _sleBindRetCredentials = Nothing
+  --         , _sleBindRetResponderID = AuthorityIdentifier "SLE_PROVIDER"
+  --         , _sleBindRetResult = Left (VersionNumber 2)
+  --       }
+  --     pdu = SlePduBindReturn ret 
 
-  enc <- liftIO $ encodePDUwoCreds pdu
+  -- enc <- liftIO $ encodePDUwoCreds pdu
 
-  let tml = TMLMessage (TMLHeader TMLSlePdu 0) enc  
+  -- let tml = TMLMessage (TMLHeader TMLSlePdu 0) enc  
 
-  -- send the bind response
-  env <- ask
-  atomically $ writeTBQueue (env ^. getInput) (SLEMsg tml)
+  -- -- send the bind response
+  -- env <- ask
+  -- atomically $ writeSLEInput (env ^. getHandle) (SLEMsg tml)
 
   return ()  
 
@@ -228,7 +232,7 @@ processContext :: (MonadUnliftIO m
   , HasTimer env
   , HasLogFunc env 
   , HasConfig env 
-  , HasSleInput env 
+  , HasSleHandle env 
   , HasEventHandler env) 
     => TMLContextMsgRead -> m () 
 processContext msg = do
@@ -249,7 +253,7 @@ heartBeatMessage = builderBytes $ tmlHeartBeatMsgBuilder TMLHeartBeatMessage
 processWriteTML :: (MonadUnliftIO m
   , MonadReader env m 
   , HasTimer env
-  , HasSleInput env
+  , HasSleHandle env
   , HasLogFunc env) => ConduitT () ByteString m () 
 processWriteTML = go 
   where 
@@ -270,21 +274,19 @@ processWriteTML = go
 readSLEInput :: (MonadIO m
   , MonadReader env m
   , HasTimer env
-  , HasSleInput env) => m (Maybe SLEInput)
+  , HasSleHandle env) => m (Maybe SleInput)
 readSLEInput = do 
   env <- ask 
   val <- liftIO $ readTVarIO (env ^. hbt)
   delay <- registerDelay (fromIntegral val)
   atomically $ 
-    Just <$> readTBQueue (env ^. getInput)
+    Just <$> readTBQueue (env ^. getHandle . sleInput)
     <|> (readTVar delay >>= checkSTM >> pure Nothing)
 
 
 processSLEInput :: (MonadUnliftIO m
   , MonadReader env m 
-  , HasTimer env
-  , HasSleInput env
-  , HasLogFunc env) => SLEInput -> ConduitT () ByteString m Bool
+  , HasLogFunc env) => SleInput -> ConduitT () ByteString m Bool
 processSLEInput SLEAbort = return True 
 processSLEInput SLEAbortPeer = return True 
 processSLEInput SLEStopListen = return True 
@@ -292,14 +294,17 @@ processSLEInput (SLEMsg msg) = do
   logDebug $ "processSLEInput: " <> displayShow msg
   yield $ builderBytes $ tmlMessageBuilder msg 
   return False 
-
+processSLEInput (SLEPdu pdu) = do 
+  logDebug $ "processSLEInput: SLE PDU: " <> displayShow pdu
+  yield $ builderBytes $ tmlMessageBuilder (tmlSleMsg (encode pdu))
+  return False 
 
 
 startTimers :: (MonadUnliftIO m
   , MonadReader env m
   , HasConfig env
   , HasLogFunc env 
-  , HasSleInput env 
+  , HasSleHandle env 
   , HasEventHandler env 
   , HasTimer env) => m () 
 startTimers = do 
@@ -312,7 +317,7 @@ startTimersWith :: (MonadUnliftIO m
   , MonadReader env m
   , HasEventHandler env 
   , HasLogFunc env 
-  , HasSleInput env
+  , HasSleHandle env
   , HasTimer env) => Word16 -> Word16 -> m () 
 startTimersWith hbTime' deadFactor = do 
   env <- ask
@@ -392,31 +397,31 @@ restartHBRTimer = do
 --   logWarn "heartBeatTimeOut"
 
 
-heartBeatReceiveTimeOut :: (MonadUnliftIO m, MonadReader env m, HasLogFunc env, HasSleInput env, HasEventHandler env) => m () 
+heartBeatReceiveTimeOut :: (MonadUnliftIO m, MonadReader env m, HasLogFunc env, HasSleHandle env, HasEventHandler env) => m () 
 heartBeatReceiveTimeOut = do 
   logWarn "heartBeatReceiveTimeout"
   protocolAbort  
 
 
-protocolAbort :: (MonadUnliftIO m, MonadReader env m, HasLogFunc env, HasEventHandler env, HasSleInput env) => m () 
+protocolAbort :: (MonadUnliftIO m, MonadReader env m, HasLogFunc env, HasEventHandler env, HasSleHandle env) => m () 
 protocolAbort = do 
   logDebug "ProtocolAbort!"
   env <- ask
   liftIO $ sleRaiseEvent env TMLProtocolAbort
-  atomically $ writeTBQueue (env ^. getInput) SLEAbort 
+  atomically $ writeTBQueue (env ^. getHandle . sleInput) SLEAbort 
 
 
 peerAbort :: (MonadIO m
   , MonadReader env m
   , HasLogFunc env
-  , HasSleInput env
+  , HasSleHandle env
   , HasEventHandler env) => m () 
 peerAbort = do 
   logDebug "PeerAbort!"
   env <- ask
   liftIO $ sleRaiseEvent env TMLPeerAbort
   liftIO $ sleRaiseEvent env TMLProtocolAbort
-  atomically $ writeTBQueue (env ^. getInput) SLEAbort 
+  atomically $ writeTBQueue (env ^. getHandle . sleInput) SLEAbort 
 
 
 
@@ -427,7 +432,7 @@ listenSLE
     , HasLogFunc env
     , HasEventHandler env
     , HasConfig env
-    , HasSleInput env 
+    , HasSleHandle env 
     , HasTimer env)
   => PortNumber
   -> m ()
@@ -444,7 +449,7 @@ processServerReadSLE
     , HasEventHandler env
     , HasConfig env
     , HasTimer env 
-    , HasSleInput env)
+    , HasSleHandle env)
   => AppData -> m ()  
 processServerReadSLE app = do
   env <- ask
@@ -522,7 +527,7 @@ processServerSendSLE
     , HasLogFunc env
     , HasEventHandler env
     , HasConfig env
-    , HasSleInput env 
+    , HasSleHandle env 
     , HasTimer env)
   => AppData -> m ()  
 processServerSendSLE app = runConduitRes $ processWriteTML .| appSink app

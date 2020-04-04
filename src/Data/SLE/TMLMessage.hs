@@ -20,6 +20,7 @@ module Data.SLE.TMLMessage
   , tmlLength
   , tmlMsgHdr
   , tmlMsgData
+  , tmlSleMsg
   , tmlCtxHdr
   , tmlCtxProtocolID
   , tmlCtxVersion
@@ -64,6 +65,9 @@ data TMLMessage = TMLMessage {
   , _tmlMsgData :: ByteString
   } deriving (Show, Generic)
 makeLenses ''TMLMessage
+
+tmlSleMsg :: ByteString -> TMLMessage 
+tmlSleMsg = TMLMessage (TMLHeader TMLSlePdu 0)
 
 
 data TMLContextMsgRead = TMLContextMsgRead {

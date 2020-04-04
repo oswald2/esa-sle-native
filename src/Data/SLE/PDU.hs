@@ -1,4 +1,4 @@
-module Data.SLE.SlePdu
+module Data.SLE.PDU
   ( SlePdu(..)
   , setCredentials
   )
@@ -8,11 +8,12 @@ import           RIO
 import           Control.Lens
 import           Data.SLE.RAF
 import           Data.SLE.Common
+import           Data.SLE.Bind
 
 data SlePdu =
   SlePduBind SleBindInvocation
   | SlePduBindReturn SleBindReturn
-
+  deriving (Show, Generic)
 
 setCredentials :: SlePdu -> ByteString -> SlePdu
 setCredentials (SlePduBind val) creds =
