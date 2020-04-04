@@ -13,15 +13,16 @@ import qualified RIO.Text                      as T
 import           Data.Aeson
 import           Data.ByteString.Lazy          as B
 
+import           Network.Socket                 ( PortNumber )
 
 
 data ConnectAddr = ConnectAddr {
   host :: Text
-  , port :: Word16
+  , port :: PortNumber
   }
 
 
-mkServerAddr :: Word16 -> ConnectAddr
+mkServerAddr :: PortNumber -> ConnectAddr
 mkServerAddr = ConnectAddr "*"
 
 
@@ -43,14 +44,14 @@ instance ToJSON TMLConfig where
 
 
 defaultConfig :: TMLConfig
-defaultConfig = TMLConfig { cfgHeartbeat = 30
-  , cfgDeadFactor = 2 
-  , cfgServerInitTime = 30 
-  , cfgMinHeartBeat = 3
-  , cfgMaxHeartBeat = 3600 
-  , cfgMinDeadFactor = 2
-  , cfgMaxDeadFactor = 60
-  }
+defaultConfig = TMLConfig { cfgHeartbeat      = 30
+                          , cfgDeadFactor     = 2
+                          , cfgServerInitTime = 30
+                          , cfgMinHeartBeat   = 3
+                          , cfgMaxHeartBeat   = 3600
+                          , cfgMinDeadFactor  = 2
+                          , cfgMaxDeadFactor  = 60
+                          }
 
 
 -- | write the config in JSON format to a file. Uses the aeson for conversion to/from JSON

@@ -3,7 +3,6 @@ module Data.SLE.DEL
   , isp1Credentials
   , newCredentials
   , encodePDU
-  , encodePDUwoCreds
   )
 where
 
@@ -22,11 +21,13 @@ import           System.Random.SplitMix
 
 
 
-encodePDU :: SlePdu -> ByteString -> IO ByteString 
-encodePDU pdu theProtected = do 
+encodePDU :: SlePdu -> Maybe ByteString -> IO ByteString 
+encodePDU pdu (Just theProtected) = do 
   isp1 <- newCredentials theProtected 
   let newPdu = setCredentials pdu (encode isp1)
   return (encode newPdu)
+encodePDU pdu Nothing = encodePDUwoCreds pdu 
+
 
 encodePDUwoCreds :: SlePdu -> IO ByteString 
 encodePDUwoCreds pdu = do 

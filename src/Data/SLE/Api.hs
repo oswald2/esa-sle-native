@@ -45,19 +45,19 @@ startClientRIO = connectSLE
 
 
 
-startServer :: PortNumber -> SleEventHandler -> SleHandle -> IO ()
-startServer port eventHandler hdl = do
+startServer :: SleEventHandler -> SleHandle -> IO ()
+startServer eventHandler hdl = do
   defLogOptions <- logOptionsHandle stdout True
   let logOptions = setLogMinLevel LevelDebug defLogOptions
   withLogFunc logOptions $ \logFunc -> do
     state <- initialState Data.SLE.Config.defaultConfig logFunc eventHandler hdl
 
     runRIO state $ do
-      listenSLE port
+      listenSLE (hdl ^. slePort)
 
 
-startServerRIO :: PortNumber -> RIO AppState ()
-startServerRIO = listenSLE
+startServerRIO :: SleHandle -> RIO AppState ()
+startServerRIO hdl = listenSLE (hdl ^. slePort)
 
 
 

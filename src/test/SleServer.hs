@@ -16,12 +16,12 @@ import           Data.SLE.Api
 main :: IO ()
 main = do
   let handler msg = T.putStrLn (T.pack (show msg))
-
-  queue <- newTBQueueIO 5000
+      port = 55529
+  hdl <- newSleHandle port 
 
   T.putStrLn "Running Server..."
 
-  startServer 55529 handler queue
+  startServer handler hdl 
   return ()
 
 
