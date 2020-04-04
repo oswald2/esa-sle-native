@@ -20,11 +20,12 @@ import Network.Socket (PortNumber)
 
 
 import           Data.SLE.TMLConfig
+import           Data.SLE.Config
 import           Data.SLE.TMLMessage
 import           Data.SLE.Input
 import           Data.SLE.Common
 import           Data.SLE.Bind
---import           Data.SLE.DEL
+import           Data.SLE.DEL
 --import           Data.SLE.PDU
 import           Data.SLE.Handle
 
@@ -75,7 +76,7 @@ processConnect appData = do
         _tmlCtxHbt = (cfgHeartbeat cfg)
         , _tmlCtxDeadf = (cfgDeadFactor cfg)
         }
-      cfg = env ^. getTMLConfig
+      cfg = env ^. getConfig . cfgTML
 
       encMsg = builderBytes $ tmlContextMsgBuilder msg 
 
@@ -236,7 +237,7 @@ processContext :: (MonadUnliftIO m
   , HasEventHandler env) 
     => TMLContextMsgRead -> m () 
 processContext msg = do
-  cfg <- view getTMLConfig
+  cfg <- view (getConfig . cfgTML)
   case chkContextMsg cfg msg of
     Right _ -> do
       stopTimers 
@@ -255,7 +256,8 @@ heartBeatMessage = builderBytes $ tmlHeartBeatMsgBuilder TMLHeartBeatMessage
 -- a timeout occured and a heartbeat message is yielded. Otherwise, 'processSLEInput'
 -- is called.
 processWriteTML :: (MonadUnliftIO m
-  , MonadReader env m 
+  , MonadReader env m
+  , HasConfig env  
   , HasTimer env
   , HasSleHandle env
   , HasLogFunc env) => ConduitT () ByteString m () 
@@ -294,6 +296,7 @@ readSLEInput = do
 -- if there is one. Returns 'True' if the loop should terminate and 'False' otherwise.
 processSLEInput :: (MonadUnliftIO m
   , MonadReader env m 
+  , HasConfig env 
   , HasLogFunc env) => SleInput -> ConduitT () ByteString m Bool
 processSLEInput SLEAbort = return True 
 processSLEInput SLEAbortPeer = return True 
@@ -304,7 +307,9 @@ processSLEInput (SLEMsg msg) = do
   return False 
 processSLEInput (SLEPdu pdu) = do 
   logDebug $ "processSLEInput: SLE PDU: " <> displayShow pdu
-  yield $ builderBytes $ tmlMessageBuilder (tmlSleMsg (encode pdu))
+  cfg <- view getConfig 
+  encPdu <- liftIO $ encodePDU cfg pdu 
+  yield $ builderBytes $ tmlMessageBuilder (tmlSleMsg encPdu)
   return False 
 
 
@@ -317,7 +322,7 @@ startTimers :: (MonadUnliftIO m
   , HasTimer env) => m () 
 startTimers = do 
   env <- ask 
-  let cfg = env ^. getTMLConfig
+  let cfg = env ^. getConfig . cfgTML
   startTimersWith (cfgHeartbeat cfg) (cfgDeadFactor cfg)
 
 
@@ -369,7 +374,7 @@ restartHBRTimer :: (MonadUnliftIO m
   , HasTimer env) => m () 
 restartHBRTimer = do 
   env <- ask 
-  let cfg = env ^. getTMLConfig
+  let cfg = env ^. getConfig . cfgTML
       hbTime = fromIntegral (cfgHeartbeat cfg) * fromIntegral (cfgDeadFactor cfg) * 1_000_000
   logDebug "Restarting HeartBeat Reception Timer"
   atomically $ do 
@@ -443,7 +448,7 @@ processServerReadSLE
 processServerReadSLE app = do
   env <- ask
   let initChain = appSource app .| conduitParserEither tmlPduParser .| sink
-      initTime = fromIntegral (cfgServerInitTime (env ^. getTMLConfig)) + 1_000_000
+      initTime = fromIntegral (cfgServerInitTime (env ^. getConfig . cfgTML)) + 1_000_000
 
   -- first, run initial waiting for context message
   result <- race (runConduitRes initChain) (threadDelay initTime)
@@ -475,7 +480,7 @@ processServerReadSLE app = do
             Right (_, pdu) -> do 
               logDebug $ "Received PDU: " <> displayShow pdu
               -- process pdu
-              case checkPDU (env ^. getTMLConfig) pdu of 
+              case checkPDU (env ^. getConfig . cfgTML) pdu of 
                 Left err -> return $ Left err 
                 Right ctxtMsg -> return $ Right (Just ctxtMsg)              
 
@@ -515,7 +520,6 @@ processServerSendSLE
   :: (MonadUnliftIO m
     , MonadReader env m
     , HasLogFunc env
-    , HasEventHandler env
     , HasConfig env
     , HasSleHandle env 
     , HasTimer env)

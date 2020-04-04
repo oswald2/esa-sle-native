@@ -16,10 +16,14 @@ import           Data.SLE.TMLConfig
 --import           Data.SLE.Input
 import           Data.SLE.Handle
 
+
+
+
+
 data AppState = AppState {
   _appTimerHBT :: TVar (Maybe (Updatable ()))
   , _appTimerHBR :: TVar (Maybe (Updatable ()))
-  , _appTMLConfig :: !TMLConfig
+  , _appConfig :: !Config
   , _appHeartBeat :: TVar Int64 
   , _appHeartBeatReceive :: TVar Int64
   , _appLogFunc :: !LogFunc
@@ -38,13 +42,13 @@ initialState
 initialState cfg logFunc eventHandler hdl = do
   var   <- liftIO $ newTVarIO Nothing
   var1  <- liftIO $ newTVarIO Nothing
-  let tmlCfg = _cfgTML cfg 
+  let tmlCfg = cfg ^. cfgTML
   hbrec <- liftIO $ newTVarIO (fromIntegral (cfgHeartbeat tmlCfg) 
                         * fromIntegral (cfgDeadFactor  tmlCfg) * 1_000_000)
   hbtr <- liftIO $ newTVarIO (fromIntegral (cfgHeartbeat tmlCfg) * 1_000_000)
   return $! AppState { _appTimerHBT     = var
                      , _appTimerHBR     = var1
-                     , _appTMLConfig    = tmlCfg
+                     , _appConfig       = cfg
                      , _appLogFunc      = logFunc
                      , _appEventHandler = eventHandler
                      , _appSleHandle    = hdl
@@ -69,7 +73,7 @@ instance HasEventHandler AppState where
 
 
 instance HasConfig AppState where
-  getTMLConfig = lens _appTMLConfig (\c cfg -> c { _appTMLConfig = cfg })
+  getConfig = lens _appConfig (\c cfg -> c { _appConfig = cfg })
 
 
 instance HasSleHandle AppState where 

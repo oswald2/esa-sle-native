@@ -4,12 +4,15 @@ module Data.SLE.DEL
   , newCredentials
   , mkCredentials
   , encodePDU
+  , encodePDUwithCreds
   , encodePDUwoCreds
+  , isp1CredentialsParser
   )
 where
 
 
 import           RIO
+import           Control.Monad.Except
 
 import           Data.ASN1.Types
 import           Data.ASN1.Encoding
@@ -26,8 +29,18 @@ import           System.Random.SplitMix
 
 
 
-encodePDU :: Config -> SlePdu -> IO ByteString
-encodePDU cfg pdu = do
+
+encodePDU :: Config -> SlePdu -> IO ByteString 
+encodePDU cfg pdu = 
+  case cfg ^. cfgAuthorize of 
+    AuthNone -> encodePDUwoCreds pdu 
+    AuthAll -> encodePDUwithCreds cfg pdu 
+    AuthBind -> if isBind pdu then encodePDUwithCreds cfg pdu else encodePDUwoCreds pdu
+
+
+
+encodePDUwithCreds :: Config -> SlePdu -> IO ByteString
+encodePDUwithCreds cfg pdu = do
   t <- getCurrentTime 
   gen <- initSMGen 
   let (x, _) = nextWord32 gen 
@@ -74,6 +87,26 @@ isp1Credentials ISP1Credentials {..} =
 
 instance EncodeASN1 ISP1Credentials where
   encode val = encodeASN1' DER (isp1Credentials val)
+
+
+
+isp1CredentialsParser :: Parser ISP1Credentials 
+isp1CredentialsParser = do 
+  parseSequence isp1Parser
+  where 
+    isp1Parser = do 
+      t <- parseTime
+      r <- parseIntVal 
+      prot <- parseOctetString
+      case t of 
+        Time cds -> 
+          return ISP1Credentials {
+              _isp1Time = cds
+              , _isp1RandomNumber = (fromIntegral r)
+              , _isp1TheProtected = prot
+            }
+        TimePico _ -> throwError "isp1CredentialsParser: expected CCSDS Time, got CCSDS Pico Time"
+
 
 
 

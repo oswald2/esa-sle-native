@@ -11,12 +11,12 @@ import           Control.Lens
 import           System.Timer.Updatable
 
 import           State.Events
-import           Data.SLE.TMLConfig
+import           Data.SLE.Config
 import           Data.SLE.Handle
 
 
 class HasConfig env where
-  getTMLConfig :: Getter env TMLConfig
+  getConfig :: Getter env Config
 
 class HasTimer env where
   getTimerHBT :: Getter env (TVar (Maybe (Updatable ())))

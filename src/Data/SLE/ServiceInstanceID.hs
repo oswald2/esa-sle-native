@@ -172,10 +172,7 @@ serviceInstanceAttribute ServiceInstanceAttribute {..} =
 
 parseServiceInstanceAttribute :: Parser ServiceInstanceAttribute 
 parseServiceInstanceAttribute = do 
-  x <- between parseStartSet parseEndSet sequ 
-  case x of 
-    (attr : _) -> return attr 
-    _ -> throwError "parseServiceInstanceAttribute: no attribute found"
+  between parseStartSet parseEndSet sequ 
   where 
     sequ = parseSequence element 
     element = ServiceInstanceAttribute <$> parseServiceID <*> parseVisibleString 
@@ -207,4 +204,4 @@ serviceInstanceIdentifier ServiceInstanceIdentifier {..} =
 
 parseServiceInstanceIdentifier :: Parser ServiceInstanceIdentifier
 parseServiceInstanceIdentifier = do 
-  ServiceInstanceIdentifier <$> parseSequence parseServiceInstanceAttribute
+  ServiceInstanceIdentifier <$> parseSequence (manyA parseServiceInstanceAttribute)

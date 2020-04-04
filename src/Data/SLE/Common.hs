@@ -25,6 +25,8 @@ module Data.SLE.Common
   , parseCredentials
   , parseIntVal
   , parseIntPosShort
+  , parseTime
+  , parseOctetString
   )
 where
 
@@ -34,7 +36,7 @@ import qualified RIO.Text                      as T
 import           RIO.State
 import           ByteString.StrictBuilder
 import           Control.Monad.Except
-
+import           Data.Attoparsec.ByteString (parseOnly)
 import           Data.ASN1.Types
 
 import           Data.SLE.CCSDSTime
@@ -102,6 +104,28 @@ time (Time     t) = OctetString . builderBytes . ccsdsTimeBuilder $ t
 time (TimePico t) = OctetString . builderBytes . ccsdsTimePicoBuilder $ t
 
 
+parseTime :: Parser Time 
+parseTime = do 
+  x <- get 
+  case x of 
+    OctetString bs : rest -> do 
+      put rest 
+      if 
+        | B.length bs == 8 -> ccsdsTime bs
+        | B.length bs == 10 -> ccsdsTimePico bs
+        | otherwise -> throwError $ "parseTime: illegal time length: " <> T.pack (show (B.length bs)) <> ", should be 8 or 10"
+    _ -> throwError "parseTime: no time found"
+  where 
+    ccsdsTime bs = do 
+      case parseOnly ccsdsTimeParser bs of 
+        Left err -> throwError $ "parseTime: cannot parse CCSDS time: " <> T.pack err
+        Right t -> return (Time t)
+
+    ccsdsTimePico bs = do 
+      case parseOnly ccsdsTimePicoParser bs of 
+        Left err -> throwError $ "parseTime: cannot parse CCSDS pico time: " <> T.pack err
+        Right t -> return (TimePico t)
+
 visibleString :: Text -> ASN1
 visibleString t = ASN1String (ASN1CharacterString Visible (encodeUtf8 t))
 
@@ -126,6 +150,15 @@ parseVisibleString = do
           return text
     _ -> throwError "parseVisibleString: no visible string"
 
+
+parseOctetString :: Parser ByteString 
+parseOctetString = do 
+  x <- get 
+  case x of 
+    OctetString bs : rest -> do 
+      put rest 
+      return bs 
+    _ -> throwError "parseOctetString: no octet string found"
 
 
 parseASN1 :: Parser a -> [ASN1] -> Either Text a
@@ -175,9 +208,9 @@ manyA p = loop []
     val <- p
     loop (val : acc)
 
-parseSequence :: Parser e -> Parser [e]
+parseSequence :: Parser e -> Parser e
 parseSequence p = do
-  between parseStartSequence parseEndSequence (manyA p)
+  between parseStartSequence parseEndSequence p
 
 
 parseStartSet :: Parser ()
