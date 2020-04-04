@@ -8,3 +8,6 @@ ongoing.
 Currently implementing:
 
 - TML (Transport Mapping Layer)
+- DEL (Data Encoding Layer)
+- AUL (Authentication Layer)
+
