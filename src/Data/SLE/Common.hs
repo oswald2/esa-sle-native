@@ -17,6 +17,7 @@ module Data.SLE.Common
   , parseEndSequence
   , between
   , manyA
+  , parseEitherASN1
   , parseSequence
   , parseSet
   , parseStartSet
@@ -32,12 +33,15 @@ where
 
 import           RIO
 import qualified RIO.ByteString                as B
+import qualified RIO.ByteString.Lazy as BL
 import qualified RIO.Text                      as T
 import           RIO.State
 import           ByteString.StrictBuilder
 import           Control.Monad.Except
 import           Data.Attoparsec.ByteString (parseOnly)
 import           Data.ASN1.Types
+import Data.ASN1.Encoding
+import Data.ASN1.BinaryEncoding
 
 import           Data.SLE.CCSDSTime
 
@@ -184,6 +188,30 @@ parseBasicASN1 p f = do
           throwError "parseASN1: Predicate did not match"
     _ -> throwError "parseASN1: list empty, could not parse value"
 
+
+parseEitherASN1 :: Parser a -> Parser b -> Parser (Either a b)
+parseEitherASN1 leftp rightp = do 
+  x <- get 
+  case x of 
+    (Other Context 0 dat : rest) -> do 
+      put rest 
+      case decodeASN1 DER (BL.fromStrict dat) of 
+        Left err -> throwError $ "parseEitherASN1: could not decode ASN1 choice: " <> T.pack (show err)
+        Right val -> do 
+          case parseASN1 leftp val of 
+            Left err -> throwError $ "parseEitherASN1: error on parsing LEFT value: " <> err
+            Right l -> return (Left l)
+    (Other Context 1 dat : rest) -> do 
+      put rest 
+      case decodeASN1 DER (BL.fromStrict dat) of 
+        Left err -> throwError $ "parseEitherASN1: could not decode ASN1 choice: " <> T.pack (show err)
+        Right val -> do 
+          case parseASN1 rightp val of 
+            Left err -> throwError $ "parseEitherASN1: error on parsing RIGHT value: " <> err
+            Right l -> return (Right l)
+    (Other Context n _ : _) -> throwError $ "parseEitherASN1: illegal value for choice: " <> T.pack (show n)
+    (o : _) -> throwError $ "parseEitherASN1: expected CHOICE, got: " <> T.pack (show o)
+          
 
 parseStartSequence :: Parser ()
 parseStartSequence = parseBasicASN1 (== Start Sequence) (const ())

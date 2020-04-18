@@ -86,7 +86,7 @@ processConnect appData = do
   startTimers
 
   logDebug "Running chains..."
-  race_ (runConduitRes (appSource appData .| processReadTML))
+  race_ (runConduitRes (appSource appData .| processReadTML processSLEMsg))
         (runConduitRes (processWriteTML .| appSink appData))
 
   return ()
@@ -113,9 +113,10 @@ processReadTML :: (MonadUnliftIO m
     , HasLogFunc env 
     , HasSleHandle env
     , HasTimer env)
-    => ConduitT ByteString Void m () 
-processReadTML = do 
-  conduitParserEither tmlPduParser .| worker .| processPDU .| processSLEMsg
+    => ConduitT TMLMessage Void m () 
+    -> ConduitT ByteString Void m () 
+processReadTML processor = do 
+  conduitParserEither tmlPduParser .| worker .| processPDU .| processor 
   where 
     worker = do 
       x <- await  
@@ -160,10 +161,8 @@ processPDU = do
 processSLEMsg :: (MonadUnliftIO m
   , MonadReader env m 
   , HasLogFunc env
-  , HasEventHandler env
   ) => ConduitT TMLMessage Void m () 
 processSLEMsg = do 
-  processSLEBind 
   awaitForever $ \msg -> do 
     let encSle = msg ^. tmlMsgData
     case decodeASN1 DER (BL.fromStrict encSle) of
@@ -226,6 +225,16 @@ processSleBind msg = do
 
   return ()  
 
+processServerSLEMsg :: 
+  (MonadUnliftIO m
+  , MonadReader env m
+  , HasEventHandler env
+  , HasLogFunc env 
+  )
+  => ConduitT TMLMessage Void m () 
+processServerSLEMsg = do 
+  processSLEBind 
+  processSLEMsg
 
 
 processContext :: (MonadUnliftIO m
@@ -466,7 +475,7 @@ processServerReadSLE app = do
       processContext ctxtMsg 
 
   -- now, if we are still here, start the normal processing
-  runConduitRes $ appSource app .| processReadTML  
+  runConduitRes $ appSource app .| processReadTML processServerSLEMsg
 
   where 
     sink = do 

@@ -287,6 +287,20 @@ bindDiagnostic InvalidTime                    = IntVal 7
 bindDiagnostic OutOfService                   = IntVal 8
 bindDiagnostic OtherReason                    = IntVal 127
 
+-- toBindDiagnostic :: Int -> BindDiagnostic
+-- toBindDiagnostic 0 = AccesDenied
+-- toBindDiagnostic 1 = ServiceTypeNotSupported
+-- toBindDiagnostic 2 = VersionNotSupported
+-- toBindDiagnostic 3 = NoSuchServiceInstance
+-- toBindDiagnostic 4 = AlreadyBound
+-- toBindDiagnostic 5 = SiNotAccessibleToThisInitiator
+-- toBindDiagnostic 6 = InconsistentServiceType
+-- toBindDiagnostic 7 = InvalidTime
+-- toBindDiagnostic 8 = OutOfService
+-- toBindDiagnostic 127 = OtherReason
+-- toBindDiagnostic _ = OtherReason
+
+
 parseBindDiagnostic :: Parser BindDiagnostic
 parseBindDiagnostic = do
   x <- parseIntVal
@@ -319,8 +333,7 @@ retResult (Right bd) =
   Other Context 1 (BL.toStrict (encodeASN1 DER [bindDiagnostic bd]))
 
 parseRet :: Parser (Either VersionNumber BindDiagnostic)
-parseRet = do
-  return (Left (VersionNumber 2))
+parseRet = parseEitherASN1 parseVersionNumber parseBindDiagnostic
 
 
 sleBindReturn :: SleBindReturn -> [ASN1]
