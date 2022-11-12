@@ -22,6 +22,8 @@ import           System.Directory               ( doesFileExist )
 
 import           Options.Generic
 
+import           Text.Show.Pretty
+
 
 data Options w = Options
     { version     :: w ::: Bool <?> "Print version information"
@@ -70,13 +72,12 @@ main = do
                     exitFailure
                 Right c -> pure c
 
-    let handler msg = T.putStrLn (T.pack (show msg))
-        -- port = 55529
+    let handler msg = T.putStrLn $ "SLE HANDLER: " <> T.pack (ppShow msg)
+    -- port = 55529
         port = 5008
-    
-    withSleHandle port $ \hdl -> do 
-      T.putStrLn "Running Server..."
-      startServer cfg handler hdl
-      return ()
+    withSleHandle port $ \hdl -> do
+        T.putStrLn "Running Server..."
+        startServer cfg handler hdl
+        return ()
 
 

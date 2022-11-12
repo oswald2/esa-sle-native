@@ -204,7 +204,8 @@ executable SleServer
         rio,
         text,
         optparse-generic,
-        directory
+        directory,
+        pretty-show
 
 
 test-suite TestBindParser 

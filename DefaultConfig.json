@@ -1,9 +1,12 @@
 {
     "_cfgAuthorize": "AuthNone",
     "_cfgInitiator": {
-        "unAuthorityID": "SLE_USER"
+        "unAuthorityID": "EGSCC"
     },
     "_cfgPassword": "PASSWD",
+    "_cfgResponder": {
+        "unAuthorityID": "PARAGONTT"
+    },
     "_cfgTML": {
         "cfgDeadFactor": 2,
         "cfgHeartbeat": 30,

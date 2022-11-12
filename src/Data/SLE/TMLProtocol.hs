@@ -36,6 +36,7 @@ import           Data.ASN1.Encoding
 
 import           Text.Show.Pretty
 
+import           Text.Builder                  as TB
 
 connectSLE
     :: ( MonadUnliftIO m
@@ -185,6 +186,7 @@ processSLEBind
        , HasLogFunc env
        , HasEventHandler env
        , HasSleHandle env
+       , HasConfig env
        )
     => ConduitT TMLMessage Void m ()
 processSLEBind = do
@@ -216,6 +218,7 @@ processSleBind
     :: ( MonadIO m
        , MonadReader env m
        , HasLogFunc env
+       , HasConfig env
        , HasEventHandler env
        , HasSleHandle env
        )
@@ -226,21 +229,20 @@ processSleBind msg = do
     env <- ask
     liftIO $ sleRaiseEvent env (SLEBindReceived msg)
 
-
     -- TODO: for now, we just send a positive result back 
-    let ret = SleBindReturn
-            { _sleBindRetCredentials = Nothing
-            , _sleBindRetResponderID = AuthorityIdentifier "SLE_PROVIDER"
-            , _sleBindRetResult      = Left (VersionNumber 2)
-            }
+    let cfg = env ^. getConfig
+    let ret = SleBindReturn { _sleBindRetCredentials = Nothing
+                            , _sleBindRetResponderID = cfg ^. cfgResponder
+                            , _sleBindRetResult      = Left (VersionNumber 3)
+                            }
         pdu = SlePduBindReturn ret
 
-    enc <- liftIO $ encodePDUwoCreds pdu
+    -- enc <- liftIO $ encodePDUwoCreds pdu
 
-    let tml = TMLMessage (TMLHeader TMLSlePdu 0) enc
+    -- let tml = TMLMessage (TMLHeader TMLSlePdu 0) enc
 
     -- send the bind response
-    writeSLEInput (env ^. getHandle) (SLEMsg tml)
+    writeSLEInput (env ^. getHandle) (SLEPdu pdu)
 
     return ()
 
@@ -250,6 +252,7 @@ processServerSLEMsg
        , HasEventHandler env
        , HasLogFunc env
        , HasSleHandle env
+       , HasConfig env
        )
     => ConduitT TMLMessage Void m ()
 processServerSLEMsg = do
@@ -303,6 +306,7 @@ processWriteTML = go
         val <- readSLEInput
         case val of
             Just inp -> do
+                logDebug $ "Sending SLE Input: " <> fromString (ppShow inp)
                 terminate <- processSLEInput inp
                 if terminate
                     then
@@ -340,14 +344,21 @@ processSLEInput SLEAbort      = return True
 processSLEInput SLEAbortPeer  = return True
 processSLEInput SLEStopListen = return True
 processSLEInput (SLEMsg msg)  = do
-    logDebug $ "processSLEInput: " <> displayShow msg
+    logDebug $ "processSLEInput: " <> fromString (ppShow msg)
     yield $ builderBytes $ tmlMessageBuilder msg
     return False
 processSLEInput (SLEPdu pdu) = do
-    logDebug $ "processSLEInput: SLE PDU: " <> displayShow pdu
+    logDebug $ "processSLEInput: SLE PDU: " <> fromString (ppShow pdu)
     cfg    <- view getConfig
     encPdu <- liftIO $ encodePDU cfg pdu
-    yield $ builderBytes $ tmlMessageBuilder (tmlSleMsg encPdu)
+    let tlmMsg    = tmlSleMsg encPdu
+        encTlmMsg = builderBytes $ tmlMessageBuilder tlmMsg
+    logDebug
+        $  "processSLEInput: sending TLM Message: "
+        <> fromString (ppShow tlmMsg)
+        <> "\n Encoded: "
+        <> display (TB.run (hexData encTlmMsg))
+    yield encTlmMsg
     return False
 
 

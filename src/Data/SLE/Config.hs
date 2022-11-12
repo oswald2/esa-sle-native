@@ -8,6 +8,7 @@ module Data.SLE.Config
     , defaultConfigFileName
     , cfgTML
     , cfgInitiator
+    , cfgResponder
     , cfgAuthorize
     , cfgUserName
     , cfgPassword
@@ -45,6 +46,7 @@ instance ToJSON SleAuthType where
 data Config = Config
     { _cfgTML       :: !TMLConfig
     , _cfgInitiator :: !AuthorityIdentifier
+    , _cfgResponder :: !AuthorityIdentifier
     , _cfgAuthorize :: !SleAuthType
     , _cfgPassword  :: !Text
     }
@@ -60,7 +62,8 @@ defaultConfigFileName = "DefaultConfig.json"
 
 defaultConfig :: Config
 defaultConfig = Config { _cfgTML       = Data.SLE.TMLConfig.defaultConfig
-                       , _cfgInitiator = AuthorityIdentifier "SLE_USER"
+                       , _cfgInitiator = AuthorityIdentifier "EGSCC"
+                       , _cfgResponder = AuthorityIdentifier "PARAGONTT"
                        , _cfgAuthorize = AuthNone
                        , _cfgPassword  = "PASSWD"
                        }
