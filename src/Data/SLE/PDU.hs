@@ -7,7 +7,7 @@ where
 
 import           RIO
 import           Control.Lens
---import           Data.SLE.RAF
+
 import           Data.SLE.Common
 import           Data.SLE.Bind
 

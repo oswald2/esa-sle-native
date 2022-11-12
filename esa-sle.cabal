@@ -96,13 +96,15 @@ library
     stm-conduit,
     asn1-types,
     asn1-encoding,
-    thyme,
+    time,
     splitmix,
     network,
     mtl,
     text-builder,
-    cryptohash-sha256
-    
+    cryptohash-sha256,
+    aeson-pretty,
+    pretty-show 
+
 
 
   -- Modules included in this library but not exported.
@@ -133,7 +135,6 @@ library
         InstanceSigs
         KindSignatures
         LambdaCase
-        MonadFailDesugaring
         MultiParamTypeClasses
         MultiWayIf
         NamedFieldPuns
@@ -201,7 +202,9 @@ executable SleServer
         base ==4.*,
         bytestring,
         rio,
-        text
+        text,
+        optparse-generic,
+        directory
 
 
 test-suite TestBindParser 

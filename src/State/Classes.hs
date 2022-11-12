@@ -1,18 +1,18 @@
 module State.Classes
-  ( HasTimer(..)
-  , HasEventHandler(..)
-  , HasConfig(..)
-  , HasSleHandle(..)
-  )
-where
+    ( HasTimer(..)
+    , HasEventHandler(..)
+    , HasConfig(..)
+    , HasSleHandle(..)
+    , sleRaiseEvent
+    ) where
 
-import           RIO                     hiding ( Lens' )
 import           Control.Lens
+import           RIO                     hiding ( Lens' )
 import           System.Timer.Updatable
 
-import           State.Events
 import           Data.SLE.Config
 import           Data.SLE.Handle
+import           State.Events
 
 
 class HasConfig env where
@@ -25,10 +25,13 @@ class HasTimer env where
   hbt :: Lens' env (TVar Int64)
 
 class HasEventHandler env where
-  sleRaiseEvent :: env -> SleEvent -> IO ()
+  sleRaiseEventIO :: env -> SleEvent -> IO ()
 
 class HasSleHandle env where
   getHandle :: Getter env SleHandle
 
+
+sleRaiseEvent :: (MonadIO m, HasEventHandler env) => env -> SleEvent -> m ()
+sleRaiseEvent env event = liftIO $ sleRaiseEventIO env event
 
 

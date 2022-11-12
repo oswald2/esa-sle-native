@@ -18,8 +18,8 @@ import           Data.Attoparsec.ByteString     ( Parser )
 --import qualified Data.Attoparsec.ByteString    as A
 import qualified Data.Attoparsec.Binary        as A
 
-import           Data.Thyme.Clock
-import           Data.Thyme.Clock.POSIX
+import           Data.Time.Clock
+import           Data.Time.Clock.POSIX
 
 data CCSDSTime = CCSDSTime !Word16 !Word32 !Word16
   deriving (Eq, Show, Generic)
@@ -37,12 +37,13 @@ ccsdsPicoNullTime = CCSDSTimePico 0 0 0
 
 getCurrentTime :: IO CCSDSTime 
 getCurrentTime = do 
-  t <- Data.Thyme.Clock.getCurrentTime
-  let micro = t ^. posixTime . microseconds
+  t <- getPOSIXTime
+  let micro :: Int64
+      micro = floor (1e-6 * nominalDiffTimeToSeconds t)  
       secs = micro `div` 1_000_000
       (days, sec) = secs `quotRem` 86400
-      msec = (micro `rem` 1_000_000) `div` 1000
-  return $ CCSDSTime (fromIntegral days) (fromIntegral sec) (fromIntegral msec)
+      msec = fromIntegral $ (micro `rem` 1_000_000) `div` 1000
+  return $ CCSDSTime (fromIntegral days) (fromIntegral sec) msec
 
 
 

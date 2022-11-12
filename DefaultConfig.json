@@ -1,0 +1,16 @@
+{
+    "_cfgAuthorize": "AuthNone",
+    "_cfgInitiator": {
+        "unAuthorityID": "SLE_USER"
+    },
+    "_cfgPassword": "PASSWD",
+    "_cfgTML": {
+        "cfgDeadFactor": 2,
+        "cfgHeartbeat": 30,
+        "cfgMaxDeadFactor": 60,
+        "cfgMaxHeartBeat": 3600,
+        "cfgMinDeadFactor": 2,
+        "cfgMinHeartBeat": 3,
+        "cfgServerInitTime": 30
+    }
+}
