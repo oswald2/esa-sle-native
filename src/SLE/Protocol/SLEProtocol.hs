@@ -12,14 +12,10 @@ import           ByteString.StrictBuilder
 import           Conduit
 import           Conduit.SocketReconnector
 
-import           Control.Concurrent.Killable
-
 import           Data.Conduit.Attoparsec
 import           Data.Conduit.List
 import           Data.Conduit.Network
 import           Network.Socket                 ( PortNumber )
---import           Data.Conduit.TQueue
-import           System.Timer.Updatable
 
 import           SLE.Data.Bind
 import           SLE.Data.Common
@@ -31,8 +27,8 @@ import           SLE.Data.PDU
 import           SLE.Data.TMLConfig
 import           SLE.Data.TMLMessage
 
-import           SLE.State.Events
 import           SLE.State.Classes
+import           SLE.State.Events
 
 import           SLE.Protocol.TMLProtocol
 
@@ -126,7 +122,16 @@ processSLEMsg = do
                 logError $ "Error decoding ASN1 message: " <> displayShow err
             Right ls -> do
                 lift $ logDebug $ "Received ASN1: " <> fromString (ppShow ls)
-
+                let result = parseASN1 parseSleBindReturn ls
+                case result of
+                    Left err ->
+                        logError
+                            $  "Error decoding SLE BIND RETURN message: "
+                            <> display err
+                    Right bindRet -> do
+                        -- lift $ processSleBind bind
+                        logDebug $ "SLE BIND Return:\n" <> fromString
+                            (ppShow bindRet)
 
 
 processServerSLEMsg
@@ -196,10 +201,11 @@ processSleBind msg = do
 
     -- TODO: for now, we just send a positive result back 
     let cfg = env ^. commonCfg
-    let ret = SleBindReturn { _sleBindRetCredentials = Nothing
-                            , _sleBindRetResponderID = cfg ^. cfgResponder
-                            , _sleBindRetResult      = Left (VersionNumber 3)
-                            }
+    let ret = SleBindReturn
+            { _sleBindRetCredentials = Nothing
+            , _sleBindRetResponderID = cfg ^. cfgResponder
+            , _sleBindRetResult      = BindResVersion (VersionNumber 3)
+            }
         pdu = SlePduBindReturn ret
 
     -- send the bind response
@@ -317,7 +323,6 @@ processServerReadSLE
        , HasProviderConfig env
        , HasTimer env
        , HasSleHandle env
-       , HasTimer env
        )
     => AppData
     -> m ()

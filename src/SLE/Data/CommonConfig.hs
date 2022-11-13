@@ -10,6 +10,7 @@ module SLE.Data.CommonConfig
     , cfgResponder
     , cfgAuthorize
     , cfgPassword
+    , cfgVersion
     ) where
 
 import           RIO
@@ -42,6 +43,7 @@ data CommonConfig = CommonConfig
     , _cfgInitiator :: !AuthorityIdentifier
     , _cfgResponder :: !AuthorityIdentifier
     , _cfgAuthorize :: !SleAuthType
+    , _cfgVersion   :: !VersionNumber
     , _cfgPassword  :: !Text
     }
     deriving (Show, Generic)
@@ -58,6 +60,7 @@ defaultCommonConfig = CommonConfig
     , _cfgInitiator = AuthorityIdentifier "EGSCC"
     , _cfgResponder = AuthorityIdentifier "PARAGONTT"
     , _cfgAuthorize = AuthNone
+    , _cfgVersion   = VersionNumber 3
     , _cfgPassword  = "PASSWD"
     }
 makeLenses ''CommonConfig

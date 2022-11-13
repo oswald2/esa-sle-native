@@ -5,23 +5,13 @@ module SLE.Protocol.Provider
 
 import           RIO
 
-
-import           SLE.Data.Bind
 import           SLE.Data.Handle
-import           SLE.Data.Input
-import           SLE.Data.PDU
 import           SLE.Data.ProviderConfig
-import           SLE.Data.ServiceInstanceID
-import           SLE.Data.TMLConfig
-import           SLE.Data.UserConfig
 
 import           SLE.Protocol.SLEProtocol
-import           SLE.Protocol.TMLProtocol
 
 import           SLE.State.Events
 import           SLE.State.ProviderState
-
-import           Text.Builder
 
 
 

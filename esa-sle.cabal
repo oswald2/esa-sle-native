@@ -129,6 +129,8 @@ library
         DeriveFunctor
         DeriveGeneric
         DeriveTraversable
+        DerivingStrategies
+        DeriveAnyClass 
         DoAndIfThenElse
         EmptyDataDecls
         ExistentialQuantification

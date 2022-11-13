@@ -40,7 +40,7 @@ newSleHandle port = do
 withSleHandle :: (MonadUnliftIO m) => PortNumber -> (SleHandle -> m a) -> m a
 withSleHandle port process = do
     bracket (newSleHandle port)
-            (\hdl -> return ())
+            (\_hdl -> return ())
             process
 
 writeSLEInput :: (MonadIO m) => SleHandle -> SleInput -> m ()

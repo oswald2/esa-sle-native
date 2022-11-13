@@ -2,48 +2,50 @@
   TemplateHaskell
 #-}
 module SLE.Data.Bind
-  ( Credentials
-  , SleBindInvocation
-  , mkSleBindInvocation
-  , Time(..)
-  , IntPosShort(..)
-  , AuthorityIdentifier(..)
-  , PortID(..)
-  , VersionNumber(..)
-  , ApplicationIdentifier(..)
-  , time
-  , sleBindInvocation
-  , sleBindCredentials
-  , sleBindInitiatorID
-  , sleBindResponderPortID
-  , sleBindServiceType
-  , sleVersionNumber
-  , sleServiceInstanceID
-  , parseSleBind
-  , parseAuthorityIdentifier
-  , parsePortID
-  , parseApplicationIdentifier
-  , SleBindReturn(..)
-  , sleBindReturn
-  , sleBindRetCredentials
-  , sleBindRetResponderID
-  , sleBindRetResult
-  , parseSleBindReturn
-  )
-where
+    ( Credentials
+    , SleBindInvocation
+    , mkSleBindInvocation
+    , Time(..)
+    , IntPosShort(..)
+    , AuthorityIdentifier(..)
+    , PortID(..)
+    , VersionNumber(..)
+    , ApplicationIdentifier(..)
+    , time
+    , sleBindInvocation
+    , sleBindCredentials
+    , sleBindInitiatorID
+    , sleBindResponderPortID
+    , sleBindServiceType
+    , sleVersionNumber
+    , sleServiceInstanceID
+    , parseSleBind
+    , parseAuthorityIdentifier
+    , parsePortID
+    , parseApplicationIdentifier
+    , SleBindReturn(..)
+    , BindResult(..)
+    , sleBindReturn
+    , sleBindRetCredentials
+    , sleBindRetResponderID
+    , sleBindRetResult
+    , parseSleBindReturn
+    , toBindDiagnostic
+    ) where
 
 
-import           RIO
-import qualified RIO.Text                      as T
-import qualified RIO.ByteString.Lazy           as BL
 import           Control.Lens            hiding ( Context )
 import           Control.Monad.Except
 import           Data.Aeson
+import           RIO
+import qualified RIO.ByteString.Lazy           as BL
+import           RIO.State
+import qualified RIO.Text                      as T
 
-
-import           Data.ASN1.Types
-import           Data.ASN1.Encoding
 import           Data.ASN1.BinaryEncoding
+import           Data.ASN1.Encoding
+import           Data.ASN1.Prim                 ( getInteger )
+import           Data.ASN1.Types
 
 import           SLE.Data.Common
 import           SLE.Data.ServiceInstanceID
@@ -57,7 +59,7 @@ newtype AuthorityIdentifier = AuthorityIdentifier { unAuthorityID :: Text }
 
 instance FromJSON AuthorityIdentifier
 instance ToJSON AuthorityIdentifier where
-  toEncoding = genericToEncoding defaultOptions
+    toEncoding = genericToEncoding defaultOptions
 
 
 authorityIdentifier :: AuthorityIdentifier -> ASN1
@@ -68,7 +70,7 @@ authorityIdentifier (AuthorityIdentifier x) = visibleString x
 
 parseAuthorityIdentifier :: Parser AuthorityIdentifier
 parseAuthorityIdentifier = do
-  AuthorityIdentifier <$> parseVisibleString
+    AuthorityIdentifier <$> parseVisibleString
 
 
 
@@ -85,7 +87,7 @@ portID (PortID x) = visibleString x
 
 parsePortID :: Parser PortID
 parsePortID = do
-  PortID <$> parseVisibleString
+    PortID <$> parseVisibleString
 
 
 
@@ -153,33 +155,36 @@ applicationIdentifier FwdCltu        = IntVal 16
 
 parseApplicationIdentifier :: Parser ApplicationIdentifier
 parseApplicationIdentifier = do
-  v <- parseIntVal
-  case v of
-    0  -> return RtnAllFrames
-    1  -> return RtnInsert
-    2  -> return RtnChFrames
-    3  -> return RtnChFsh
-    4  -> return RtnChOcf
-    5  -> return RtnBitstr
-    6  -> return RtnSpacePkt
-    7  -> return FwdAosSpacePkt
-    8  -> return FwdAosVca
-    9  -> return FwdBitstr
-    10 -> return FwdProtoVcdu
-    11 -> return FwdInsert
-    12 -> return FwdCVcdu
-    13 -> return FwdTcSpacePkt
-    14 -> return FwdTcVca
-    15 -> return FwdTcFrame
-    16 -> return FwdCltu
-    _  -> throwError
-      "parseApplicationIdentifier: no int value for application identifier"
+    v <- parseIntVal
+    case v of
+        0  -> return RtnAllFrames
+        1  -> return RtnInsert
+        2  -> return RtnChFrames
+        3  -> return RtnChFsh
+        4  -> return RtnChOcf
+        5  -> return RtnBitstr
+        6  -> return RtnSpacePkt
+        7  -> return FwdAosSpacePkt
+        8  -> return FwdAosVca
+        9  -> return FwdBitstr
+        10 -> return FwdProtoVcdu
+        11 -> return FwdInsert
+        12 -> return FwdCVcdu
+        13 -> return FwdTcSpacePkt
+        14 -> return FwdTcVca
+        15 -> return FwdTcFrame
+        16 -> return FwdCltu
+        _ ->
+            throwError
+                "parseApplicationIdentifier: no int value for application identifier"
 
 
 
 
 newtype VersionNumber = VersionNumber { unVersionNumber :: Word16 }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (FromJSON, ToJSON)
+
 
 versionNumber :: VersionNumber -> ASN1
 versionNumber (VersionNumber x) = IntVal (fromIntegral x)
@@ -190,75 +195,76 @@ versionNumber (VersionNumber x) = IntVal (fromIntegral x)
 
 parseVersionNumber :: Parser VersionNumber
 parseVersionNumber = do
-  VersionNumber . fromIntegral <$> parseIntVal
+    VersionNumber . fromIntegral <$> parseIntVal
 
 
 
-data SleBindInvocation = SleBindInvocation {
-  _sleBindCredentials :: !Credentials
-  , _sleBindInitiatorID :: !AuthorityIdentifier
-  , _sleBindResponderPortID :: !PortID
-  , _sleBindServiceType :: !ApplicationIdentifier
-  , _sleVersionNumber :: !VersionNumber
-  , _sleServiceInstanceID :: !ServiceInstanceIdentifier
-  } deriving (Eq, Show, Generic)
+data SleBindInvocation = SleBindInvocation
+    { _sleBindCredentials     :: !Credentials
+    , _sleBindInitiatorID     :: !AuthorityIdentifier
+    , _sleBindResponderPortID :: !PortID
+    , _sleBindServiceType     :: !ApplicationIdentifier
+    , _sleVersionNumber       :: !VersionNumber
+    , _sleServiceInstanceID   :: !ServiceInstanceIdentifier
+    }
+    deriving (Eq, Show, Generic)
 makeLenses ''SleBindInvocation
 
-mkSleBindInvocation :: 
-  AuthorityIdentifier 
-  -> PortID 
-  -> ApplicationIdentifier
-  -> VersionNumber 
-  -> ServiceInstanceIdentifier
-  -> SleBindInvocation
-mkSleBindInvocation authID pID appID vn siID = 
-  SleBindInvocation {
-  _sleBindCredentials = Nothing 
-  , _sleBindInitiatorID = authID
-  , _sleBindResponderPortID = pID
-  , _sleBindServiceType = appID
-  , _sleVersionNumber = vn
-  , _sleServiceInstanceID = siID
-  }
+mkSleBindInvocation
+    :: AuthorityIdentifier
+    -> PortID
+    -> ApplicationIdentifier
+    -> VersionNumber
+    -> ServiceInstanceIdentifier
+    -> SleBindInvocation
+mkSleBindInvocation authID pID appID vn siID = SleBindInvocation
+    { _sleBindCredentials     = Nothing
+    , _sleBindInitiatorID     = authID
+    , _sleBindResponderPortID = pID
+    , _sleBindServiceType     = appID
+    , _sleVersionNumber       = vn
+    , _sleServiceInstanceID   = siID
+    }
 
 sleBindInvocation :: SleBindInvocation -> [ASN1]
 sleBindInvocation SleBindInvocation {..} =
-  [ Start (Container Context 100)
-    , credentials _sleBindCredentials
-    , authorityIdentifier _sleBindInitiatorID
-    , portID _sleBindResponderPortID
-    , applicationIdentifier _sleBindServiceType
-    , versionNumber _sleVersionNumber
-    ]
-    <> serviceInstanceIdentifier _sleServiceInstanceID
-    <> [End (Container Context 100)]
+    [ Start (Container Context 100)
+        , credentials _sleBindCredentials
+        , authorityIdentifier _sleBindInitiatorID
+        , portID _sleBindResponderPortID
+        , applicationIdentifier _sleBindServiceType
+        , versionNumber _sleVersionNumber
+        ]
+        <> serviceInstanceIdentifier _sleServiceInstanceID
+        <> [End (Container Context 100)]
 
 
 parseSleBind :: Parser SleBindInvocation
 parseSleBind = do
-  between startContainer endContainer content
- where
-  startContainer = parseBasicASN1 (== Start (Container Context 100)) (const ())
-  endContainer   = parseBasicASN1 (== End (Container Context 100)) (const ())
+    between startContainer endContainer content
+  where
+    startContainer =
+        parseBasicASN1 (== Start (Container Context 100)) (const ())
+    endContainer = parseBasicASN1 (== End (Container Context 100)) (const ())
 
-  content        = do
-    creds     <- parseCredentials
-    authority <- parseAuthorityIdentifier
-    port      <- parsePortID
-    appID     <- parseApplicationIdentifier
-    version   <- parseVersionNumber
-    attrs     <- parseServiceInstanceIdentifier
-    return SleBindInvocation { _sleBindCredentials     = creds
-                             , _sleBindInitiatorID     = authority
-                             , _sleBindResponderPortID = port
-                             , _sleBindServiceType     = appID
-                             , _sleVersionNumber       = version
-                             , _sleServiceInstanceID   = attrs
-                             }
+    content      = do
+        creds     <- parseCredentials
+        authority <- parseAuthorityIdentifier
+        port      <- parsePortID
+        appID     <- parseApplicationIdentifier
+        version   <- parseVersionNumber
+        attrs     <- parseServiceInstanceIdentifier
+        return SleBindInvocation { _sleBindCredentials     = creds
+                                 , _sleBindInitiatorID     = authority
+                                 , _sleBindResponderPortID = port
+                                 , _sleBindServiceType     = appID
+                                 , _sleVersionNumber       = version
+                                 , _sleServiceInstanceID   = attrs
+                                 }
 
 
 instance EncodeASN1 SleBindInvocation where
-  encode val = encodeASN1' DER (sleBindInvocation val)
+    encode val = encodeASN1' DER (sleBindInvocation val)
 
 
 
@@ -287,81 +293,124 @@ bindDiagnostic InvalidTime                    = IntVal 7
 bindDiagnostic OutOfService                   = IntVal 8
 bindDiagnostic OtherReason                    = IntVal 127
 
--- toBindDiagnostic :: Int -> BindDiagnostic
--- toBindDiagnostic 0 = AccesDenied
--- toBindDiagnostic 1 = ServiceTypeNotSupported
--- toBindDiagnostic 2 = VersionNotSupported
--- toBindDiagnostic 3 = NoSuchServiceInstance
--- toBindDiagnostic 4 = AlreadyBound
--- toBindDiagnostic 5 = SiNotAccessibleToThisInitiator
--- toBindDiagnostic 6 = InconsistentServiceType
--- toBindDiagnostic 7 = InvalidTime
--- toBindDiagnostic 8 = OutOfService
--- toBindDiagnostic 127 = OtherReason
--- toBindDiagnostic _ = OtherReason
+toBindDiagnostic :: Integer -> BindDiagnostic
+toBindDiagnostic 0   = AccesDenied
+toBindDiagnostic 1   = ServiceTypeNotSupported
+toBindDiagnostic 2   = VersionNotSupported
+toBindDiagnostic 3   = NoSuchServiceInstance
+toBindDiagnostic 4   = AlreadyBound
+toBindDiagnostic 5   = SiNotAccessibleToThisInitiator
+toBindDiagnostic 6   = InconsistentServiceType
+toBindDiagnostic 7   = InvalidTime
+toBindDiagnostic 8   = OutOfService
+toBindDiagnostic 127 = OtherReason
+toBindDiagnostic _   = OtherReason
 
 
 parseBindDiagnostic :: Parser BindDiagnostic
 parseBindDiagnostic = do
-  x <- parseIntVal
-  case x of
-    0   -> return AccesDenied
-    1   -> return ServiceTypeNotSupported
-    2   -> return VersionNotSupported
-    3   -> return NoSuchServiceInstance
-    4   -> return AlreadyBound
-    5   -> return SiNotAccessibleToThisInitiator
-    6   -> return InconsistentServiceType
-    7   -> return InvalidTime
-    8   -> return OutOfService
-    127 -> return OtherReason
-    _ -> throwError $ "parseBindDiagnostic: illegal value: " <> T.pack (show x)
+    x <- parseIntVal
+    case x of
+        0   -> return AccesDenied
+        1   -> return ServiceTypeNotSupported
+        2   -> return VersionNotSupported
+        3   -> return NoSuchServiceInstance
+        4   -> return AlreadyBound
+        5   -> return SiNotAccessibleToThisInitiator
+        6   -> return InconsistentServiceType
+        7   -> return InvalidTime
+        8   -> return OutOfService
+        127 -> return OtherReason
+        _   -> throwError $ "parseBindDiagnostic: illegal value: " <> T.pack
+            (show x)
 
 
+data BindResult = BindResVersion VersionNumber | BindResDiag BindDiagnostic
+    deriving (Eq, Show, Generic)
 
-data SleBindReturn = SleBindReturn {
-  _sleBindRetCredentials :: Credentials
-  , _sleBindRetResponderID :: AuthorityIdentifier
-  , _sleBindRetResult :: Either VersionNumber BindDiagnostic
-} deriving (Eq, Show, Generic)
+
+data SleBindReturn = SleBindReturn
+    { _sleBindRetCredentials :: Credentials
+    , _sleBindRetResponderID :: AuthorityIdentifier
+    , _sleBindRetResult      :: BindResult
+    }
+    deriving (Eq, Show, Generic)
 makeLenses ''SleBindReturn
 
-retResult :: Either VersionNumber BindDiagnostic -> ASN1
-retResult (Left vn) =
-  Other Context 0 (BL.toStrict (encodeASN1 DER [versionNumber vn]))
-retResult (Right bd) =
-  Other Context 1 (BL.toStrict (encodeASN1 DER [bindDiagnostic bd]))
+retResult :: BindResult -> ASN1
+retResult (BindResVersion vn) =
+    Other Context 0 (BL.toStrict (encodeASN1 DER [versionNumber vn]))
+retResult (BindResDiag bd) =
+    Other Context 1 (BL.toStrict (encodeASN1 DER [bindDiagnostic bd]))
 
-parseRet :: Parser (Either VersionNumber BindDiagnostic)
-parseRet = parseEitherASN1 parseVersionNumber parseBindDiagnostic
+parseBindResult :: Parser BindResult
+parseBindResult = do
+    x <- get
+    case x of
+        (Other Context 0 dat : rest) -> do
+            put rest
+            case getInteger dat of
+                Left err ->
+                    throwError
+                        $  "parseChoiceBindRet: could not read Version tag: "
+                        <> T.pack (show err)
+                Right (IntVal vers) ->
+                    return (BindResVersion (VersionNumber (fromIntegral vers)))
+                Right tp ->
+                    throwError
+                        $  "parseChoiceBindRet: illegal type received: "
+                        <> T.pack (show tp)
+        (Other Context 1 dat : rest) -> do
+            put rest
+            case getInteger dat of
+                Left err ->
+                    throwError
+                        $ "parseChoiceBindRet: could not read Bind Diagnostic: "
+                        <> T.pack (show err)
+                Right (IntVal diag) ->
+                    return (BindResDiag (toBindDiagnostic diag))
+                Right tp ->
+                    throwError
+                        $  "parseChoiceBindRet: illegal type received: "
+                        <> T.pack (show tp)
+
+        (Other Context n _ : _) ->
+            throwError
+                $  "parseChoiceBindRet: illegal value for choice: "
+                <> T.pack (show n)
+        (o : _) ->
+            throwError $ "parseChoiceBindRet: expected CHOICE, got: " <> T.pack
+                (show o)
+        _ -> throwError $ "parseChoiceBindRet: expected CHOICE, got nothing."
 
 
 sleBindReturn :: SleBindReturn -> [ASN1]
 sleBindReturn SleBindReturn {..} =
-  [ Start Sequence
-  , credentials _sleBindRetCredentials
-  , authorityIdentifier _sleBindRetResponderID
-  , retResult _sleBindRetResult
-  , End Sequence
-  ]
+    [ Start Sequence
+    , credentials _sleBindRetCredentials
+    , authorityIdentifier _sleBindRetResponderID
+    , retResult _sleBindRetResult
+    , End Sequence
+    ]
 
 
 instance EncodeASN1 SleBindReturn where
-  encode val = encodeASN1' DER (sleBindReturn val)
+    encode val = encodeASN1' DER (sleBindReturn val)
 
 
 parseSleBindReturn :: Parser SleBindReturn
 parseSleBindReturn = do
-  between startContainer endContainer content
- where
-  startContainer = parseBasicASN1 (== Start (Container Context 101)) (const ())
-  endContainer   = parseBasicASN1 (== End (Container Context 101)) (const ())
+    between startContainer endContainer content
+  where
+    startContainer =
+        parseBasicASN1 (== Start (Container Context 101)) (const ())
+    endContainer = parseBasicASN1 (== End (Container Context 101)) (const ())
 
-  content        = do
-    creds     <- parseCredentials
-    authority <- parseAuthorityIdentifier
-    ret       <- parseRet
-    return SleBindReturn { _sleBindRetCredentials = creds
-                         , _sleBindRetResponderID = authority
-                         , _sleBindRetResult      = ret
-                         }
+    content      = do
+        creds     <- parseCredentials
+        authority <- parseAuthorityIdentifier
+        ret       <- parseBindResult
+        return SleBindReturn { _sleBindRetCredentials = creds
+                             , _sleBindRetResponderID = authority
+                             , _sleBindRetResult      = ret
+                             }

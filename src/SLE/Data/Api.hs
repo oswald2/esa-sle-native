@@ -37,7 +37,7 @@ bind cfg hdl appID attrs = do
     let bnd = mkSleBindInvocation (cfg ^. cfgInitiator)
                                   (PortID (run (decimal (hdl ^. slePort))))
                                   appID
-                                  (VersionNumber 2)
+                                  (cfg ^. cfgVersion)
                                   (ServiceInstanceIdentifier attrs)
     -- send it to the lower layers
     writeSLEInput hdl (SLEPdu (SlePduBind bnd))
