@@ -1,4 +1,4 @@
-module State.Events
+module SLE.State.Events
 (
   SleEvent(..)
   , SleEventHandler
@@ -7,7 +7,7 @@ where
 
 import RIO
 
-import Data.SLE.Bind 
+import SLE.Data.Bind 
 
 
 data SleEvent = 

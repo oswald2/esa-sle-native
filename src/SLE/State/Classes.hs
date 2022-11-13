@@ -1,7 +1,9 @@
-module State.Classes
+module SLE.State.Classes
     ( HasTimer(..)
     , HasEventHandler(..)
-    , HasConfig(..)
+    , HasCommonConfig(..)
+    , HasUserConfig(..)
+    , HasProviderConfig(..)
     , HasSleHandle(..)
     , sleRaiseEvent
     ) where
@@ -10,13 +12,22 @@ import           Control.Lens
 import           RIO                     hiding ( Lens' )
 import           System.Timer.Updatable
 
-import           Data.SLE.Config
-import           Data.SLE.Handle
-import           State.Events
+import           SLE.Data.CommonConfig
+import           SLE.Data.Handle
+import           SLE.Data.ProviderConfig
+import           SLE.Data.UserConfig
+import           SLE.State.Events
 
 
-class HasConfig env where
-  getConfig :: Getter env Config
+class HasCommonConfig env where
+  commonCfg :: Getter env CommonConfig
+
+class HasCommonConfig env => HasProviderConfig env where
+  providerCfg :: Getter env ProviderConfig
+
+class HasCommonConfig env => HasUserConfig env where
+  userCfg :: Getter env UserConfig
+
 
 class HasTimer env where
   getTimerHBT :: Getter env (TVar (Maybe (Updatable ())))

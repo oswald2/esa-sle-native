@@ -1,4 +1,4 @@
-module Data.SLE.PDU
+module SLE.Data.PDU
   ( SlePdu(..)
   , setCredentials
   , isBind
@@ -8,8 +8,8 @@ where
 import           RIO
 import           Control.Lens
 
-import           Data.SLE.Common
-import           Data.SLE.Bind
+import           SLE.Data.Common
+import           SLE.Data.Bind
 
 data SlePdu =
   SlePduBind SleBindInvocation

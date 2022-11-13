@@ -1,7 +1,7 @@
 {-# LANGUAGE 
   TemplateHaskell
 #-}
-module Data.SLE.Bind
+module SLE.Data.Bind
   ( Credentials
   , SleBindInvocation
   , mkSleBindInvocation
@@ -45,8 +45,8 @@ import           Data.ASN1.Types
 import           Data.ASN1.Encoding
 import           Data.ASN1.BinaryEncoding
 
-import           Data.SLE.Common
-import           Data.SLE.ServiceInstanceID
+import           SLE.Data.Common
+import           SLE.Data.ServiceInstanceID
 
 
 

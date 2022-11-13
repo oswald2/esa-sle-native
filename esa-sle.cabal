@@ -58,25 +58,31 @@ flag optimize
 library
   -- Modules exported by the library.
   exposed-modules:
-    Data.SLE.Api
-    Data.SLE.Input
-    Data.SLE.TMLMessage
-    Data.SLE.TMLConfig
-    Data.SLE.TMLProtocol
-    Data.SLE.RAF
-    Data.SLE.CCSDSTime
-    Data.SLE.ServiceInstanceID
-    Data.SLE.Common
-    Data.SLE.DEL
-    Data.SLE.AUL
-    Data.SLE.PDU
-    Data.SLE.Bind
-    Data.SLE.Config
-    Data.SLE.Handle
     Conduit.SocketReconnector
-    State.AppState
-    State.Classes
-    State.Events
+    SLE.Data.Api
+    SLE.Data.Input
+    SLE.Data.TMLMessage
+    SLE.Data.TMLConfig
+    SLE.Data.RAF
+    SLE.Data.CCSDSTime
+    SLE.Data.ServiceInstanceID
+    SLE.Data.Common
+    SLE.Data.DEL
+    SLE.Data.AUL
+    SLE.Data.PDU
+    SLE.Data.Bind
+    SLE.Data.CommonConfig
+    SLE.Data.ProviderConfig
+    SLE.Data.UserConfig
+    SLE.Data.Handle
+    SLE.Protocol.TMLProtocol
+    SLE.Protocol.SLEProtocol
+    SLE.Protocol.Provider 
+    SLE.Protocol.User
+    SLE.State.ProviderState
+    SLE.State.UserState
+    SLE.State.Classes
+    SLE.State.Events
 
   -- Other library packages from which modules are imported.
   build-depends:       
@@ -113,7 +119,6 @@ library
   -- LANGUAGE extensions used by modules in this package.
   -- other-extensions:
   default-extensions:
-        AutoDeriveTypeable
         BangPatterns
         BinaryLiterals
         ConstraintKinds

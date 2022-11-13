@@ -1,4 +1,4 @@
-module Data.SLE.ServiceInstanceID
+module SLE.Data.ServiceInstanceID
   ( rsp
   , cltu
   , spack
@@ -28,7 +28,7 @@ import           RIO.State
 import           Control.Monad.Except
 import           Data.ASN1.Types
 
-import           Data.SLE.Common
+import           SLE.Data.Common
 
 
 

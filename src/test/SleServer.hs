@@ -15,8 +15,10 @@ import qualified Data.Text.IO                  as T
 import           RIO
 import qualified RIO.Text                      as T
 
-import           Data.SLE.Api
-import           Data.SLE.Config
+import           SLE.Data.Api
+import           SLE.Data.ProviderConfig
+
+import           SLE.Protocol.Provider
 
 import           System.Directory               ( doesFileExist )
 
@@ -41,20 +43,23 @@ main = do
     opts <- unwrapRecord "SleServer"
 
     when (writeconfig opts) $ do
-        writeConfigJSON defaultConfig "DefaultConfig.json"
-        T.putStrLn "Wrote default config to file 'DefaultConfig.json'"
+        writeConfigJSON defaultProviderConfig defaultProviderConfigFileName
+        T.putStrLn
+            $  "Wrote default config to file '"
+            <> T.pack defaultProviderConfigFileName
+            <> "'"
         exitSuccess
 
     cfg <- case config opts of
         Nothing -> do
-            ex <- doesFileExist defaultConfigFileName
+            ex <- doesFileExist defaultProviderConfigFileName
             if ex
                 then do
                     T.putStrLn
                         $  "Loading default config from "
-                        <> T.pack defaultConfigFileName
+                        <> T.pack defaultProviderConfigFileName
                         <> "..."
-                    res <- loadConfigJSON defaultConfigFileName
+                    res <- loadConfigJSON defaultProviderConfigFileName
                     case res of
                         Left err -> do
                             T.putStrLn $ "Error loading config: " <> err
@@ -62,7 +67,7 @@ main = do
                         Right c -> pure c
                 else do
                     T.putStrLn "Using default config"
-                    return defaultConfig
+                    return defaultProviderConfig
         Just path -> do
             T.putStrLn $ "Loading configuration from file " <> T.pack path
             res <- loadConfigJSON path
@@ -73,7 +78,7 @@ main = do
                 Right c -> pure c
 
     let handler msg = T.putStrLn $ "SLE HANDLER: " <> T.pack (ppShow msg)
-    -- port = 55529
+-- port = 55529
         port = 5008
     withSleHandle port $ \hdl -> do
         T.putStrLn "Running Server..."

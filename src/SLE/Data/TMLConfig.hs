@@ -1,4 +1,4 @@
-module Data.SLE.TMLConfig
+module SLE.Data.TMLConfig
   ( TMLConfig(..)
   , ConnectAddr(..)
   , defaultConfig

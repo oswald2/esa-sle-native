@@ -1,7 +1,7 @@
 {-# LANGUAGE
   TemplateHaskell
 #-}
-module Data.SLE.Handle
+module SLE.Data.Handle
     ( SleHandle
     , newSleHandle
     , withSleHandle
@@ -18,7 +18,7 @@ import           Control.Lens
 
 import           Network.Socket                 ( PortNumber )
 
-import           Data.SLE.Input
+import           SLE.Data.Input
 
 
 

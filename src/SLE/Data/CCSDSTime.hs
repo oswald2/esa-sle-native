@@ -1,4 +1,4 @@
-module Data.SLE.CCSDSTime
+module SLE.Data.CCSDSTime
   ( CCSDSTime(..)
   , CCSDSTimePico(..)
   , ccsdsNullTime
@@ -7,7 +7,7 @@ module Data.SLE.CCSDSTime
   , ccsdsTimePicoBuilder
   , ccsdsTimeParser
   , ccsdsTimePicoParser
-  , Data.SLE.CCSDSTime.getCurrentTime
+  , SLE.Data.CCSDSTime.getCurrentTime
   )
 where
 

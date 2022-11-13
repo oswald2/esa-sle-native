@@ -1,4 +1,4 @@
-module Data.SLE.Common
+module SLE.Data.Common
   ( IntPosShort(..)
   , intPosShort
   , Credentials
@@ -43,7 +43,7 @@ import           Data.ASN1.Types
 import Data.ASN1.Encoding
 import Data.ASN1.BinaryEncoding
 
-import           Data.SLE.CCSDSTime
+import           SLE.Data.CCSDSTime
 
 
 

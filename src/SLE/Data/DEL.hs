@@ -1,4 +1,4 @@
-module Data.SLE.DEL
+module SLE.Data.DEL
   ( ISP1Credentials(..)
   , isp1Credentials
   , newCredentials
@@ -19,18 +19,18 @@ import           Data.ASN1.Encoding
 import           Data.ASN1.BinaryEncoding
 import           Data.Bits
 
-import           Data.SLE.Common
-import           Data.SLE.CCSDSTime
-import           Data.SLE.PDU
-import           Data.SLE.AUL
-import           Data.SLE.Config
+import           SLE.Data.Common
+import           SLE.Data.CCSDSTime
+import           SLE.Data.PDU
+import           SLE.Data.AUL
+import           SLE.Data.CommonConfig
 
 import           System.Random.SplitMix
 
 
 
 
-encodePDU :: Config -> SlePdu -> IO ByteString 
+encodePDU :: CommonConfig -> SlePdu -> IO ByteString 
 encodePDU cfg pdu = 
   case cfg ^. cfgAuthorize of 
     AuthNone -> encodePDUwoCreds pdu 
@@ -39,7 +39,7 @@ encodePDU cfg pdu =
 
 
 
-encodePDUwithCreds :: Config -> SlePdu -> IO ByteString
+encodePDUwithCreds :: CommonConfig -> SlePdu -> IO ByteString
 encodePDUwithCreds cfg pdu = do
   t <- getCurrentTime 
   gen <- initSMGen 
@@ -102,7 +102,7 @@ isp1CredentialsParser = do
         Time cds -> 
           return ISP1Credentials {
               _isp1Time = cds
-              , _isp1RandomNumber = (fromIntegral r)
+              , _isp1RandomNumber = fromIntegral r
               , _isp1TheProtected = prot
             }
         TimePico _ -> throwError "isp1CredentialsParser: expected CCSDS Time, got CCSDS Pico Time"

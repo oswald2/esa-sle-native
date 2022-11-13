@@ -8,21 +8,21 @@ import qualified Data.Text.IO                  as T
 import           RIO
 import qualified RIO.Text                      as T
 
-import           Data.SLE.Api
-import           Data.SLE.Bind
-import           Data.SLE.Config
-import           Data.SLE.ServiceInstanceID
-import           Data.SLE.TMLConfig
+import           SLE.Data.Api
+import           SLE.Data.Bind
+import           SLE.Data.ServiceInstanceID
+import           SLE.Data.TMLConfig
+import           SLE.Data.UserConfig
+
+import           SLE.Protocol.User
 
 
 main :: IO ()
 main = do
-    let addr = ConnectAddr { host = "localhost", port = 55529 }
+    let addr = ConnectAddr { host = "localhost", port = 5008 }
 
-        handler msg = T.putStrLn (T.pack (show msg))
-        cfg' = Data.SLE.Config.defaultConfig
-
-        cfg  = cfg' { _cfgInitiator = AuthorityIdentifier "SLE_USER" }
+        handler msg = T.putStrLn $ "HANDLER: " <> T.pack (show msg)
+        cfg = defaultUserConfig
 
     withSleHandle (port addr) $ \hdl -> do
         void $ concurrently (startClient addr handler hdl) (sendPDU cfg hdl)
@@ -30,14 +30,14 @@ main = do
 
 
 
-sendPDU :: Config -> SleHandle -> IO ()
+sendPDU :: UserConfig -> SleHandle -> IO ()
 sendPDU cfg hdl = do
     bind
-        cfg
+        (cfg ^. cfgCommon)
         hdl
         RtnAllFrames
-        [ ServiceInstanceAttribute SAGR  "1"
-        , ServiceInstanceAttribute SPACK "VST-PASS0001"
+        [ ServiceInstanceAttribute SAGR  "3"
+        , ServiceInstanceAttribute SPACK "facility-PASS1"
         , ServiceInstanceAttribute RSLFG "1"
-        , ServiceInstanceAttribute RAF   "onlt1"
+        , ServiceInstanceAttribute RAF   "onlc1"
         ]

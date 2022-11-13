@@ -1,7 +1,7 @@
 {-# LANGUAGE 
   TemplateHaskell
 #-}
-module Data.SLE.RAF
+module SLE.Data.RAF
   (
   )
 where

@@ -11,9 +11,9 @@ import           Data.ASN1.Encoding
 import           Data.ASN1.BinaryEncoding
 import           Data.ASN1.Types
 
-import           Data.SLE.RAF
-import           Data.SLE.Common
-import           Data.SLE.ServiceInstanceID
+import           SLE.Data.RAF
+import           SLE.Data.Common
+import           SLE.Data.ServiceInstanceID
 import           Test.Hspec
 
 

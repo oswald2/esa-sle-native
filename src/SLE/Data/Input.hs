@@ -1,7 +1,7 @@
 {-# LANGUAGE 
   TemplateHaskell
 #-}
-module Data.SLE.Input
+module SLE.Data.Input
   ( SleInput(..)
   )
 where
@@ -9,8 +9,8 @@ where
 import           RIO
 import           Control.Lens
 
-import           Data.SLE.TMLMessage
-import           Data.SLE.PDU
+import           SLE.Data.TMLMessage
+import           SLE.Data.PDU
 
 
 data SleInput =
