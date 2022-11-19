@@ -6,6 +6,8 @@ module SLE.State.Classes
     , HasProviderConfig(..)
     , HasSleHandle(..)
     , sleRaiseEvent
+    , HasRAF(..)
+    , getRAF
     ) where
 
 import           Control.Lens
@@ -15,9 +17,12 @@ import           System.Timer.Updatable
 import           SLE.Data.CommonConfig
 import           SLE.Data.Handle
 import           SLE.Data.ProviderConfig
+import           SLE.Data.RAF                   ( RAF
+                                                , RAFVar
+                                                , readRAFVarIO
+                                                )
 import           SLE.Data.UserConfig
 import           SLE.State.Events
-
 
 class HasCommonConfig env where
   commonCfg :: Getter env CommonConfig
@@ -45,4 +50,12 @@ class HasSleHandle env where
 sleRaiseEvent :: (MonadIO m, HasEventHandler env) => env -> SleEvent -> m ()
 sleRaiseEvent env event = liftIO $ sleRaiseEventIO env event
 
+
+class HasRAF env where
+  getRAFs :: Getter env (Vector RAFVar)
+  getRAFVar :: env -> Int -> RAFVar
+
+
+getRAF :: (MonadIO m, HasRAF env) => env -> Int -> m RAF
+getRAF env idx = readRAFVarIO (getRAFVar env idx) 
 

@@ -242,7 +242,7 @@ parseEitherASN1 leftp rightp = do
             throwError $ "parseEitherASN1: expected CHOICE, got: " <> T.pack
                 (show o)
         [] ->
-            throwError $ "parseEitherASN1: expected CHOICE, got nothing"
+            throwError "parseEitherASN1: expected CHOICE, got nothing"
 
 
 

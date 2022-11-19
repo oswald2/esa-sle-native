@@ -240,11 +240,10 @@ sleBindInvocation SleBindInvocation {..} =
 
 
 parseSleBind :: Parser SleBindInvocation
-parseSleBind = do
-    between startContainer endContainer content
+parseSleBind = content
   where
-    startContainer =
-        parseBasicASN1 (== Start (Container Context 100)) (const ())
+    -- startContainer =
+    --     parseBasicASN1 (== Start (Container Context 100)) (const ())
     endContainer = parseBasicASN1 (== End (Container Context 100)) (const ())
 
     content      = do
@@ -254,6 +253,7 @@ parseSleBind = do
         appID     <- parseApplicationIdentifier
         version   <- parseVersionNumber
         attrs     <- parseServiceInstanceIdentifier
+        void endContainer
         return SleBindInvocation { _sleBindCredentials     = creds
                                  , _sleBindInitiatorID     = authority
                                  , _sleBindResponderPortID = port
@@ -381,7 +381,7 @@ parseBindResult = do
         (o : _) ->
             throwError $ "parseChoiceBindRet: expected CHOICE, got: " <> T.pack
                 (show o)
-        _ -> throwError $ "parseChoiceBindRet: expected CHOICE, got nothing."
+        _ -> throwError "parseChoiceBindRet: expected CHOICE, got nothing."
 
 
 sleBindReturn :: SleBindReturn -> [ASN1]
@@ -399,17 +399,17 @@ instance EncodeASN1 SleBindReturn where
 
 
 parseSleBindReturn :: Parser SleBindReturn
-parseSleBindReturn = do
-    between startContainer endContainer content
+parseSleBindReturn = content
   where
-    startContainer =
-        parseBasicASN1 (== Start (Container Context 101)) (const ())
+    -- startContainer =
+    --     parseBasicASN1 (== Start (Container Context 101)) (const ())
     endContainer = parseBasicASN1 (== End (Container Context 101)) (const ())
 
     content      = do
         creds     <- parseCredentials
         authority <- parseAuthorityIdentifier
         ret       <- parseBindResult
+        void endContainer
         return SleBindReturn { _sleBindRetCredentials = creds
                              , _sleBindRetResponderID = authority
                              , _sleBindRetResult      = ret

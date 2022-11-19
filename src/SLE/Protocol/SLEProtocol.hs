@@ -24,6 +24,7 @@ import           SLE.Data.DEL
 import           SLE.Data.Handle
 import           SLE.Data.Input
 import           SLE.Data.PDU
+import           SLE.Data.PDUParser
 import           SLE.Data.TMLConfig
 import           SLE.Data.TMLMessage
 
@@ -142,76 +143,86 @@ processServerSLEMsg
        , HasSleHandle env
        , HasProviderConfig env
        )
-    => ConduitT TMLMessage Void m ()
-processServerSLEMsg = do
-    processSLEBind
-    processSLEMsg
-
-
-
-
-processSLEBind
-    :: ( MonadUnliftIO m
-       , MonadReader env m
-       , HasLogFunc env
-       , HasEventHandler env
-       , HasSleHandle env
-       , HasCommonConfig env
-       )
-    => ConduitT TMLMessage Void m ()
-processSLEBind = do
-    x <- await
-    case x of
-        Nothing  -> return ()
-        Just msg -> do
-            let encSle = msg ^. tmlMsgData
-            case decodeASN1 DER (BL.fromStrict encSle) of
+    => (SlePdu -> m ())
+    -> ConduitT TMLMessage Void m ()
+processServerSLEMsg processSlePdu = awaitForever $ \tlm -> do
+    let encSle = tlm ^. tmlMsgData
+    case decodeASN1 DER (BL.fromStrict encSle) of
+        Left err ->
+            logError $ "Error decoding ASN1 message: " <> displayShow err
+        Right ls -> do
+            lift $ logDebug $ "Received ASN1: " <> fromString (ppShow ls)
+            let result = parseASN1 slePduParser ls
+            case result of
                 Left err ->
-                    logError
-                        $  "Error decoding ASN1 message: "
-                        <> displayShow err
-                Right ls -> do
-                    lift $ logDebug $ "Received ASN1: " <> fromString
-                        (ppShow ls)
-                    let result = parseASN1 parseSleBind ls
-                    case result of
-                        Left err ->
-                            logError
-                                $  "Error decoding SLE BIND message: "
-                                <> display err
-                        Right bind -> do
-                            lift $ processSleBind bind
+                    logError $ "Error decoding SLE PDU: " <> display err
+                Right pdu -> do
+                    lift $ processSlePdu pdu
 
 
 
-processSleBind
-    :: ( MonadIO m
-       , MonadReader env m
-       , HasLogFunc env
-       , HasCommonConfig env
-       , HasEventHandler env
-       , HasSleHandle env
-       )
-    => SleBindInvocation
-    -> m ()
-processSleBind msg = do
-    logDebug $ "Received SLE Bind Invocation: " <> fromString (ppShow msg)
-    env <- ask
-    liftIO $ sleRaiseEvent env (SLEBindReceived msg)
+-- processSLEBind
+--     :: ( MonadUnliftIO m
+--        , MonadReader env m
+--        , HasLogFunc env
+--        , HasEventHandler env
+--        , HasSleHandle env
+--        , HasCommonConfig env
+--        )
+--     => ConduitT TMLMessage Void m ()
+-- processSLEBind = do
+--     x <- await
+--     case x of
+--         Nothing  -> return ()
+--         Just msg -> do
+--             let encSle = msg ^. tmlMsgData
+--             case decodeASN1 DER (BL.fromStrict encSle) of
+--                 Left err ->
+--                     logError
+--                         $  "Error decoding ASN1 message: "
+--                         <> displayShow err
+--                 Right ls -> do
+--                     lift $ logDebug $ "Received ASN1: " <> fromString
+--                         (ppShow ls)
+--                     let result = parseASN1 parseSleBind ls
+--                     case result of
+--                         Left err ->
+--                             logError
+--                                 $  "Error decoding SLE BIND message: "
+--                                 <> display err
+--                         Right bind -> do
+--                             lift $ processSleBind bind
 
-    -- TODO: for now, we just send a positive result back 
-    let cfg = env ^. commonCfg
-    let ret = SleBindReturn
-            { _sleBindRetCredentials = Nothing
-            , _sleBindRetResponderID = cfg ^. cfgResponder
-            , _sleBindRetResult      = BindResVersion (VersionNumber 3)
-            }
-        pdu = SlePduBindReturn ret
 
-    -- send the bind response
-    writeSLEInput (env ^. getHandle) (SLEPdu pdu)
 
-    return ()
+-- processSleBind
+--     :: ( MonadIO m
+--        , MonadReader env m
+--        , HasLogFunc env
+--        , HasCommonConfig env
+--        , HasEventHandler env
+--        , HasSleHandle env
+--        )
+--     => SleBindInvocation
+--     -> m ()
+-- processSleBind msg = do
+--     logDebug $ "Received SLE Bind Invocation: " <> fromString (ppShow msg)
+--     env <- ask
+--     liftIO $ sleRaiseEvent env (SLEBindReceived msg)
+
+--     -- TODO: for now, we just send a positive result back 
+--     let cfg = env ^. commonCfg
+--     let ret = SleBindReturn
+--             { _sleBindRetCredentials = Nothing
+--             , _sleBindRetResponderID = cfg ^. cfgResponder
+--             , _sleBindRetResult      = BindResVersion (VersionNumber 3)
+--             }
+--         pdu = SlePduBindReturn ret
+
+--     -- send the bind response
+--     writeSLEInput (env ^. getHandle) (SLEPdu pdu)
+
+--     return ()
 
 
 
@@ -304,11 +315,13 @@ listenSLE
        , HasTimer env
        )
     => PortNumber
+    -> (SlePdu -> m ())
     -> m ()
-listenSLE serverPort = do
+listenSLE serverPort process = do
     void
         $ runGeneralTCPServer (serverSettings (fromIntegral serverPort) "*")
-        $ \app -> race_ (processServerReadSLE app) (processServerSendSLE app)
+        $ \app -> race_ (processServerReadSLE process app)
+                        (processServerSendSLE app)
     onServerDisconnect
 
 -- | Reads from the socket and forwards the data to the TML Message parser conduit.
@@ -324,9 +337,10 @@ processServerReadSLE
        , HasTimer env
        , HasSleHandle env
        )
-    => AppData
+    => (SlePdu -> m ())
+    -> AppData
     -> m ()
-processServerReadSLE app = do
+processServerReadSLE process app = do
     env <- ask
     let initChain = appSource app .| conduitParserEither tmlPduParser .| sink
         initTime =
@@ -348,7 +362,8 @@ processServerReadSLE app = do
         Left (Right (Just ctxtMsg)) -> processContext ctxtMsg
 
     -- now, if we are still here, start the normal processing
-    runConduitRes $ appSource app .| processReadTML processServerSLEMsg
+    runConduitRes $ appSource app .| processReadTML
+        (processServerSLEMsg (lift . process))
 
   where
     sink = do
@@ -365,8 +380,6 @@ processServerReadSLE app = do
                         case checkPDU (env ^. commonCfg . cfgTML) pdu of
                             Left  err     -> return $ Left err
                             Right ctxtMsg -> return $ Right (Just ctxtMsg)
-
-
 
 
 -- | Processes the writing side of the socket. This function uses 'processWriteTML' 

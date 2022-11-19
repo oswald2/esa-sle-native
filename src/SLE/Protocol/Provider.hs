@@ -1,6 +1,5 @@
 module SLE.Protocol.Provider
     ( startServer
-    , startServerRIO
     ) where
 
 import           RIO
@@ -24,9 +23,6 @@ startServer cfg eventHandler hdl = do
 
         runRIO state $ do
             logDebug "Starting listening on SLE..."
-            listenSLE (hdl ^. slePort)
 
 
-startServerRIO :: SleHandle -> RIO ProviderState ()
-startServerRIO hdl = listenSLE (hdl ^. slePort)
 

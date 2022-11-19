@@ -70,11 +70,13 @@ library
     SLE.Data.DEL
     SLE.Data.AUL
     SLE.Data.PDU
+    SLE.Data.PDUParser
     SLE.Data.Bind
     SLE.Data.CommonConfig
     SLE.Data.ProviderConfig
     SLE.Data.UserConfig
     SLE.Data.Handle
+    SLE.Data.Types.Common
     SLE.Protocol.TMLProtocol
     SLE.Protocol.SLEProtocol
     SLE.Protocol.Provider 
@@ -109,7 +111,7 @@ library
     text-builder,
     cryptohash-sha256,
     aeson-pretty,
-    pretty-show 
+    pretty-show
 
 
 

@@ -3,6 +3,7 @@
 #-}
 module SLE.Data.ProviderConfig
     ( ProviderConfig(..)
+    , RAFConfig(..)
     , SleAuthType(..)
     , configPretty
     , defaultProviderConfigFileName
@@ -11,12 +12,16 @@ module SLE.Data.ProviderConfig
     , loadConfigJSON
     , cfgCommon
     , SLE.Data.ProviderConfig.cfgUserName
+    , cfgRAFs
+    , cfgRAFSII
+    , cfgRAFPort
     ) where
 
 
 import           RIO
 import qualified RIO.ByteString.Lazy           as B
 import qualified RIO.Text                      as T
+import qualified RIO.Vector                    as V
 
 import           Control.Lens
 
@@ -28,28 +33,44 @@ import           SLE.Data.Bind
 import           SLE.Data.CommonConfig
 
 
-newtype ProviderConfig = ProviderConfig
-    { _cfgCommon :: CommonConfig
+data RAFConfig = RAFConfig
+    { _cfgRAFSII  :: !Text
+    , _cfgRAFPort :: !Word16
+    }
+    deriving stock (Show, Generic)
+    deriving anyclass (FromJSON, ToJSON)
+
+defaultRAFConfig :: RAFConfig
+defaultRAFConfig = RAFConfig
+    { _cfgRAFSII  = "sagr=3.spack=facility-PASS1.rsl-fg=1.raf=onlc1"
+    , _cfgRAFPort = 5008
+    }
+
+
+data ProviderConfig = ProviderConfig
+    { _cfgCommon :: !CommonConfig
+    , _cfgRAFs   :: !(Vector RAFConfig)
     }
     deriving (Show, Generic)
+    deriving anyclass (FromJSON, ToJSON)
 
-instance FromJSON ProviderConfig
-instance ToJSON ProviderConfig where
-    toEncoding = genericToEncoding defaultOptions
 
 
 defaultProviderConfigFileName :: FilePath
 defaultProviderConfigFileName = "DefaultProviderConfig.json"
 
 defaultProviderConfig :: ProviderConfig
-defaultProviderConfig = ProviderConfig defaultCommonConfig
+defaultProviderConfig = ProviderConfig
+    { _cfgCommon = defaultCommonConfig
+    , _cfgRAFs   = V.singleton defaultRAFConfig
+    }
 
 
 cfgUserName :: Getter ProviderConfig Text
 cfgUserName = Control.Lens.to (unAuthorityID . _cfgInitiator . _cfgCommon)
 
 makeLenses ''ProviderConfig
-
+makeLenses ''RAFConfig
 
 configPretty :: ProviderConfig -> Text
 configPretty cfg = case (decodeUtf8' . B.toStrict . encodePretty) cfg of

@@ -5,6 +5,8 @@ module SLE.State.ProviderState
     ) where
 
 import           RIO
+import qualified RIO.Vector                    as V
+import qualified RIO.Vector.Unsafe             as V
 
 import           System.Timer.Updatable
 
@@ -14,9 +16,8 @@ import           SLE.State.Events
 import           SLE.Data.CommonConfig
 import           SLE.Data.Handle
 import           SLE.Data.ProviderConfig
+import           SLE.Data.RAF
 import           SLE.Data.TMLConfig
-
-
 
 
 
@@ -29,6 +30,7 @@ data ProviderState = ProviderState
     , _appLogFunc          :: !LogFunc
     , _appEventHandler     :: !SleEventHandler
     , _appSleHandle        :: SleHandle
+    , _appRAFs             :: !(Vector RAFVar)
     }
 
 
@@ -49,6 +51,10 @@ initialState cfg logFunc eventHandler hdl = do
         * 1_000_000
         )
     hbtr <- liftIO $ newTVarIO (fromIntegral (cfgHeartbeat tmlCfg) * 1_000_000)
+
+    -- create the RAFs 
+    rafs <- V.mapM createRAF (cfg ^. cfgRAFs)
+
     return $! ProviderState { _appTimerHBT         = var
                             , _appTimerHBR         = var1
                             , _appConfig           = cfg
@@ -57,6 +63,7 @@ initialState cfg logFunc eventHandler hdl = do
                             , _appSleHandle        = hdl
                             , _appHeartBeat        = hbtr
                             , _appHeartBeatReceive = hbrec
+                            , _appRAFs             = rafs
                             }
 
 
@@ -85,3 +92,8 @@ instance HasProviderConfig ProviderState where
 
 instance HasSleHandle ProviderState where
     getHandle = lens _appSleHandle (\c inp -> c { _appSleHandle = inp })
+
+
+instance HasRAF ProviderState where
+    getRAFs = lens _appRAFs (\st rafs -> st { _appRAFs = rafs })
+    getRAFVar env idx = (env ^. getRAFs) `V.unsafeIndex` idx
