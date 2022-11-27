@@ -15,6 +15,8 @@ module SLE.Data.ProviderConfig
     , cfgRAFs
     , cfgRAFSII
     , cfgRAFPort
+    , cfgRAFPeer
+    , cfgRAFPortID
     ) where
 
 
@@ -31,19 +33,23 @@ import           Data.Aeson.Encode.Pretty       ( encodePretty )
 import           SLE.Data.Bind
 
 import           SLE.Data.CommonConfig
-
+import           SLE.Data.Types.Common
 
 data RAFConfig = RAFConfig
-    { _cfgRAFSII  :: !Text
-    , _cfgRAFPort :: !Word16
+    { _cfgRAFSII    :: !SII
+    , _cfgRAFPort   :: !Word16
+    , _cfgRAFPeer   :: !Text
+    , _cfgRAFPortID :: !Text
     }
     deriving stock (Show, Generic)
     deriving anyclass (FromJSON, ToJSON)
 
 defaultRAFConfig :: RAFConfig
 defaultRAFConfig = RAFConfig
-    { _cfgRAFSII  = "sagr=3.spack=facility-PASS1.rsl-fg=1.raf=onlc1"
-    , _cfgRAFPort = 5008
+    { _cfgRAFSII    = SII "sagr=3.spack=facility-PASS1.rsl-fg=1.raf=onlc1"
+    , _cfgRAFPort   = 5008
+    , _cfgRAFPeer   = "EGSCC"
+    , _cfgRAFPortID = "PARAGONTT"
     }
 
 

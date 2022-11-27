@@ -53,13 +53,13 @@ processReadTML
        , HasCommonConfig env
        , HasEventHandler env
        , HasLogFunc env
-       , HasSleHandle env
        , HasTimer env
        )
-    => ConduitT TMLMessage Void m ()
+    => SleHandle
+    -> ConduitT TMLMessage Void m ()
     -> ConduitT ByteString Void m ()
-processReadTML processor = do
-    conduitParserEither tmlPduParser .| worker .| processPDU .| processor
+processReadTML hdl processor = do
+    conduitParserEither tmlPduParser .| worker .| processPDU hdl .| processor
   where
     worker = do
         x <- await
@@ -73,7 +73,7 @@ processReadTML processor = do
                             sleRaiseEvent
                                 env
                                 (TMLParseError (T.pack (errorMessage err)))
-                            runRIO env protocolAbort
+                            runRIO env (protocolAbort hdl)
                     Right (_, pdu) -> do
                         logDebug $ "Received PDU: " <> fromString (ppShow pdu)
                         lift restartHBRTimer
@@ -88,17 +88,17 @@ processPDU
        , HasEventHandler env
        , HasLogFunc env
        , HasCommonConfig env
-       , HasSleHandle env
        , HasTimer env
        )
-    => ConduitT TMLPDU TMLMessage m ()
-processPDU = do
+    => SleHandle
+    -> ConduitT TMLPDU TMLMessage m ()
+processPDU hdl = do
     awaitForever $ \case
         TMLPDUHeartBeat -> do
             logDebug "Received heartbeat."
         TMLPDUCtxt ctxt -> do
             logDebug $ "Received context message: " <> displayShow ctxt
-            lift $ processContext ctxt
+            lift $ processContext hdl ctxt
         TMLPDUMessage msg -> do
             lift $ logDebug $ "Yielding PDU: " <> fromString (ppShow msg)
             yield msg
@@ -110,21 +110,22 @@ processContext
        , HasTimer env
        , HasLogFunc env
        , HasCommonConfig env
-       , HasSleHandle env
        , HasEventHandler env
        )
-    => TMLContextMsgRead
+    => SleHandle
+    -> TMLContextMsgRead
     -> m ()
-processContext msg = do
+processContext hdl msg = do
     cfg <- view (commonCfg . cfgTML)
     case chkContextMsg cfg msg of
         Right _ -> do
             stopTimers
-            startTimersWith (_tmlCtxHeartbeatInterval msg)
+            startTimersWith hdl
+                            (_tmlCtxHeartbeatInterval msg)
                             (_tmlCtxDeadFactor msg)
         Left err -> do
             logError $ "Received illegal context message: " <> displayShow err
-            peerAbort
+            peerAbort hdl
 
 
 
@@ -140,15 +141,15 @@ startTimers
        , MonadReader env m
        , HasCommonConfig env
        , HasLogFunc env
-       , HasSleHandle env
        , HasEventHandler env
        , HasTimer env
        )
-    => m ()
-startTimers = do
+    => SleHandle
+    -> m ()
+startTimers hdl = do
     env <- ask
     let cfg = env ^. commonCfg . cfgTML
-    startTimersWith (cfgHeartbeat cfg) (cfgDeadFactor cfg)
+    startTimersWith hdl (cfgHeartbeat cfg) (cfgDeadFactor cfg)
 
 
 -- | start the heartbeat timers with the given values for heartbeat time and 
@@ -158,18 +159,19 @@ startTimersWith
        , MonadReader env m
        , HasEventHandler env
        , HasLogFunc env
-       , HasSleHandle env
        , HasTimer env
        )
-    => Word16
+    => SleHandle
+    -> Word16
     -> Word16
     -> m ()
-startTimersWith hbTime' deadFactor = do
+startTimersWith hdl hbTime' deadFactor = do
     env <- ask
     let hbrTime = fromIntegral hbTime' * fromIntegral deadFactor * 1_000_000
 
     logDebug "Starting timers..."
-    hbrTimer <- liftIO $ replacer (runRIO env heartBeatReceiveTimeOut) hbrTime
+    hbrTimer <- liftIO
+        $ replacer (runRIO env (heartBeatReceiveTimeOut hdl)) hbrTime
 
     atomically $ do
         writeTVar (env ^. getTimerHBR) (Just hbrTimer)
@@ -221,49 +223,37 @@ restartHBRTimer = do
 
 -- | The heartbeat timeout for hte receiver has timed out 
 heartBeatReceiveTimeOut
-    :: ( MonadUnliftIO m
-       , MonadReader env m
-       , HasLogFunc env
-       , HasSleHandle env
-       , HasEventHandler env
-       )
-    => m ()
-heartBeatReceiveTimeOut = do
+    :: (MonadUnliftIO m, MonadReader env m, HasLogFunc env, HasEventHandler env)
+    => SleHandle
+    -> m ()
+heartBeatReceiveTimeOut hdl = do
     logWarn "heartBeatReceiveTimeout"
-    protocolAbort
+    protocolAbort hdl
 
 
 -- | Issue a protocol abort message 
 protocolAbort
-    :: ( MonadUnliftIO m
-       , MonadReader env m
-       , HasLogFunc env
-       , HasEventHandler env
-       , HasSleHandle env
-       )
-    => m ()
-protocolAbort = do
+    :: (MonadUnliftIO m, MonadReader env m, HasLogFunc env, HasEventHandler env)
+    => SleHandle
+    -> m ()
+protocolAbort hdl = do
     logDebug "ProtocolAbort called!"
     env <- ask
     liftIO $ sleRaiseEvent env TMLProtocolAbort
-    atomically $ writeTBQueue (env ^. getHandle . sleInput) SLEAbort
+    writeSLEInput hdl SLEAbort
 
 
 -- | Issue a peer abort message
 peerAbort
-    :: ( MonadIO m
-       , MonadReader env m
-       , HasLogFunc env
-       , HasSleHandle env
-       , HasEventHandler env
-       )
-    => m ()
-peerAbort = do
+    :: (MonadIO m, MonadReader env m, HasLogFunc env, HasEventHandler env)
+    => SleHandle
+    -> m ()
+peerAbort hdl = do
     logDebug "PeerAbort!"
     env <- ask
     liftIO $ sleRaiseEvent env TMLPeerAbort
     liftIO $ sleRaiseEvent env TMLProtocolAbort
-    atomically $ writeTBQueue (env ^. getHandle . sleInput) SLEAbort
+    writeSLEInput hdl SLEAbort
 
 
 -- | Check a incoming 'TMLPDU' for errors

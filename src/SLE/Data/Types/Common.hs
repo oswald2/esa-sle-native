@@ -1,19 +1,21 @@
 module SLE.Data.Types.Common
-    ( SII
+    ( SII(..)
     , mkSII
     , ServiceState(..)
     ) where
 
 import           RIO
 
+import           Data.Aeson
 
-newtype SII = SII { serviceInstanceID :: Text }
+newtype SII = SII Text
     deriving stock (Eq, Ord, Show, Read, Generic)
+    deriving anyclass (FromJSON, ToJSON)
 
 mkSII :: Text -> SII
 mkSII s = SII s
 
-instance Display SII where 
+instance Display SII where
     textDisplay (SII sii) = sii
 
 

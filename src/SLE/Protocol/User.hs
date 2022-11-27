@@ -1,6 +1,5 @@
 module SLE.Protocol.User
     ( startClient
-    , startClientRIO
     ) where
 
 import           RIO
@@ -23,9 +22,6 @@ startClient addr eventHandler hdl = do
         state <- initialState defaultUserConfig logFunc eventHandler hdl
 
         runRIO state $ do
-            connectSLE addr
+            connectSLE hdl addr
 
-
-startClientRIO :: ConnectAddr -> RIO UserState ()
-startClientRIO = connectSLE
 

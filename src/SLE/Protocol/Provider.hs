@@ -4,25 +4,22 @@ module SLE.Protocol.Provider
 
 import           RIO
 
-import           SLE.Data.Handle
 import           SLE.Data.ProviderConfig
-
-import           SLE.Protocol.SLEProtocol
 
 import           SLE.State.Events
 import           SLE.State.ProviderState
 
+import           SLE.Protocol.RAF
 
 
-startServer :: ProviderConfig -> SleEventHandler -> SleHandle -> IO ()
-startServer cfg eventHandler hdl = do
+startServer :: ProviderConfig -> SleEventHandler -> IO ()
+startServer cfg eventHandler = do
     defLogOptions <- logOptionsHandle stdout True
     let logOptions = setLogMinLevel LevelDebug defLogOptions
     withLogFunc logOptions $ \logFunc -> do
-        state <- initialState cfg logFunc eventHandler hdl
+        state <- initialState cfg logFunc eventHandler
 
         runRIO state $ do
             logDebug "Starting listening on SLE..."
-
-
+            runRAFs
 

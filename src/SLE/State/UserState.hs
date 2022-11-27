@@ -80,5 +80,3 @@ instance HasUserConfig UserState where
     userCfg = lens _appConfig (\c cfg -> c { _appConfig = cfg })
 
 
-instance HasSleHandle UserState where
-    getHandle = lens _appSleHandle (\c inp -> c { _appSleHandle = inp })

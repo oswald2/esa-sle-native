@@ -13,7 +13,7 @@ packages:
     hackage: timers-updatable-0.2.0.2@sha256:8dc262bb1324c02eae4251f2b0f78109d1a6133754d5ae845778908abda43858,946
 snapshots:
 - completed:
-    sha256: 5cacb39a2c21842535dc0a31e2005d3b1eb18e451a89d58c28381e1efdb9520f
-    size: 647983
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/nightly/2022/11/12.yaml
-  original: nightly-2022-11-12
+    sha256: b73b2b116143aea728c70e65c3239188998bac5bc3be56465813dacd74215dc5
+    size: 648424
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/20/1.yaml
+  original: lts-20.1

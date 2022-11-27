@@ -25,6 +25,7 @@ module SLE.Data.Bind
     , parseApplicationIdentifier
     , SleBindReturn(..)
     , BindResult(..)
+    , BindDiagnostic(..)
     , sleBindReturn
     , sleBindRetCredentials
     , sleBindRetResponderID
@@ -34,13 +35,15 @@ module SLE.Data.Bind
     ) where
 
 
-import           Control.Lens            hiding ( Context )
-import           Control.Monad.Except
-import           Data.Aeson
 import           RIO
+import qualified RIO.ByteString                as B
 import qualified RIO.ByteString.Lazy           as BL
 import           RIO.State
 import qualified RIO.Text                      as T
+
+import           Control.Lens            hiding ( Context )
+import           Control.Monad.Except
+import           Data.Aeson
 
 import           Data.ASN1.BinaryEncoding
 import           Data.ASN1.Encoding
@@ -72,6 +75,8 @@ parseAuthorityIdentifier :: Parser AuthorityIdentifier
 parseAuthorityIdentifier = do
     AuthorityIdentifier <$> parseVisibleString
 
+instance Display AuthorityIdentifier where
+    display (AuthorityIdentifier val) = display val
 
 
 
@@ -88,6 +93,9 @@ portID (PortID x) = visibleString x
 parsePortID :: Parser PortID
 parsePortID = do
     PortID <$> parseVisibleString
+
+instance Display PortID where
+    display (PortID val) = display val
 
 
 
@@ -111,6 +119,8 @@ data ApplicationIdentifier =
   | FwdCltu
   deriving (Eq, Ord, Enum, Show, Generic)
 
+instance Display ApplicationIdentifier where
+    textDisplay x = T.pack (show x)
 
 applicationIdentifier :: ApplicationIdentifier -> ASN1
 applicationIdentifier RtnAllFrames   = IntVal 0
@@ -185,6 +195,9 @@ newtype VersionNumber = VersionNumber { unVersionNumber :: Word16 }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
 
+
+instance Display VersionNumber where
+    display (VersionNumber val) = display val
 
 versionNumber :: VersionNumber -> ASN1
 versionNumber (VersionNumber x) = IntVal (fromIntegral x)
@@ -269,7 +282,7 @@ instance EncodeASN1 SleBindInvocation where
 
 
 data BindDiagnostic =
-  AccesDenied
+  AccessDenied
   | ServiceTypeNotSupported
   | VersionNotSupported
   | NoSuchServiceInstance
@@ -282,7 +295,7 @@ data BindDiagnostic =
   deriving (Eq, Ord, Enum, Show, Generic)
 
 bindDiagnostic :: BindDiagnostic -> ASN1
-bindDiagnostic AccesDenied                    = IntVal 0
+bindDiagnostic AccessDenied                   = IntVal 0
 bindDiagnostic ServiceTypeNotSupported        = IntVal 1
 bindDiagnostic VersionNotSupported            = IntVal 2
 bindDiagnostic NoSuchServiceInstance          = IntVal 3
@@ -293,8 +306,21 @@ bindDiagnostic InvalidTime                    = IntVal 7
 bindDiagnostic OutOfService                   = IntVal 8
 bindDiagnostic OtherReason                    = IntVal 127
 
+bindDiagnosticW8 :: BindDiagnostic -> Word8
+bindDiagnosticW8 AccessDenied                   = 0
+bindDiagnosticW8 ServiceTypeNotSupported        = 1
+bindDiagnosticW8 VersionNotSupported            = 2
+bindDiagnosticW8 NoSuchServiceInstance          = 3
+bindDiagnosticW8 AlreadyBound                   = 4
+bindDiagnosticW8 SiNotAccessibleToThisInitiator = 5
+bindDiagnosticW8 InconsistentServiceType        = 6
+bindDiagnosticW8 InvalidTime                    = 7
+bindDiagnosticW8 OutOfService                   = 8
+bindDiagnosticW8 OtherReason                    = 127
+
+
 toBindDiagnostic :: Integer -> BindDiagnostic
-toBindDiagnostic 0   = AccesDenied
+toBindDiagnostic 0   = AccessDenied
 toBindDiagnostic 1   = ServiceTypeNotSupported
 toBindDiagnostic 2   = VersionNotSupported
 toBindDiagnostic 3   = NoSuchServiceInstance
@@ -311,7 +337,7 @@ parseBindDiagnostic :: Parser BindDiagnostic
 parseBindDiagnostic = do
     x <- parseIntVal
     case x of
-        0   -> return AccesDenied
+        0   -> return AccessDenied
         1   -> return ServiceTypeNotSupported
         2   -> return VersionNotSupported
         3   -> return NoSuchServiceInstance
@@ -338,10 +364,10 @@ data SleBindReturn = SleBindReturn
 makeLenses ''SleBindReturn
 
 retResult :: BindResult -> ASN1
-retResult (BindResVersion vn) =
-    Other Context 0 (BL.toStrict (encodeASN1 DER [versionNumber vn]))
+retResult (BindResVersion (VersionNumber v)) =
+    Other Context 0 (B.singleton (fromIntegral v))
 retResult (BindResDiag bd) =
-    Other Context 1 (BL.toStrict (encodeASN1 DER [bindDiagnostic bd]))
+    Other Context 1 (B.singleton (bindDiagnosticW8 bd))
 
 parseBindResult :: Parser BindResult
 parseBindResult = do
@@ -386,11 +412,11 @@ parseBindResult = do
 
 sleBindReturn :: SleBindReturn -> [ASN1]
 sleBindReturn SleBindReturn {..} =
-    [ Start Sequence
+    [ Start (Container Context 101)
     , credentials _sleBindRetCredentials
     , authorityIdentifier _sleBindRetResponderID
     , retResult _sleBindRetResult
-    , End Sequence
+    , End (Container Context 101)
     ]
 
 

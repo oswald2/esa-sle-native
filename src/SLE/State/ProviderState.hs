@@ -29,7 +29,6 @@ data ProviderState = ProviderState
     , _appHeartBeatReceive :: TVar Int64
     , _appLogFunc          :: !LogFunc
     , _appEventHandler     :: !SleEventHandler
-    , _appSleHandle        :: SleHandle
     , _appRAFs             :: !(Vector RAFVar)
     }
 
@@ -39,9 +38,8 @@ initialState
     => ProviderConfig
     -> LogFunc
     -> SleEventHandler
-    -> SleHandle
     -> m ProviderState
-initialState cfg logFunc eventHandler hdl = do
+initialState cfg logFunc eventHandler = do
     var  <- liftIO $ newTVarIO Nothing
     var1 <- liftIO $ newTVarIO Nothing
     let tmlCfg = cfg ^. cfgCommon . cfgTML
@@ -53,14 +51,13 @@ initialState cfg logFunc eventHandler hdl = do
     hbtr <- liftIO $ newTVarIO (fromIntegral (cfgHeartbeat tmlCfg) * 1_000_000)
 
     -- create the RAFs 
-    rafs <- V.mapM createRAF (cfg ^. cfgRAFs)
+    rafs <- V.mapM newRAFVarIO (cfg ^. cfgRAFs)
 
     return $! ProviderState { _appTimerHBT         = var
                             , _appTimerHBR         = var1
                             , _appConfig           = cfg
                             , _appLogFunc          = logFunc
                             , _appEventHandler     = eventHandler
-                            , _appSleHandle        = hdl
                             , _appHeartBeat        = hbtr
                             , _appHeartBeatReceive = hbrec
                             , _appRAFs             = rafs
@@ -88,10 +85,6 @@ instance HasCommonConfig ProviderState where
 
 instance HasProviderConfig ProviderState where
     providerCfg = lens _appConfig (\c cfg -> c { _appConfig = cfg })
-
-
-instance HasSleHandle ProviderState where
-    getHandle = lens _appSleHandle (\c inp -> c { _appSleHandle = inp })
 
 
 instance HasRAF ProviderState where

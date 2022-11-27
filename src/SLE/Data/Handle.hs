@@ -7,6 +7,7 @@ module SLE.Data.Handle
     , withSleHandle
     , queueSize
     , writeSLEInput
+    , readSLEHandle
     , sleInput
     , slePort
     ) where
@@ -39,11 +40,13 @@ newSleHandle port = do
 
 withSleHandle :: (MonadUnliftIO m) => PortNumber -> (SleHandle -> m a) -> m a
 withSleHandle port process = do
-    bracket (newSleHandle port)
-            (\_hdl -> return ())
-            process
+    bracket (newSleHandle port) (\_hdl -> return ()) process
 
 writeSLEInput :: (MonadIO m) => SleHandle -> SleInput -> m ()
 writeSLEInput hdl inp = do
     atomically $ do
         writeTBQueue (_sleInput hdl) inp
+
+
+readSLEHandle :: SleHandle -> STM SleInput
+readSLEHandle hdl = readTBQueue (_sleInput hdl)

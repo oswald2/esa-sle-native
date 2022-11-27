@@ -4,7 +4,6 @@ module SLE.State.Classes
     , HasCommonConfig(..)
     , HasUserConfig(..)
     , HasProviderConfig(..)
-    , HasSleHandle(..)
     , sleRaiseEvent
     , HasRAF(..)
     , getRAF
@@ -42,10 +41,6 @@ class HasTimer env where
 
 class HasEventHandler env where
   sleRaiseEventIO :: env -> SleEvent -> IO ()
-
-class HasSleHandle env where
-  getHandle :: Getter env SleHandle
-
 
 sleRaiseEvent :: (MonadIO m, HasEventHandler env) => env -> SleEvent -> m ()
 sleRaiseEvent env event = liftIO $ sleRaiseEventIO env event

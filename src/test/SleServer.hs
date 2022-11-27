@@ -15,7 +15,6 @@ import qualified Data.Text.IO                  as T
 import           RIO
 import qualified RIO.Text                      as T
 
-import           SLE.Data.Api
 import           SLE.Data.ProviderConfig
 
 import           SLE.Protocol.Provider
@@ -78,11 +77,9 @@ main = do
                 Right c -> pure c
 
     let handler msg = T.putStrLn $ "SLE HANDLER: " <> T.pack (ppShow msg)
--- port = 55529
-        port = 5008
-    withSleHandle port $ \hdl -> do
-        T.putStrLn "Running Server..."
-        startServer cfg handler hdl
-        return ()
+        -- port = 55529
+    T.putStrLn $ "Running Server using config:\n" <> T.pack (ppShow cfg)
+    startServer cfg handler
+    return ()
 
 

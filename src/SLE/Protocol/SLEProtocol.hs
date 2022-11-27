@@ -48,16 +48,16 @@ connectSLE
        , HasLogFunc env
        , HasEventHandler env
        , HasUserConfig env
-       , HasSleHandle env
        , HasTimer env
        )
-    => ConnectAddr
+    => SleHandle
+    -> ConnectAddr
     -> m ()
-connectSLE addr = do
+connectSLE hdl addr = do
     runGeneralTCPReconnectClient
         (clientSettings (fromIntegral (port addr)) (encodeUtf8 (host addr)))
         200000
-        processConnect
+        (processConnect hdl)
         onDisconnect
 
 
@@ -67,12 +67,12 @@ processConnect
        , HasEventHandler env
        , HasLogFunc env
        , HasCommonConfig env
-       , HasSleHandle env
        , HasTimer env
        )
-    => AppData
+    => SleHandle
+    -> AppData
     -> m ()
-processConnect appData = do
+processConnect hdl appData = do
     env <- ask
     logInfo "SLE: Connected to provider."
     liftIO $ sleRaiseEvent env TMLConnect
@@ -88,12 +88,12 @@ processConnect appData = do
     logDebug "Sending context message..."
     runConduitRes $ sourceList [encMsg] .| appSink appData
     logDebug "Starting timers..."
-    startTimers
+    startTimers hdl
 
     logDebug "Running chains..."
     race_
-        (runConduitRes (appSource appData .| processReadTML processSLEMsg))
-        (runConduitRes (processWriteTML .| appSink appData))
+        (runConduitRes (appSource appData .| processReadTML hdl processSLEMsg))
+        (runConduitRes (processWriteTML hdl .| appSink appData))
 
     return ()
 
@@ -140,7 +140,6 @@ processServerSLEMsg
        , MonadReader env m
        , HasEventHandler env
        , HasLogFunc env
-       , HasSleHandle env
        , HasProviderConfig env
        )
     => (SlePdu -> m ())
@@ -157,6 +156,7 @@ processServerSLEMsg processSlePdu = awaitForever $ \tlm -> do
                 Left err ->
                     logError $ "Error decoding SLE PDU: " <> display err
                 Right pdu -> do
+                    lift $ logDebug $ "Received SLE PDU: " <> fromString (ppShow pdu)
                     lift $ processSlePdu pdu
 
 
@@ -232,15 +232,16 @@ processServerSLEMsg processSlePdu = awaitForever $ \tlm -> do
 -- within the configured timeout (send heartbeat), returns 'Nothing'. This indicates
 -- that a heartbeat message should be sent
 readSLEInput
-    :: (MonadIO m, MonadReader env m, HasTimer env, HasSleHandle env)
-    => m (Maybe SleInput)
-readSLEInput = do
+    :: (MonadIO m, MonadReader env m, HasTimer env)
+    => SleHandle
+    -> m (Maybe SleInput)
+readSLEInput hdl = do
     env   <- ask
     val   <- liftIO $ readTVarIO (env ^. hbt)
     delay <- registerDelay (fromIntegral val)
     atomically
         $   Just
-        <$> readTBQueue (env ^. getHandle . sleInput)
+        <$> readSLEHandle hdl
         <|> (readTVar delay >>= checkSTM >> pure Nothing)
 
 
@@ -280,14 +281,14 @@ processWriteTML
        , MonadReader env m
        , HasCommonConfig env
        , HasTimer env
-       , HasSleHandle env
        , HasLogFunc env
        )
-    => ConduitT () ByteString m ()
-processWriteTML = go
+    => SleHandle
+    -> ConduitT () ByteString m ()
+processWriteTML hdl = go
   where
     go = do
-        val <- readSLEInput
+        val <- readSLEInput hdl
         case val of
             Just inp -> do
                 logDebug $ "Sending SLE Input: " <> fromString (ppShow inp)
@@ -311,17 +312,17 @@ listenSLE
        , HasLogFunc env
        , HasEventHandler env
        , HasProviderConfig env
-       , HasSleHandle env
        , HasTimer env
        )
-    => PortNumber
+    => SleHandle
+    -> PortNumber
     -> (SlePdu -> m ())
     -> m ()
-listenSLE serverPort process = do
+listenSLE hdl serverPort process = do
     void
         $ runGeneralTCPServer (serverSettings (fromIntegral serverPort) "*")
-        $ \app -> race_ (processServerReadSLE process app)
-                        (processServerSendSLE app)
+        $ \app -> race_ (processServerReadSLE hdl process app)
+                        (processServerSendSLE hdl app)
     onServerDisconnect
 
 -- | Reads from the socket and forwards the data to the TML Message parser conduit.
@@ -335,12 +336,12 @@ processServerReadSLE
        , HasEventHandler env
        , HasProviderConfig env
        , HasTimer env
-       , HasSleHandle env
        )
-    => (SlePdu -> m ())
+    => SleHandle
+    -> (SlePdu -> m ())
     -> AppData
     -> m ()
-processServerReadSLE process app = do
+processServerReadSLE hdl process app = do
     env <- ask
     let initChain = appSource app .| conduitParserEither tmlPduParser .| sink
         initTime =
@@ -352,17 +353,18 @@ processServerReadSLE process app = do
     case result of
         Right _ -> do
             logDebug "Timeout waiting for context message, aborting"
-            protocolAbort
+            protocolAbort hdl
         Left (Left err) -> do
             logDebug (display err)
-            protocolAbort
+            protocolAbort hdl
         Left (Right Nothing) -> do -- we should terminate
             logDebug "Conduit told us to terminate..."
-            protocolAbort
-        Left (Right (Just ctxtMsg)) -> processContext ctxtMsg
+            protocolAbort hdl
+        Left (Right (Just ctxtMsg)) -> processContext hdl ctxtMsg
 
     -- now, if we are still here, start the normal processing
     runConduitRes $ appSource app .| processReadTML
+        hdl
         (processServerSLEMsg (lift . process))
 
   where
@@ -389,10 +391,11 @@ processServerSendSLE
        , MonadReader env m
        , HasLogFunc env
        , HasProviderConfig env
-       , HasSleHandle env
        , HasTimer env
        )
-    => AppData
+    => SleHandle
+    -> AppData
     -> m ()
-processServerSendSLE app = runConduitRes $ processWriteTML .| appSink app
+processServerSendSLE hdl app =
+    runConduitRes $ processWriteTML hdl .| appSink app
 

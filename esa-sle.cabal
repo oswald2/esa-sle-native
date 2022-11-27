@@ -81,6 +81,7 @@ library
     SLE.Protocol.SLEProtocol
     SLE.Protocol.Provider 
     SLE.Protocol.User
+    SLE.Protocol.RAF
     SLE.State.ProviderState
     SLE.State.UserState
     SLE.State.Classes
@@ -111,7 +112,8 @@ library
     text-builder,
     cryptohash-sha256,
     aeson-pretty,
-    pretty-show
+    pretty-show,
+    transformers
 
 
 
