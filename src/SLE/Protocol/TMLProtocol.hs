@@ -13,38 +13,24 @@ module SLE.Protocol.TMLProtocol
 
 import           ByteString.StrictBuilder
 import           Conduit
-import           Conduit.SocketReconnector
 import           Control.Concurrent.Killable
 import           Data.Conduit.Attoparsec
-import           Data.Conduit.List
-import           Data.Conduit.Network
-import           Network.Socket                 ( PortNumber )
 import           RIO
-import qualified RIO.ByteString.Lazy           as BL
 import qualified RIO.Text                      as T
---import           Data.Conduit.TQueue
 import           System.Timer.Updatable
 
 
-import           SLE.Data.Bind
-import           SLE.Data.Common
 import           SLE.Data.CommonConfig
-import           SLE.Data.DEL
 import           SLE.Data.Handle
 import           SLE.Data.Input
-import           SLE.Data.PDU
 import           SLE.Data.TMLConfig
 import           SLE.Data.TMLMessage
 
 import           SLE.State.Classes
 import           SLE.State.Events
 
-import           Data.ASN1.BinaryEncoding
-import           Data.ASN1.Encoding
-
 import           Text.Show.Pretty
 
-import           Text.Builder                  as TB
 
 
 processReadTML
@@ -69,11 +55,9 @@ processReadTML hdl processor = do
                 case val of
                     Left err -> do
                         env <- ask
-                        liftIO $ do
-                            sleRaiseEvent
-                                env
-                                (TMLParseError (T.pack (errorMessage err)))
-                            runRIO env (protocolAbort hdl)
+                        sleRaiseEvent
+                            (TMLParseError (T.pack (errorMessage err)))
+                        runRIO env (protocolAbort hdl)
                     Right (_, pdu) -> do
                         logDebug $ "Received PDU: " <> fromString (ppShow pdu)
                         lift restartHBRTimer
@@ -238,8 +222,7 @@ protocolAbort
     -> m ()
 protocolAbort hdl = do
     logDebug "ProtocolAbort called!"
-    env <- ask
-    liftIO $ sleRaiseEvent env TMLProtocolAbort
+    sleRaiseEvent TMLProtocolAbort
     writeSLEInput hdl SLEAbort
 
 
@@ -250,9 +233,8 @@ peerAbort
     -> m ()
 peerAbort hdl = do
     logDebug "PeerAbort!"
-    env <- ask
-    liftIO $ sleRaiseEvent env TMLPeerAbort
-    liftIO $ sleRaiseEvent env TMLProtocolAbort
+    sleRaiseEvent TMLPeerAbort
+    sleRaiseEvent TMLProtocolAbort
     writeSLEInput hdl SLEAbort
 
 
@@ -277,8 +259,7 @@ onServerDisconnect
     => m ()
 onServerDisconnect = do
     logWarn "Server is disconnecting..."
-    env <- ask
-    sleRaiseEvent env TMLDisconnect
+    sleRaiseEvent TMLDisconnect
     return ()
 
 

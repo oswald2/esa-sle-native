@@ -75,7 +75,7 @@ processConnect
 processConnect hdl appData = do
     env <- ask
     logInfo "SLE: Connected to provider."
-    liftIO $ sleRaiseEvent env TMLConnect
+    sleRaiseEvent TMLConnect
 
     -- now send the context 
     let msg = TMLCtxtMessage { _tmlCtxHbt   = cfgHeartbeat cfg
@@ -106,10 +106,9 @@ onDisconnect
        )
     => m ()
 onDisconnect = do
-    env <- ask
     logInfo "SLE: Disconnected from provider"
     stopTimers
-    liftIO $ sleRaiseEvent env TMLDisconnect
+    sleRaiseEvent TMLDisconnect
     return ()
 
 processSLEMsg
@@ -138,9 +137,7 @@ processSLEMsg = do
 processServerSLEMsg
     :: ( MonadUnliftIO m
        , MonadReader env m
-       , HasEventHandler env
        , HasLogFunc env
-       , HasProviderConfig env
        )
     => (SlePdu -> m ())
     -> ConduitT TMLMessage Void m ()

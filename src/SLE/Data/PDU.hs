@@ -1,34 +1,38 @@
 module SLE.Data.PDU
-  ( SlePdu(..)
-  , setCredentials
-  , isBind
-  )
-where
+    ( SlePdu(..)
+    , setCredentials
+    , isBind
+    ) where
 
-import           RIO
 import           Control.Lens
+import           RIO
 
-import           SLE.Data.Common
 import           SLE.Data.Bind
+import           SLE.Data.Common
 
 data SlePdu =
   SlePduBind SleBindInvocation
   | SlePduBindReturn SleBindReturn
+  | SlePduUnbind SleUnbind
   deriving (Show, Generic)
 
 
 isBind :: SlePdu -> Bool
-isBind (SlePduBind _) = True 
-isBind _ = False 
+isBind (SlePduBind _) = True
+isBind _              = False
 
 
 setCredentials :: SlePdu -> ByteString -> SlePdu
 setCredentials (SlePduBind val) creds =
-  SlePduBind $ val & sleBindCredentials ?~ creds
+    SlePduBind $ val & sleBindCredentials ?~ creds
 setCredentials (SlePduBindReturn val) creds =
-  SlePduBindReturn $ val & sleBindRetCredentials ?~ creds
+    SlePduBindReturn $ val & sleBindRetCredentials ?~ creds
+setCredentials (SlePduUnbind val) creds =
+    SlePduUnbind $ val & sleUnbindCredentials ?~ creds
+
 
 instance EncodeASN1 SlePdu where
-  encode (SlePduBind val) = encode val
-  encode (SlePduBindReturn val) = encode val 
+    encode (SlePduBind       val) = encode val
+    encode (SlePduBindReturn val) = encode val
+    encode (SlePduUnbind     val) = encode val
 

@@ -11,13 +11,7 @@ import           SLE.Data.CommonConfig
 import           SLE.Data.Handle
 import           SLE.Data.Input
 import           SLE.Data.PDU
-import           SLE.Data.ProviderConfig
 import           SLE.Data.ServiceInstanceID
-import           SLE.Data.TMLConfig
-
-import           SLE.Protocol.TMLProtocol
-
-import           SLE.State.Events
 
 import           Text.Builder
 

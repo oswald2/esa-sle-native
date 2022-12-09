@@ -22,9 +22,9 @@ slePduParser :: Parser SlePdu
 slePduParser = do
     x <- get
     case x of
-        (Start (Container Context x) : rest) -> do
+        (Start (Container Context c) : rest) -> do
             put rest
-            parsePDU x
+            parsePDU c
         _ -> throwError $ "slePduParser: cannot parse PUD: " <> fromString
             (ppShow x)
 
@@ -36,5 +36,6 @@ slePduParser = do
 parsePDU :: ASN1Tag -> Parser SlePdu
 parsePDU 100 = SlePduBind <$> parseSleBind
 parsePDU 101 = SlePduBindReturn <$> parseSleBindReturn
+parsePDU 102 = SlePduUnbind <$> parseSleUnbind
 parsePDU x =
     throwError $ TB.run $ "SLE PDU not implemented yet: ASN1 Tag " <> decimal x

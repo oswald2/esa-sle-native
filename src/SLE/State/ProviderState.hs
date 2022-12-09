@@ -12,12 +12,13 @@ import           System.Timer.Updatable
 
 import           SLE.State.Classes
 import           SLE.State.Events
+import           SLE.State.RAFClasses
 
 import           SLE.Data.CommonConfig
-import           SLE.Data.Handle
 import           SLE.Data.ProviderConfig
 import           SLE.Data.RAF
 import           SLE.Data.TMLConfig
+
 
 
 

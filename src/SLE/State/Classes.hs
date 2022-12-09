@@ -5,8 +5,6 @@ module SLE.State.Classes
     , HasUserConfig(..)
     , HasProviderConfig(..)
     , sleRaiseEvent
-    , HasRAF(..)
-    , getRAF
     ) where
 
 import           Control.Lens
@@ -16,10 +14,6 @@ import           System.Timer.Updatable
 import           SLE.Data.CommonConfig
 import           SLE.Data.Handle
 import           SLE.Data.ProviderConfig
-import           SLE.Data.RAF                   ( RAF
-                                                , RAFVar
-                                                , readRAFVarIO
-                                                )
 import           SLE.Data.UserConfig
 import           SLE.State.Events
 
@@ -42,15 +36,9 @@ class HasTimer env where
 class HasEventHandler env where
   sleRaiseEventIO :: env -> SleEvent -> IO ()
 
-sleRaiseEvent :: (MonadIO m, HasEventHandler env) => env -> SleEvent -> m ()
-sleRaiseEvent env event = liftIO $ sleRaiseEventIO env event
-
-
-class HasRAF env where
-  getRAFs :: Getter env (Vector RAFVar)
-  getRAFVar :: env -> Int -> RAFVar
-
-
-getRAF :: (MonadIO m, HasRAF env) => env -> Int -> m RAF
-getRAF env idx = readRAFVarIO (getRAFVar env idx) 
+sleRaiseEvent
+    :: (MonadIO m, MonadReader env m, HasEventHandler env) => SleEvent -> m ()
+sleRaiseEvent event = do
+    env <- ask
+    liftIO $ sleRaiseEventIO env event
 

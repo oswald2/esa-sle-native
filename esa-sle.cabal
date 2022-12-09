@@ -86,6 +86,8 @@ library
     SLE.State.UserState
     SLE.State.Classes
     SLE.State.Events
+    SLE.State.RAFClasses
+    SLE.State.RAFState
 
   -- Other library packages from which modules are imported.
   build-depends:       

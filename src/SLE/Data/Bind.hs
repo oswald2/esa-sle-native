@@ -32,12 +32,17 @@ module SLE.Data.Bind
     , sleBindRetResult
     , parseSleBindReturn
     , toBindDiagnostic
+    , SleUnbind(..)
+    , sleUnbindCredentials
+    , sleUnbindReason
+    , UnbindReason(..)
+    , parseSleUnbind
+    , parseBindDiagnostic
     ) where
 
 
 import           RIO
 import qualified RIO.ByteString                as B
-import qualified RIO.ByteString.Lazy           as BL
 import           RIO.State
 import qualified RIO.Text                      as T
 
@@ -68,9 +73,6 @@ instance ToJSON AuthorityIdentifier where
 authorityIdentifier :: AuthorityIdentifier -> ASN1
 authorityIdentifier (AuthorityIdentifier x) = visibleString x
 
--- getAuthorityIdentifier :: ASN1 -> Maybe AuthorityIdentifier 
--- getAuthorityIdentifier x = AuthorityIdentifier <$> getVisibleString x 
-
 parseAuthorityIdentifier :: Parser AuthorityIdentifier
 parseAuthorityIdentifier = do
     AuthorityIdentifier <$> parseVisibleString
@@ -86,9 +88,6 @@ newtype PortID = PortID { unPortID :: Text }
 
 portID :: PortID -> ASN1
 portID (PortID x) = visibleString x
-
--- getPortID :: ASN1 -> Maybe PortID 
--- getPortID x = PortID <$> getVisibleString x
 
 parsePortID :: Parser PortID
 parsePortID = do
@@ -141,28 +140,6 @@ applicationIdentifier FwdTcVca       = IntVal 14
 applicationIdentifier FwdTcFrame     = IntVal 15
 applicationIdentifier FwdCltu        = IntVal 16
 
-
--- getApplicationIdentifier :: ASN1 -> Maybe ApplicationIdentifier
--- getApplicationIdentifier (IntVal 0 ) = Just RtnAllFrames
--- getApplicationIdentifier (IntVal 1 ) = Just RtnInsert
--- getApplicationIdentifier (IntVal 2 ) = Just RtnChFrames
--- getApplicationIdentifier (IntVal 3 ) = Just RtnChFsh
--- getApplicationIdentifier (IntVal 4 ) = Just RtnChOcf
--- getApplicationIdentifier (IntVal 5 ) = Just RtnBitstr
--- getApplicationIdentifier (IntVal 6 ) = Just RtnSpacePkt
--- getApplicationIdentifier (IntVal 7 ) = Just FwdAosSpacePkt
--- getApplicationIdentifier (IntVal 8 ) = Just FwdAosVca
--- getApplicationIdentifier (IntVal 9 ) = Just FwdBitstr
--- getApplicationIdentifier (IntVal 10) = Just FwdProtoVcdu
--- getApplicationIdentifier (IntVal 11) = Just FwdInsert
--- getApplicationIdentifier (IntVal 12) = Just FwdCVcdu
--- getApplicationIdentifier (IntVal 13) = Just FwdTcSpacePkt
--- getApplicationIdentifier (IntVal 14) = Just FwdTcVca
--- getApplicationIdentifier (IntVal 15) = Just FwdTcFrame
--- getApplicationIdentifier (IntVal 16) = Just FwdCltu
--- getApplicationIdentifier _           = Nothing
-
-
 parseApplicationIdentifier :: Parser ApplicationIdentifier
 parseApplicationIdentifier = do
     v <- parseIntVal
@@ -201,10 +178,6 @@ instance Display VersionNumber where
 
 versionNumber :: VersionNumber -> ASN1
 versionNumber (VersionNumber x) = IntVal (fromIntegral x)
-
--- getVersionNumber :: ASN1 -> Maybe VersionNumber
--- getVersionNumber (IntVal x) = Just (VersionNumber (fromIntegral x))
--- getVersionNumber _          = Nothing
 
 parseVersionNumber :: Parser VersionNumber
 parseVersionNumber = do
@@ -294,17 +267,17 @@ data BindDiagnostic =
   | OtherReason
   deriving (Eq, Ord, Enum, Show, Generic)
 
-bindDiagnostic :: BindDiagnostic -> ASN1
-bindDiagnostic AccessDenied                   = IntVal 0
-bindDiagnostic ServiceTypeNotSupported        = IntVal 1
-bindDiagnostic VersionNotSupported            = IntVal 2
-bindDiagnostic NoSuchServiceInstance          = IntVal 3
-bindDiagnostic AlreadyBound                   = IntVal 4
-bindDiagnostic SiNotAccessibleToThisInitiator = IntVal 5
-bindDiagnostic InconsistentServiceType        = IntVal 6
-bindDiagnostic InvalidTime                    = IntVal 7
-bindDiagnostic OutOfService                   = IntVal 8
-bindDiagnostic OtherReason                    = IntVal 127
+-- bindDiagnostic :: BindDiagnostic -> ASN1
+-- bindDiagnostic AccessDenied                   = IntVal 0
+-- bindDiagnostic ServiceTypeNotSupported        = IntVal 1
+-- bindDiagnostic VersionNotSupported            = IntVal 2
+-- bindDiagnostic NoSuchServiceInstance          = IntVal 3
+-- bindDiagnostic AlreadyBound                   = IntVal 4
+-- bindDiagnostic SiNotAccessibleToThisInitiator = IntVal 5
+-- bindDiagnostic InconsistentServiceType        = IntVal 6
+-- bindDiagnostic InvalidTime                    = IntVal 7
+-- bindDiagnostic OutOfService                   = IntVal 8
+-- bindDiagnostic OtherReason                    = IntVal 127
 
 bindDiagnosticW8 :: BindDiagnostic -> Word8
 bindDiagnosticW8 AccessDenied                   = 0
@@ -427,8 +400,6 @@ instance EncodeASN1 SleBindReturn where
 parseSleBindReturn :: Parser SleBindReturn
 parseSleBindReturn = content
   where
-    -- startContainer =
-    --     parseBasicASN1 (== Start (Container Context 101)) (const ())
     endContainer = parseBasicASN1 (== End (Container Context 101)) (const ())
 
     content      = do
@@ -440,3 +411,63 @@ parseSleBindReturn = content
                              , _sleBindRetResponderID = authority
                              , _sleBindRetResult      = ret
                              }
+
+
+data UnbindReason = UnbindEnd | UnbindSuspend | UnbindVersionNotSupported | UnbindOther
+    deriving (Eq, Ord, Enum, Show, Generic)
+
+unbindReason :: UnbindReason -> ASN1
+unbindReason UnbindEnd                 = IntVal 0
+unbindReason UnbindSuspend             = IntVal 1
+unbindReason UnbindVersionNotSupported = IntVal 2
+unbindReason UnbindOther               = IntVal 127
+
+parseUnbindReason :: Parser UnbindReason
+parseUnbindReason = do
+    x <- parseIntVal
+    case x of
+        0   -> return UnbindEnd
+        1   -> return UnbindSuspend
+        2   -> return UnbindVersionNotSupported
+        127 -> return UnbindOther
+        _ ->
+            throwError $ "parseUnbindReason: illegal value: " <> T.pack (show x)
+
+
+data SleUnbind = SleUnbind
+    { _sleUnbindCredentials :: Credentials
+    , _sleUnbindReason      :: UnbindReason
+    }
+    deriving (Show, Generic)
+makeLenses ''SleUnbind
+
+instance EncodeASN1 SleUnbind where
+    encode val = encodeASN1' DER (sleUnbind val)
+
+sleUnbind :: SleUnbind -> [ASN1]
+sleUnbind SleUnbind {..} =
+    [ Start (Container Context 102)
+    , credentials _sleUnbindCredentials
+    , unbindReason _sleUnbindReason
+    , End (Container Context 102)
+    ]
+
+parseSleUnbind :: Parser SleUnbind
+parseSleUnbind = content
+  where
+    endContainer = parseBasicASN1 (== End (Container Context 102)) (const ())
+
+    content      = do
+        creds  <- parseCredentials
+        reason <- parseUnbindReason
+        void endContainer
+        return SleUnbind { _sleUnbindCredentials = creds
+                         , _sleUnbindReason      = reason
+                         }
+
+data Result = Positiv | Negative
+
+data SleUnbindReturn = SleUnbindReturn
+    { _sleUnbindRetCredentials :: Credentials
+    , _sleUnbindRetResult      :: Result
+    }
