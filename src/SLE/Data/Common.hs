@@ -6,6 +6,8 @@ module SLE.Data.Common
     , getCredentials
     , Time(..)
     , time
+    , ConditionalTime
+    , conditionalTime
     , visibleString
     , getVisibleString
     , EncodeASN1(..)
@@ -89,10 +91,10 @@ parseCredentials :: Parser Credentials
 parseCredentials = do
     x <- get
     case x of
-        ((Other Context 0 bs) : rest) -> do
+        ((Other Context 1 bs) : rest) -> do
             put rest
             if B.null bs then return Nothing else return (Just bs)
-        ((Other Context 1 _) : rest) -> do
+        ((Other Context 0 _) : rest) -> do
             put rest
             return Nothing
         _ -> throwError "parseCredentials: no credentials found"
@@ -100,7 +102,7 @@ parseCredentials = do
 data Time =
   Time CCSDSTime
   | TimePico CCSDSTimePico
-
+  deriving (Show, Generic)
 
 time :: Time -> ASN1
 time (Time     t) = OctetString . builderBytes . ccsdsTimeBuilder $ t
@@ -140,6 +142,14 @@ parseTime = do
                     $  "parseTime: cannot parse CCSDS pico time: "
                     <> T.pack err
             Right t -> return (TimePico t)
+
+type ConditionalTime = Maybe Time
+
+conditionalTime :: ConditionalTime -> ASN1
+conditionalTime Nothing = Other Context 0 B.empty
+conditionalTime (Just t) =
+    Other Context 1 (BL.toStrict (encodeASN1 DER ([time t])))
+
 
 visibleString :: Text -> ASN1
 visibleString t = ASN1String (ASN1CharacterString Visible (encodeUtf8 t))
@@ -241,8 +251,7 @@ parseEitherASN1 leftp rightp = do
         (o : _) ->
             throwError $ "parseEitherASN1: expected CHOICE, got: " <> T.pack
                 (show o)
-        [] ->
-            throwError "parseEitherASN1: expected CHOICE, got nothing"
+        [] -> throwError "parseEitherASN1: expected CHOICE, got nothing"
 
 
 

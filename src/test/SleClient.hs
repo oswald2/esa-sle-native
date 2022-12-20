@@ -25,19 +25,30 @@ main = do
         cfg = defaultUserConfig
 
     withSleHandle (port addr) $ \hdl -> do
-        void $ concurrently (startClient addr handler hdl) (sendPDU cfg hdl)
+        void $ concurrently (startClient addr handler hdl)
+                            (sleProcedure cfg hdl)
 
 
+sleProcedure :: UserConfig -> SleHandle -> IO ()
+sleProcedure cfg hdl = do
+    sendBind cfg hdl
+    threadDelay 2000000
+    sendUnbind cfg hdl
 
 
-sendPDU :: UserConfig -> SleHandle -> IO ()
-sendPDU cfg hdl = do
+sendBind :: UserConfig -> SleHandle -> IO ()
+sendBind cfg hdl = do
     bind
         (cfg ^. cfgCommon)
         hdl
         RtnAllFrames
+        (PortID "TMPORT")
         [ ServiceInstanceAttribute SAGR  "3"
         , ServiceInstanceAttribute SPACK "facility-PASS1"
         , ServiceInstanceAttribute RSLFG "1"
         , ServiceInstanceAttribute RAF   "onlc1"
         ]
+
+sendUnbind :: UserConfig -> SleHandle -> IO ()
+sendUnbind cfg hdl = do
+    unbind (cfg ^. cfgCommon) hdl UnbindEnd

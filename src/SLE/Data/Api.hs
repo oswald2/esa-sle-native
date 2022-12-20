@@ -2,6 +2,7 @@ module SLE.Data.Api
     ( SleHandle
     , withSleHandle
     , bind
+    , unbind
     ) where
 
 import           RIO
@@ -24,12 +25,13 @@ bind
     => CommonConfig
     -> SleHandle
     -> ApplicationIdentifier
+    -> PortID
     -> [ServiceInstanceAttribute]
     -> m ()
-bind cfg hdl appID attrs = do
+bind cfg hdl appID port attrs = do
   -- create an SLE Bind Invocation
     let bnd = mkSleBindInvocation (cfg ^. cfgInitiator)
-                                  (PortID (run (decimal (hdl ^. slePort))))
+                                  port
                                   appID
                                   (cfg ^. cfgVersion)
                                   (ServiceInstanceIdentifier attrs)
@@ -38,8 +40,10 @@ bind cfg hdl appID attrs = do
 
 
 
-unbind :: (Monad m) => SleHandle -> m ()
-unbind = undefined
+unbind :: (MonadIO m) => CommonConfig -> SleHandle -> UnbindReason -> m ()
+unbind _cfg hdl reason = do
+    let pdu = mkSleUnbindBindInvocation reason
+    writeSLEInput hdl (SLEPdu (SlePduUnbind pdu))
 
 
 sendFrame :: (Monad m) => SleHandle -> ByteString -> m ()

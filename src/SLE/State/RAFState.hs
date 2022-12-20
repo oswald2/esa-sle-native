@@ -10,6 +10,7 @@ module SLE.State.RAFState
     , readRAFVar
     , writeRAFVar
     , getRAFState
+    , setRAFState
     , rafVar
     , rafQueue
     , rafSleHandle
@@ -18,7 +19,9 @@ module SLE.State.RAFState
     , sendSlePdu
     ) where
 
-import           RIO                     hiding ( (^.) )
+import           RIO                     hiding ( (.~)
+                                                , (^.)
+                                                )
 
 import           Control.Lens
 
@@ -68,6 +71,11 @@ writeRAFVar var raf = writeTVar (_rafVar var) raf
 
 getRAFState :: (MonadIO m) => RAFVar -> m ServiceState
 getRAFState var = _rafState <$> readTVarIO (_rafVar var)
+
+setRAFState :: (MonadIO m) => RAFVar -> ServiceState -> m ()
+setRAFState var st = atomically $ do
+    raf <- readTVar (_rafVar var)
+    writeTVar (_rafVar var) (raf & rafState .~ st)
 
 sendSleRafCmd :: (MonadIO m) => RAFVar -> SleRafCmd -> m ()
 sendSleRafCmd var cmd = atomically $ writeTBQueue (_rafQueue var) cmd

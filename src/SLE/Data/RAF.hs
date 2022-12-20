@@ -37,18 +37,27 @@ bindRAF :: RAF -> RAF
 bindRAF raf = raf & rafState .~ ServiceBound
 
 
-rafStateMachine :: (MonadIO m, MonadReader env m, HasEventHandler env, HasLogFunc env) => RAFConfig -> RAFVar -> SlePdu -> m ()
+rafStateMachine :: (MonadIO m, 
+  MonadReader env m, 
+  HasEventHandler env, 
+  HasLogFunc env) => RAFConfig -> RAFVar -> SlePdu -> m ()
 rafStateMachine cfg var pdu = do
   state <- getRAFState var 
-  case state of 
+  newState <- case state of 
     ServiceInit -> processInitState cfg var pdu 
-    ServiceBound -> processBoundState cfg var pdu 
+    ServiceBound ->processBoundState cfg var pdu 
     ServiceActive -> processActiveState cfg var pdu   
+  setRAFState var newState 
 
-
-processInitState :: (MonadIO m, MonadReader env m, HasEventHandler env, HasLogFunc env) => RAFConfig -> RAFVar -> SlePdu -> m () 
+processInitState :: (MonadIO m, 
+  MonadReader env m, 
+  HasEventHandler env, 
+  HasLogFunc env) => RAFConfig -> RAFVar -> SlePdu -> m ServiceState 
 processInitState cfg var (SlePduBind pdu) = do 
   logDebug "processInitState: BIND"
+  
+  sleRaiseEvent (SLEBindReceived pdu)
+  
   let auth = AuthorityIdentifier (cfg ^. cfgRAFPeer)
       sii = toSII (pdu ^. sleServiceInstanceID)
   let res = do
@@ -77,8 +86,9 @@ processInitState cfg var (SlePduBind pdu) = do
                         , _sleBindRetResult = BindResVersion (pdu ^. sleVersionNumber) 
                         }
       logDebug $ "ASN1: " <> displayShow (sleBindReturn retPdu)
-      sleRaiseEvent (SLEBindSucceed sii)
       sendSlePdu var ret 
+      sleRaiseEvent (SLEBindSucceed sii)
+      return ServiceBound 
     Left (errmsg, diag) -> do 
         logError errmsg 
         let ret = SLEPdu $ SlePduBindReturn SleBindReturn {
@@ -86,16 +96,46 @@ processInitState cfg var (SlePduBind pdu) = do
           , _sleBindRetResponderID = AuthorityIdentifier (cfg ^. cfgRAFPortID)
           , _sleBindRetResult = BindResDiag diag 
           }
-        sendSlePdu var ret 
+        sendSlePdu var ret
+        sleRaiseEvent (SLEBindFailed sii diag)
+        return ServiceInit 
 
+processInitState _ _ (SlePduUnbind _) = do
+    logWarn "Received UNBIND when in init state, ignored"
+    return ServiceInit
 
 processInitState _cfg _var pdu = do 
-  logWarn $ "Functionality for PDU not yet implemented: " <> fromString (ppShow pdu)
+    logWarn $ "Init State: Functionality for PDU not yet implemented: " <> fromString (ppShow pdu)
+    return ServiceInit 
 
 
-processBoundState cfg var pdu = undefined 
+processBoundState :: (MonadIO m, 
+  MonadReader env m, 
+  HasEventHandler env, 
+  HasLogFunc env) => RAFConfig -> RAFVar -> SlePdu -> m ServiceState 
+processBoundState cfg var (SlePduUnbind pdu) = do 
+    logDebug "processInitState: UNBIND"
+
+    sleRaiseEvent (SLEUnbindReceived pdu)
+
+    logWarn $ "SLE Unbind received, unbind reason: " <> display (pdu ^. sleUnbindReason) 
+    let ret = SLEPdu $ SlePduUnbindReturn SleUnbindReturn {
+                _sleUnbindRetCredentials = Nothing 
+                , _sleUnbindRetResult    = Positive
+                }
+    sendSlePdu var ret 
+    sleRaiseEvent (SLEUnbindSucceed (cfg ^. cfgRAFSII))
+    return ServiceInit 
+
+processBoundState _cfg _var pdu = do 
+    logWarn $ "Bound State: Functionality for PDU not yet implemented: " <> fromString (ppShow pdu)
+    return ServiceBound 
 
 
+processActiveState :: (MonadIO m, 
+  MonadReader env m, 
+  HasEventHandler env, 
+  HasLogFunc env) => RAFConfig -> RAFVar -> SlePdu -> m ServiceState 
 processActiveState cfg var pdu = undefined 
 
 
@@ -113,14 +153,4 @@ processState cfg raf cmd =
       logWarn $ "RAF: " <> display (raf ^. rafSII) <> ": received BIND, but service is already active"
       return raf 
 
--- findService :: SII -> Array RAF -> Maybe RAF
--- findService sii vec = V.find (\r -> sii == _rafSII r) vec
-
-
--- createRAFServiceInstances :: CommonConfig -> Vector RAFConfig -> Vector RAF
--- createRAFServiceInstances cfg rafConfigs
-
-
--- runRAFProvider :: RAFConfig -> IO ()
--- runRAFProvider cfg = do
 

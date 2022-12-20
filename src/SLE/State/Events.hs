@@ -20,6 +20,9 @@ data SleEvent =
   | SLEBindReceived SleBindInvocation
   | SLEBindSucceed SII
   | SLEBindFailed SII BindDiagnostic
+  | SLEUnbindReceived SleUnbind
+  | SLEUnbindSucceed SII 
+  | SLEUnbindFailed SII 
   deriving (Show, Generic)
 
 type SleEventHandler = SleEvent -> IO ()

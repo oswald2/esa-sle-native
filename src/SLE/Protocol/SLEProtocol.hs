@@ -17,7 +17,6 @@ import           Data.Conduit.List
 import           Data.Conduit.Network
 import           Network.Socket                 ( PortNumber )
 
-import           SLE.Data.Bind
 import           SLE.Data.Common
 import           SLE.Data.CommonConfig
 import           SLE.Data.DEL
@@ -122,23 +121,18 @@ processSLEMsg = do
                 logError $ "Error decoding ASN1 message: " <> displayShow err
             Right ls -> do
                 lift $ logDebug $ "Received ASN1: " <> fromString (ppShow ls)
-                let result = parseASN1 parseSleBindReturn ls
+                let result = parseASN1 slePduParser ls
                 case result of
                     Left err ->
-                        logError
-                            $  "Error decoding SLE BIND RETURN message: "
-                            <> display err
-                    Right bindRet -> do
+                        logError $ "Error decoding SLE message: " <> display err
+                    Right pdu -> do
                         -- lift $ processSleBind bind
-                        logDebug $ "SLE BIND Return:\n" <> fromString
-                            (ppShow bindRet)
+                        logDebug $ "SLE Message:\n" <> fromString
+                            (ppShow pdu)
 
 
 processServerSLEMsg
-    :: ( MonadUnliftIO m
-       , MonadReader env m
-       , HasLogFunc env
-       )
+    :: (MonadUnliftIO m, MonadReader env m, HasLogFunc env)
     => (SlePdu -> m ())
     -> ConduitT TMLMessage Void m ()
 processServerSLEMsg processSlePdu = awaitForever $ \tlm -> do
@@ -153,7 +147,8 @@ processServerSLEMsg processSlePdu = awaitForever $ \tlm -> do
                 Left err ->
                     logError $ "Error decoding SLE PDU: " <> display err
                 Right pdu -> do
-                    lift $ logDebug $ "Received SLE PDU: " <> fromString (ppShow pdu)
+                    lift $ logDebug $ "Received SLE PDU: " <> fromString
+                        (ppShow pdu)
                     lift $ processSlePdu pdu
 
 

@@ -5,6 +5,7 @@ module SLE.Data.Bind
     ( Credentials
     , SleBindInvocation
     , mkSleBindInvocation
+    , mkSleUnbindBindInvocation
     , Time(..)
     , IntPosShort(..)
     , AuthorityIdentifier(..)
@@ -38,6 +39,11 @@ module SLE.Data.Bind
     , UnbindReason(..)
     , parseSleUnbind
     , parseBindDiagnostic
+    , SleUnbindReturn(..)
+    , UnbindResult(..)
+    , sleUnbindRetCredentials
+    , sleUnbindRetResult
+    , parseSleUnbindReturn
     ) where
 
 
@@ -422,6 +428,12 @@ unbindReason UnbindSuspend             = IntVal 1
 unbindReason UnbindVersionNotSupported = IntVal 2
 unbindReason UnbindOther               = IntVal 127
 
+instance Display UnbindReason where
+    display UnbindEnd                 = "End"
+    display UnbindSuspend             = "Suspend"
+    display UnbindVersionNotSupported = "Version not supported"
+    display UnbindOther               = "Other Reason"
+
 parseUnbindReason :: Parser UnbindReason
 parseUnbindReason = do
     x <- parseIntVal
@@ -440,6 +452,11 @@ data SleUnbind = SleUnbind
     }
     deriving (Show, Generic)
 makeLenses ''SleUnbind
+
+mkSleUnbindBindInvocation :: UnbindReason -> SleUnbind
+mkSleUnbindBindInvocation reason =
+    SleUnbind { _sleUnbindCredentials = Nothing, _sleUnbindReason = reason }
+
 
 instance EncodeASN1 SleUnbind where
     encode val = encodeASN1' DER (sleUnbind val)
@@ -465,9 +482,52 @@ parseSleUnbind = content
                          , _sleUnbindReason      = reason
                          }
 
-data Result = Positiv | Negative
+data UnbindResult = Positive | Negative
+    deriving (Show, Generic)
 
 data SleUnbindReturn = SleUnbindReturn
     { _sleUnbindRetCredentials :: Credentials
-    , _sleUnbindRetResult      :: Result
+    , _sleUnbindRetResult      :: UnbindResult
     }
+    deriving (Show, Generic)
+makeLenses ''SleUnbindReturn
+
+
+sleUnbindReturn :: SleUnbindReturn -> [ASN1]
+sleUnbindReturn SleUnbindReturn {..} =
+    [ Start (Container Context 103)
+    , credentials _sleUnbindRetCredentials
+    , unbindResult _sleUnbindRetResult
+    , End (Container Context 103)
+    ]
+
+unbindResult :: UnbindResult -> ASN1
+unbindResult _ = Other Context 0 B.empty
+
+parseUnbindResult :: Parser UnbindResult
+parseUnbindResult = do
+    x <- get
+    case x of
+        ((Other Context 0 _) : rest) -> do
+            put rest
+            return Positive
+        rest -> do
+            put rest
+            return Negative
+
+parseSleUnbindReturn :: Parser SleUnbindReturn
+parseSleUnbindReturn = content
+  where
+    endContainer = parseBasicASN1 (== End (Container Context 103)) (const ())
+
+    content      = do
+        creds  <- parseCredentials
+        result <- parseUnbindResult
+        void endContainer
+        return SleUnbindReturn { _sleUnbindRetCredentials = creds
+                               , _sleUnbindRetResult      = result
+                               }
+
+
+instance EncodeASN1 SleUnbindReturn where
+    encode val = encodeASN1' DER (sleUnbindReturn val)
