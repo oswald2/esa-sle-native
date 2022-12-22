@@ -26,9 +26,11 @@ import           SLE.Data.Bind
 import           SLE.Data.Input
 import           SLE.Data.ServiceInstanceID (toSII)
 import           SLE.Data.RAFOps
+import           SLE.Data.Common
 import           SLE.State.Classes
 import           SLE.State.RAFState 
 import           SLE.State.Events 
+
 
 import           Text.Show.Pretty 
 
@@ -115,7 +117,7 @@ processBoundState :: (MonadIO m,
   HasEventHandler env, 
   HasLogFunc env) => RAFConfig -> RAFVar -> SlePdu -> m ServiceState 
 processBoundState cfg var (SlePduUnbind pdu) = do 
-    logDebug "processInitState: UNBIND"
+    logDebug "processBoundState: UNBIND"
 
     sleRaiseEvent (SLEUnbindReceived pdu)
 
@@ -129,7 +131,7 @@ processBoundState cfg var (SlePduUnbind pdu) = do
     return ServiceInit 
 
 processBoundState cfg var (SlePduRafStart pdu) = do 
-    logDebug "processInitState: RAF START"
+    logDebug "processBoundState: RAF START"
 
     sleRaiseEvent (SLERafStartReceived pdu)
 
@@ -156,21 +158,41 @@ processActiveState :: (MonadIO m,
   MonadReader env m, 
   HasEventHandler env, 
   HasLogFunc env) => RAFConfig -> RAFVar -> SlePdu -> m ServiceState 
-processActiveState cfg var pdu = undefined 
+processActiveState cfg var (SlePduStop pdu) = do  
+    logDebug "processActiveState: RAF STOP"
+
+    sleRaiseEvent (SLERafStopReceived pdu)
+
+    -- TODO check values
+    let diag = Nothing
+
+    -- send response 
+    let ret = SLEPdu $ SlePduAck $ SleAcknowledgement { 
+                _sleAckCredentials = pdu ^. sleStopCredentials
+              , _sleAckInvokeID    = pdu ^. sleStopInvokeID
+              , _sleResult         = diag
+              }
+    sendSlePdu var ret 
+    sleRaiseEvent (SLERafStopSucceed (cfg ^. cfgRAFSII)) 
+    return ServiceBound
+
+processActiveState _cfg _var pdu = do 
+    logWarn $ "Active State: Functionality for PDU not yet implemented: " <> fromString (ppShow pdu)
+    return ServiceBound 
 
 
-processState :: (MonadIO m, MonadReader env m, HasLogFunc env) => RAFConfig -> RAF -> SleRafCmd -> m RAF
-processState cfg raf cmd = 
-  case raf ^. rafState of 
-    ServiceInit -> do 
-      -- set service to bound 
-      let newRAF = raf & rafState .~ ServiceBound 
-      return $! newRAF  
-    ServiceBound -> do 
-      logWarn $ "RAF: " <> display (raf ^. rafSII) <> ": received BIND, but service is already bound"
-      return raf 
-    ServiceActive -> do 
-      logWarn $ "RAF: " <> display (raf ^. rafSII) <> ": received BIND, but service is already active"
-      return raf 
+-- processState :: (MonadIO m, MonadReader env m, HasLogFunc env) => RAFConfig -> RAF -> SleRafCmd -> m RAF
+-- processState cfg raf cmd = 
+--   case raf ^. rafState of 
+--     ServiceInit -> do 
+--       -- set service to bound 
+--       let newRAF = raf & rafState .~ ServiceBound 
+--       return $! newRAF  
+--     ServiceBound -> do 
+--       logWarn $ "RAF: " <> display (raf ^. rafSII) <> ": received BIND, but service is already bound"
+--       return raf 
+--     ServiceActive -> do 
+--       logWarn $ "RAF: " <> display (raf ^. rafSII) <> ": received BIND, but service is already active"
+--       return raf 
 
 

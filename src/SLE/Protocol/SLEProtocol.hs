@@ -127,8 +127,7 @@ processSLEMsg = do
                         logError $ "Error decoding SLE message: " <> display err
                     Right pdu -> do
                         -- lift $ processSleBind bind
-                        logDebug $ "SLE Message:\n" <> fromString
-                            (ppShow pdu)
+                        logDebug $ "SLE Message:\n" <> fromString (ppShow pdu)
 
 
 processServerSLEMsg
@@ -313,8 +312,11 @@ listenSLE
 listenSLE hdl serverPort process = do
     void
         $ runGeneralTCPServer (serverSettings (fromIntegral serverPort) "*")
-        $ \app -> race_ (processServerReadSLE hdl process app)
-                        (processServerSendSLE hdl app)
+        $ \app -> do
+              logInfo "New connection on server socket"
+              race_ (processServerReadSLE hdl process app)
+                    (processServerSendSLE hdl app)
+              logInfo "Server threads stopped, restarting for listening"
     onServerDisconnect
 
 -- | Reads from the socket and forwards the data to the TML Message parser conduit.

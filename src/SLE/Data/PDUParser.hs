@@ -51,6 +51,8 @@ parsePDU 100 = SlePduBind <$> parseSleBind
 parsePDU 101 = SlePduBindReturn <$> parseSleBindReturn
 parsePDU 102 = SlePduUnbind <$> parseSleUnbind
 parsePDU 103 = SlePduUnbindReturn <$> parseSleUnbindReturn
-parsePDU 0 = SlePduRafStart <$> parseRafStart
+parsePDU 0   = SlePduRafStart <$> parseRafStart
+parsePDU 2   = SlePduStop <$> parseStopInvocation
+parsePDU 3   = SlePduAck <$> parseSleAcknowledgement
 parsePDU x =
     throwError $ TB.run $ "SLE PDU not implemented yet: ASN1 Tag " <> decimal x

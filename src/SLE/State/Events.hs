@@ -6,6 +6,7 @@ module SLE.State.Events
 import           RIO
 
 import           SLE.Data.Bind
+import           SLE.Data.Common
 import           SLE.Data.RAFOps
 import           SLE.Data.Types.Common
 
@@ -26,6 +27,9 @@ data SleEvent =
   | SLERafStartReceived  RafStartInvocation
   | SLERafStartFailed SII
   | SLERafStartSucceed  SII
+  | SLERafStopReceived SleStopInvocation
+  | SLERafStopFailed SII
+  | SLERafStopSucceed SII
   deriving (Show, Generic)
 
 type SleEventHandler = SleEvent -> IO ()

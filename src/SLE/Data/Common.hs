@@ -1,3 +1,5 @@
+{-# LANGUAGE TemplateHaskell 
+#-}
 module SLE.Data.Common
     ( IntPosShort(..)
     , intPosShort
@@ -35,19 +37,33 @@ module SLE.Data.Common
     , diagnostics
     , parseDiagnostics
     , diagnosticsFromInt
+    , SleStopInvocation(..)
+    , sleStopCredentials
+    , sleStopInvokeID
+    , parseStopInvocation
+    , SleAcknowledgement(..)
+    , sleAckCredentials
+    , sleAckInvokeID
+    , sleResult
+    , parseSleAcknowledgement
     ) where
 
-import           ByteString.StrictBuilder
-import           Control.Monad.Except
-import           Data.ASN1.BinaryEncoding
-import           Data.ASN1.Encoding
-import           Data.ASN1.Types
-import           Data.Attoparsec.ByteString     ( parseOnly )
 import           RIO
 import qualified RIO.ByteString                as B
 import qualified RIO.ByteString.Lazy           as BL
 import           RIO.State
 import qualified RIO.Text                      as T
+
+import           Control.Lens            hiding ( Context )
+import           Control.Monad.Except
+
+import           ByteString.StrictBuilder
+
+import           Data.ASN1.BinaryEncoding
+import           Data.ASN1.Encoding
+import           Data.ASN1.Prim
+import           Data.ASN1.Types
+import           Data.Attoparsec.ByteString     ( parseOnly )
 
 import           SLE.Data.CCSDSTime
 
@@ -339,3 +355,100 @@ diagnosticsFromInt (IntVal 100) = DuplicateInvokeID
 diagnosticsFromInt (IntVal _  ) = DiagOtherReason
 diagnosticsFromInt _            = DiagOtherReason
 
+
+type OptionalDiagnostics = Maybe Diagnostics
+
+
+optionalDiagnostics :: OptionalDiagnostics -> ASN1
+optionalDiagnostics Nothing = Other Context 0 B.empty
+optionalDiagnostics (Just diag) =
+    Other Context 1 (encodeASN1' DER [diagnostics diag])
+
+parseOptionalDiagnostcs :: Parser OptionalDiagnostics
+parseOptionalDiagnostcs = do
+    x <- get
+    case x of
+        ((Other Context 0 _) : rest) -> do
+            put rest
+            return Nothing
+        ((Other Context 1 bs) : rest) -> do
+            put rest
+            case getInteger bs of
+                Left err ->
+                    throwError
+                        $ "Optional Diagnostic RAF Start Parser: could not decode diagnostic: "
+                        <> fromString (show err)
+                Right v -> return (Just (diagnosticsFromInt v))
+        _ -> throwError "Could not parse optional diagnostics"
+
+
+data SleStopInvocation = SleStopInvocation
+    { _sleStopCredentials :: !Credentials
+    , _sleStopInvokeID    :: !Word16
+    }
+    deriving (Show, Generic)
+makeLenses ''SleStopInvocation
+
+
+stopInvocation :: SleStopInvocation -> [ASN1]
+stopInvocation SleStopInvocation {..} =
+    [ Start (Container Context 2)
+    , credentials _sleStopCredentials
+    , IntVal (fromIntegral _sleStopInvokeID)
+    , End (Container Context 2)
+    ]
+
+instance EncodeASN1 SleStopInvocation where
+    encode val = encodeASN1' DER (stopInvocation val)
+
+parseStopInvocation :: Parser SleStopInvocation
+parseStopInvocation = content
+  where
+    endContainer = parseBasicASN1 (== End (Container Context 2)) (const ())
+
+    content      = do
+        creds    <- parseCredentials
+        invokeID <- parseIntVal
+        void endContainer
+        return SleStopInvocation { _sleStopCredentials = creds
+                                 , _sleStopInvokeID    = fromIntegral invokeID
+                                 }
+
+
+
+data SleAcknowledgement = SleAcknowledgement
+    { _sleAckCredentials :: !Credentials
+    , _sleAckInvokeID    :: !Word16
+    , _sleResult         :: OptionalDiagnostics
+    }
+    deriving (Show, Generic)
+makeLenses ''SleAcknowledgement
+
+
+sleAcknowledgement :: SleAcknowledgement -> [ASN1]
+sleAcknowledgement SleAcknowledgement {..} =
+    [ Start (Container Context 3)
+    , credentials _sleAckCredentials
+    , IntVal (fromIntegral _sleAckInvokeID)
+    , optionalDiagnostics _sleResult
+    , End (Container Context 3)
+    ]
+
+instance EncodeASN1 SleAcknowledgement where
+    encode val = encodeASN1' DER (sleAcknowledgement val)
+
+
+parseSleAcknowledgement :: Parser SleAcknowledgement
+parseSleAcknowledgement = content
+  where
+    endContainer = parseBasicASN1 (== End (Container Context 3)) (const ())
+
+    content      = do
+        creds    <- parseCredentials
+        invokeID <- parseIntVal
+        result   <- parseOptionalDiagnostcs
+        void endContainer
+        return SleAcknowledgement { _sleAckCredentials = creds
+                                  , _sleAckInvokeID    = fromIntegral invokeID
+                                  , _sleResult         = result
+                                  }

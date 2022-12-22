@@ -18,6 +18,8 @@ data SlePdu =
   | SlePduUnbindReturn SleUnbindReturn
   | SlePduRafStart RafStartInvocation
   | SlePduRafStartReturn RafStartReturn
+  | SlePduStop SleStopInvocation
+  | SlePduAck SleAcknowledgement
   deriving (Show, Generic)
 
 
@@ -39,6 +41,10 @@ setCredentials (SlePduRafStart val) creds =
     SlePduRafStart $ val & rafStartCredentials ?~ creds
 setCredentials (SlePduRafStartReturn val) creds =
     SlePduRafStartReturn $ val & rafStartRetCredentials ?~ creds
+setCredentials (SlePduStop val) creds =
+    SlePduStop $ val & sleStopCredentials ?~ creds
+setCredentials (SlePduAck val) creds =
+    SlePduAck $ val & sleAckCredentials ?~ creds
 
 
 instance EncodeASN1 SlePdu where
@@ -48,3 +54,5 @@ instance EncodeASN1 SlePdu where
     encode (SlePduUnbindReturn   val) = encode val
     encode (SlePduRafStart       val) = encode val
     encode (SlePduRafStartReturn val) = encode val
+    encode (SlePduStop           val) = encode val
+    encode (SlePduAck            val) = encode val
