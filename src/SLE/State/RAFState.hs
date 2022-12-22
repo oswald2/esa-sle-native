@@ -5,6 +5,9 @@ module SLE.State.RAFState
     , RAF
     , rafSII
     , rafState
+    , rafStateStartTime
+    , rafStateStopTime
+    , rafStateRequestedQuality
     , newRAFVarIO
     , readRAFVarIO
     , readRAFVar
@@ -25,14 +28,20 @@ import           RIO                     hiding ( (.~)
 
 import           Control.Lens
 
+import           SLE.Data.Common
 import           SLE.Data.Handle
 import           SLE.Data.Input
 import           SLE.Data.ProviderConfig
+import           SLE.Data.RAFOps
 import           SLE.Data.Types.Common
 
+
 data RAF = RAF
-    { _rafSII   :: !SII
-    , _rafState :: !ServiceState
+    { _rafSII                   :: !SII
+    , _rafState                 :: !ServiceState
+    , _rafStateStartTime        :: !ConditionalTime
+    , _rafStateStopTime         :: !ConditionalTime
+    , _rafStateRequestedQuality :: !FrameQuality
     }
 makeLenses ''RAF
 
@@ -48,7 +57,12 @@ data RAFVar = RAFVar
 makeLenses ''RAFVar
 
 rafStartState :: RAFConfig -> RAF
-rafStartState cfg = RAF { _rafSII = cfg ^. cfgRAFSII, _rafState = ServiceInit }
+rafStartState cfg = RAF { _rafSII                   = cfg ^. cfgRAFSII
+                        , _rafState                 = ServiceInit
+                        , _rafStateStartTime        = Nothing
+                        , _rafStateStopTime         = Nothing
+                        , _rafStateRequestedQuality = AllFrames
+                        }
 
 
 newRAFVarIO :: (MonadIO m) => RAFConfig -> m RAFVar

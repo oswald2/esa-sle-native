@@ -29,7 +29,12 @@ module SLE.Data.Common
     , parseIntVal
     , parseIntPosShort
     , parseTime
+    , parseConditionalTime
     , parseOctetString
+    , Diagnostics(..)
+    , diagnostics
+    , parseDiagnostics
+    , diagnosticsFromInt
     ) where
 
 import           ByteString.StrictBuilder
@@ -45,6 +50,8 @@ import           RIO.State
 import qualified RIO.Text                      as T
 
 import           SLE.Data.CCSDSTime
+
+import           Text.Builder                  as TB
 
 
 
@@ -115,33 +122,35 @@ parseTime = do
     case x of
         OctetString bs : rest -> do
             put rest
-            if
-                | B.length bs == 8
-                -> ccsdsTime bs
-                | B.length bs == 10
-                -> ccsdsTimePico bs
-                | otherwise
-                -> throwError
-                    $  "parseTime: illegal time length: "
-                    <> T.pack (show (B.length bs))
-                    <> ", should be 8 or 10"
+            case timeFromBS bs of
+                Left  err -> throwError err
+                Right t   -> return t
         _ -> throwError "parseTime: no time found"
-  where
-    ccsdsTime bs = do
-        case parseOnly ccsdsTimeParser bs of
-            Left err ->
-                throwError
-                    $  "parseTime: cannot parse CCSDS time: "
-                    <> T.pack err
-            Right t -> return (Time t)
 
-    ccsdsTimePico bs = do
-        case parseOnly ccsdsTimePicoParser bs of
-            Left err ->
-                throwError
-                    $  "parseTime: cannot parse CCSDS pico time: "
-                    <> T.pack err
-            Right t -> return (TimePico t)
+
+timeFromBS :: ByteString -> Either Text Time
+timeFromBS bs
+    | B.length bs == 8
+    = ccsdsTime
+    | B.length bs == 10
+    = ccsdsTimePico
+    | otherwise
+    = Left
+        $  TB.run
+        $  TB.text "parseTime: illegal time length: "
+        <> TB.decimal (B.length bs)
+        <> TB.text ", should be 8 or 10"
+  where
+    ccsdsTime = case parseOnly ccsdsTimeParser bs of
+        Left err ->
+            Left $ "parseTime: cannot parse CCSDS time: " <> fromString err
+        Right t -> Right (Time t)
+
+    ccsdsTimePico = case parseOnly ccsdsTimePicoParser bs of
+        Left err ->
+            Left $ "parseTime: cannot parse CCSDS pico time: " <> fromString err
+        Right t -> Right (TimePico t)
+
 
 type ConditionalTime = Maybe Time
 
@@ -150,6 +159,21 @@ conditionalTime Nothing = Other Context 0 B.empty
 conditionalTime (Just t) =
     Other Context 1 (BL.toStrict (encodeASN1 DER ([time t])))
 
+
+parseConditionalTime :: Parser ConditionalTime
+parseConditionalTime = do
+    x <- get
+    case x of
+        ((Other Context 0 _) : rest) -> do
+            put rest
+            return Nothing
+        ((Other Context 1 t) : rest) -> do
+            put rest
+            case timeFromBS t of
+                Left  err -> throwError err
+                Right tm  -> return (Just tm)
+        _ -> throwError
+            "Could not parse conditional time, no conditional time found"
 
 visibleString :: Text -> ASN1
 visibleString t = ASN1String (ASN1CharacterString Visible (encodeUtf8 t))
@@ -173,9 +197,9 @@ parseVisibleString = do
                         <> T.pack (show err)
                         <> ": "
                         <> T.pack (show t)
-                Right text -> do
+                Right txt -> do
                     put rest
-                    return text
+                    return txt
         _ -> throwError "parseVisibleString: no visible string"
 
 
@@ -293,3 +317,25 @@ parseEndSet = parseBasicASN1 (== End Set) (const ())
 parseSet :: Parser e -> Parser [e]
 parseSet p = do
     between parseStartSet parseEndSet (manyA p)
+
+
+data Diagnostics = DuplicateInvokeID | DiagOtherReason
+    deriving(Show, Generic)
+
+
+diagnostics :: Diagnostics -> ASN1
+diagnostics DuplicateInvokeID = IntVal 100
+diagnostics DiagOtherReason   = IntVal 127
+
+parseDiagnostics :: Parser Diagnostics
+parseDiagnostics = do
+    x <- parseIntVal
+    case x of
+        100 -> return DuplicateInvokeID
+        _   -> return DiagOtherReason
+
+diagnosticsFromInt :: ASN1 -> Diagnostics
+diagnosticsFromInt (IntVal 100) = DuplicateInvokeID
+diagnosticsFromInt (IntVal _  ) = DiagOtherReason
+diagnosticsFromInt _            = DiagOtherReason
+

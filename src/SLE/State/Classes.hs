@@ -12,7 +12,6 @@ import           RIO                     hiding ( Lens' )
 import           System.Timer.Updatable
 
 import           SLE.Data.CommonConfig
-import           SLE.Data.Handle
 import           SLE.Data.ProviderConfig
 import           SLE.Data.UserConfig
 import           SLE.State.Events

@@ -77,7 +77,7 @@ library
     SLE.Data.UserConfig
     SLE.Data.Handle
     SLE.Data.Types.Common
-    SLE.Data.RafOps
+    SLE.Data.RAFOps
     SLE.Protocol.TMLProtocol
     SLE.Protocol.SLEProtocol
     SLE.Protocol.Provider 

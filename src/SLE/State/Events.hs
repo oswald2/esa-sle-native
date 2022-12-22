@@ -6,8 +6,8 @@ module SLE.State.Events
 import           RIO
 
 import           SLE.Data.Bind
+import           SLE.Data.RAFOps
 import           SLE.Data.Types.Common
-
 
 data SleEvent =
   TMLConnect
@@ -21,8 +21,11 @@ data SleEvent =
   | SLEBindSucceed SII
   | SLEBindFailed SII BindDiagnostic
   | SLEUnbindReceived SleUnbind
-  | SLEUnbindSucceed SII 
-  | SLEUnbindFailed SII 
+  | SLEUnbindSucceed SII
+  | SLEUnbindFailed SII
+  | SLERafStartReceived  RafStartInvocation
+  | SLERafStartFailed SII
+  | SLERafStartSucceed  SII
   deriving (Show, Generic)
 
 type SleEventHandler = SleEvent -> IO ()

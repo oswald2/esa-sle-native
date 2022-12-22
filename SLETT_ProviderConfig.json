@@ -1,0 +1,32 @@
+{
+    "_cfgCommon": {
+        "_cfgAuthorize": "AuthNone",
+        "_cfgInitiator": {
+            "unAuthorityID": "SLETT"
+        },
+        "_cfgPassword": "PASSWD",
+        "_cfgResponder": {
+            "unAuthorityID": "PARAGONTT"
+        },
+        "_cfgTML": {
+            "cfgDeadFactor": 2,
+            "cfgHeartbeat": 30,
+            "cfgMaxDeadFactor": 60,
+            "cfgMaxHeartBeat": 3600,
+            "cfgMinDeadFactor": 2,
+            "cfgMinHeartBeat": 3,
+            "cfgServerInitTime": 30
+        },
+        "_cfgVersion": {
+            "unVersionNumber": 3
+        }
+    },
+    "_cfgRAFs": [
+        {
+            "_cfgRAFPeer": "SLETT",
+            "_cfgRAFPort": 5100,
+            "_cfgRAFPortID": "PARAGONTT",
+            "_cfgRAFSII": "sagr=3.spack=facility-PASS1.rsl-fg=1.raf=onlc1"
+        }
+    ]
+}

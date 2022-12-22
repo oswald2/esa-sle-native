@@ -25,6 +25,7 @@ import           SLE.Data.PDU
 import           SLE.Data.Bind 
 import           SLE.Data.Input
 import           SLE.Data.ServiceInstanceID (toSII)
+import           SLE.Data.RAFOps
 import           SLE.State.Classes
 import           SLE.State.RAFState 
 import           SLE.State.Events 
@@ -126,6 +127,25 @@ processBoundState cfg var (SlePduUnbind pdu) = do
     sendSlePdu var ret 
     sleRaiseEvent (SLEUnbindSucceed (cfg ^. cfgRAFSII))
     return ServiceInit 
+
+processBoundState cfg var (SlePduRafStart pdu) = do 
+    logDebug "processInitState: RAF START"
+
+    sleRaiseEvent (SLERafStartReceived pdu)
+
+    -- TODO check values
+    let diag = Nothing
+
+    -- send response 
+    let ret = SLEPdu $ SlePduRafStartReturn $ RafStartReturn { 
+                _rafStartRetCredentials = pdu ^. rafStartCredentials
+              , _rafStartRetInvokeID    = pdu ^. rafStartInvokeID
+              , _rafStartRetResult      = diag
+              }
+    sendSlePdu var ret 
+    sleRaiseEvent (SLERafStartSucceed (cfg ^. cfgRAFSII)) 
+    return ServiceActive
+
 
 processBoundState _cfg _var pdu = do 
     logWarn $ "Bound State: Functionality for PDU not yet implemented: " <> fromString (ppShow pdu)
