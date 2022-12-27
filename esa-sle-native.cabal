@@ -4,7 +4,7 @@ cabal-version:       2.4
 -- For further documentation, see http://haskell.org/cabal/users-guide/
 
 -- The name of the package.
-name:                esa-sle
+name:                esa-sle-native
 
 -- The package version.  See the Haskell package versioning policy (PVP)
 -- for standards guiding when and how versions should be incremented.
@@ -60,7 +60,7 @@ library
   exposed-modules:
     Conduit.SocketReconnector
     SLE.Data.Api
-    SLE.Data.Input
+    SLE.Data.WriteCmd
     SLE.Data.TMLMessage
     SLE.Data.TMLConfig
     SLE.Data.RAF
@@ -76,7 +76,6 @@ library
     SLE.Data.ProviderConfig
     SLE.Data.UserConfig
     SLE.Data.Handle
-    SLE.Data.Types.Common
     SLE.Data.RAFOps
     SLE.Protocol.TMLProtocol
     SLE.Protocol.SLEProtocol
@@ -199,7 +198,7 @@ executable SleClient
     hs-source-dirs: src/test
     ghc-options: -Wall -O -threaded -rtsopts
     build-depends:
-        esa-sle -any,
+        esa-sle-native -any,
         base ==4.*,
         bytestring,
         rio,
@@ -212,7 +211,7 @@ executable SleServer
     hs-source-dirs: src/test
     ghc-options: -Wall -O -threaded -rtsopts
     build-depends:
-        esa-sle -any,
+        esa-sle-native -any,
         base ==4.*,
         bytestring,
         rio,

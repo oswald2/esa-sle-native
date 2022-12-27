@@ -21,7 +21,7 @@ import           SLE.Data.Common
 import           SLE.Data.CommonConfig
 import           SLE.Data.DEL
 import           SLE.Data.Handle
-import           SLE.Data.Input
+import           SLE.Data.WriteCmd
 import           SLE.Data.PDU
 import           SLE.Data.PDUParser
 import           SLE.Data.TMLConfig
@@ -211,7 +211,7 @@ processServerSLEMsg processSlePdu = awaitForever $ \tlm -> do
 --         pdu = SlePduBindReturn ret
 
 --     -- send the bind response
---     writeSLEInput (env ^. getHandle) (SLEPdu pdu)
+--     writeSLE (env ^. getHandle) (SLEPdu pdu)
 
 --     return ()
 
@@ -225,7 +225,7 @@ processServerSLEMsg processSlePdu = awaitForever $ \tlm -> do
 readSLEInput
     :: (MonadIO m, MonadReader env m, HasTimer env)
     => SleHandle
-    -> m (Maybe SleInput)
+    -> m (Maybe SleWrite)
 readSLEInput hdl = do
     env   <- ask
     val   <- liftIO $ readTVarIO (env ^. hbt)
@@ -237,11 +237,11 @@ readSLEInput hdl = do
 
 
 
--- | Processes the SleInput and yields a 'ByteString' which is the encoded message 
+-- | Processes the SleWrite and yields a 'ByteString' which is the encoded message 
 -- if there is one. Returns 'True' if the loop should terminate and 'False' otherwise.
 processSLEInput
     :: (MonadUnliftIO m, MonadReader env m, HasCommonConfig env, HasLogFunc env)
-    => SleInput
+    => SleWrite
     -> ConduitT () ByteString m Bool
 processSLEInput SLEAbort      = return True
 processSLEInput SLEAbortPeer  = return True

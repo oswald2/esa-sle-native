@@ -203,14 +203,15 @@ data SleBindInvocation = SleBindInvocation
 makeLenses ''SleBindInvocation
 
 mkSleBindInvocation
-    :: AuthorityIdentifier
+    :: Credentials 
+    -> AuthorityIdentifier
     -> PortID
     -> ApplicationIdentifier
     -> VersionNumber
     -> ServiceInstanceIdentifier
     -> SleBindInvocation
-mkSleBindInvocation authID pID appID vn siID = SleBindInvocation
-    { _sleBindCredentials     = Nothing
+mkSleBindInvocation creds authID pID appID vn siID = SleBindInvocation
+    { _sleBindCredentials     = creds
     , _sleBindInitiatorID     = authID
     , _sleBindResponderPortID = pID
     , _sleBindServiceType     = appID
@@ -453,9 +454,9 @@ data SleUnbind = SleUnbind
     deriving (Show, Generic)
 makeLenses ''SleUnbind
 
-mkSleUnbindBindInvocation :: UnbindReason -> SleUnbind
-mkSleUnbindBindInvocation reason =
-    SleUnbind { _sleUnbindCredentials = Nothing, _sleUnbindReason = reason }
+mkSleUnbindBindInvocation ::Credentials -> UnbindReason -> SleUnbind
+mkSleUnbindBindInvocation creds reason =
+    SleUnbind { _sleUnbindCredentials = creds, _sleUnbindReason = reason }
 
 
 instance EncodeASN1 SleUnbind where

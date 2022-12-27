@@ -34,7 +34,6 @@ import qualified Data.Attoparsec.Text          as A
 import           Data.List                      ( intersperse )
 
 import           SLE.Data.Common
-import           SLE.Data.Types.Common
 
 import           Text.Builder                  as TB
 

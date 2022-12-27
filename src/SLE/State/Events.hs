@@ -8,7 +8,6 @@ import           RIO
 import           SLE.Data.Bind
 import           SLE.Data.Common
 import           SLE.Data.RAFOps
-import           SLE.Data.Types.Common
 
 data SleEvent =
   TMLConnect

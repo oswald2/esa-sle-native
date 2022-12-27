@@ -6,7 +6,7 @@ module SLE.Data.Handle
     , newSleHandle
     , withSleHandle
     , queueSize
-    , writeSLEInput
+    , writeSLE
     , readSLEHandle
     , sleInput
     , slePort
@@ -19,12 +19,12 @@ import           Control.Lens
 
 import           Network.Socket                 ( PortNumber )
 
-import           SLE.Data.Input
+import           SLE.Data.WriteCmd
 
 
 
 data SleHandle = SleHandle
-    { _sleInput :: TBQueue SleInput
+    { _sleInput :: TBQueue SleWrite
     , _slePort  :: !PortNumber
     }
 makeLenses ''SleHandle
@@ -42,11 +42,11 @@ withSleHandle :: (MonadUnliftIO m) => PortNumber -> (SleHandle -> m a) -> m a
 withSleHandle port process = do
     bracket (newSleHandle port) (\_hdl -> return ()) process
 
-writeSLEInput :: (MonadIO m) => SleHandle -> SleInput -> m ()
-writeSLEInput hdl inp = do
+writeSLE :: (MonadIO m) => SleHandle -> SleWrite -> m ()
+writeSLE hdl inp = do
     atomically $ do
         writeTBQueue (_sleInput hdl) inp
 
 
-readSLEHandle :: SleHandle -> STM SleInput
+readSLEHandle :: SleHandle -> STM SleWrite
 readSLEHandle hdl = readTBQueue (_sleInput hdl)

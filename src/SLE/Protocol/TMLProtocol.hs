@@ -22,7 +22,7 @@ import           System.Timer.Updatable
 
 import           SLE.Data.CommonConfig
 import           SLE.Data.Handle
-import           SLE.Data.Input
+import           SLE.Data.WriteCmd
 import           SLE.Data.TMLConfig
 import           SLE.Data.TMLMessage
 
@@ -223,7 +223,7 @@ protocolAbort
 protocolAbort hdl = do
     logDebug "ProtocolAbort called!"
     sleRaiseEvent TMLProtocolAbort
-    writeSLEInput hdl SLEAbort
+    writeSLE hdl SLEAbort
 
 
 -- | Issue a peer abort message
@@ -235,7 +235,7 @@ peerAbort hdl = do
     logDebug "PeerAbort!"
     sleRaiseEvent TMLPeerAbort
     sleRaiseEvent TMLProtocolAbort
-    writeSLEInput hdl SLEAbort
+    writeSLE hdl SLEAbort
 
 
 -- | Check a incoming 'TMLPDU' for errors

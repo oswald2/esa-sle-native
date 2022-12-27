@@ -30,10 +30,9 @@ import           Control.Lens
 
 import           SLE.Data.Common
 import           SLE.Data.Handle
-import           SLE.Data.Input
+import           SLE.Data.WriteCmd
 import           SLE.Data.ProviderConfig
 import           SLE.Data.RAFOps
-import           SLE.Data.Types.Common
 
 
 data RAF = RAF
@@ -94,5 +93,5 @@ setRAFState var st = atomically $ do
 sendSleRafCmd :: (MonadIO m) => RAFVar -> SleRafCmd -> m ()
 sendSleRafCmd var cmd = atomically $ writeTBQueue (_rafQueue var) cmd
 
-sendSlePdu :: (MonadIO m) => RAFVar -> SleInput -> m ()
-sendSlePdu var input = writeSLEInput (_rafSleHandle var) input
+sendSlePdu :: (MonadIO m) => RAFVar -> SleWrite -> m ()
+sendSlePdu var input = writeSLE (_rafSleHandle var) input

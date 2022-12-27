@@ -19,11 +19,10 @@ import           RIO hiding ((^.), (.~))
 
 import           Control.Lens
 
-import           SLE.Data.Types.Common
 import           SLE.Data.ProviderConfig
 import           SLE.Data.PDU
 import           SLE.Data.Bind 
-import           SLE.Data.Input
+import           SLE.Data.WriteCmd
 import           SLE.Data.ServiceInstanceID (toSII)
 import           SLE.Data.RAFOps
 import           SLE.Data.Common

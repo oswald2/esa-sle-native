@@ -1,8 +1,8 @@
 {-# LANGUAGE 
   TemplateHaskell
 #-}
-module SLE.Data.Input
-  ( SleInput(..)
+module SLE.Data.WriteCmd
+  ( SleWrite(..)
   )
 where
 
@@ -13,11 +13,11 @@ import           SLE.Data.TMLMessage
 import           SLE.Data.PDU
 
 
-data SleInput =
+data SleWrite =
   SLEAbort
   | SLEAbortPeer
   | SLEStopListen
   | SLEMsg TMLMessage
   | SLEPdu SlePdu
   deriving (Show, Generic)
-makePrisms ''SleInput
+makePrisms ''SleWrite

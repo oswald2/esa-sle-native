@@ -1,7 +1,10 @@
 {-# LANGUAGE TemplateHaskell 
 #-}
 module SLE.Data.Common
-    ( IntPosShort(..)
+    ( SII(..)
+    , mkSII
+    , ServiceState(..)
+    , IntPosShort(..)
     , intPosShort
     , Credentials
     , credentials
@@ -64,10 +67,26 @@ import           Data.ASN1.Encoding
 import           Data.ASN1.Prim
 import           Data.ASN1.Types
 import           Data.Attoparsec.ByteString     ( parseOnly )
+import Data.Aeson
 
 import           SLE.Data.CCSDSTime
 
 import           Text.Builder                  as TB
+
+
+newtype SII = SII Text
+    deriving stock (Eq, Ord, Show, Read, Generic)
+    deriving anyclass (FromJSON, ToJSON)
+
+mkSII :: Text -> SII
+mkSII s = SII s
+
+instance Display SII where
+    textDisplay (SII sii) = sii
+
+
+data ServiceState = ServiceInit | ServiceBound | ServiceActive
+    deriving stock (Eq, Ord, Enum, Show, Read, Generic)
 
 
 

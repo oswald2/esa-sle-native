@@ -33,7 +33,7 @@ import           Data.Aeson.Encode.Pretty       ( encodePretty )
 import           SLE.Data.Bind
 
 import           SLE.Data.CommonConfig
-import           SLE.Data.Types.Common
+import           SLE.Data.Common
 
 data RAFConfig = RAFConfig
     { _cfgRAFSII    :: !SII
