@@ -30,9 +30,9 @@ import           Control.Lens
 
 import           SLE.Data.Common
 import           SLE.Data.Handle
-import           SLE.Data.WriteCmd
 import           SLE.Data.ProviderConfig
 import           SLE.Data.RAFOps
+import           SLE.Data.WriteCmd
 
 
 data RAF = RAF
@@ -70,6 +70,7 @@ newRAFVarIO cfg = do
     var <- newTVarIO raf
     q   <- newTBQueueIO 100
     hdl <- newSleHandle (fromIntegral (cfg ^. cfgRAFPort))
+                        (cfg ^. cfgRAFBufferSize)
     return $! (RAFVar var q hdl cfg)
 
 

@@ -10,7 +10,6 @@ import qualified RIO.Text                      as T
 
 import           SLE.Data.Api
 import           SLE.Data.Bind
-import           SLE.Data.Common
 import           SLE.Data.RAFOps
 import           SLE.Data.ServiceInstanceID
 import           SLE.Data.TMLConfig
@@ -25,7 +24,7 @@ main = do
         handler msg = T.putStrLn $ "HANDLER: " <> T.pack (show msg)
         cfg = defaultUserConfig
 
-    withSleHandle (port addr) $ \hdl -> do
+    withSleHandle (port addr) 100 $ \hdl -> do
         void $ concurrently (startClient addr handler hdl)
                             (sleProcedure cfg hdl)
 

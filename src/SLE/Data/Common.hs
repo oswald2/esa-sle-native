@@ -80,7 +80,7 @@ import           SLE.Data.CCSDSTime
 
 import           Text.Builder                  as TB
 
-import           Text.Show.Pretty        hiding ( Time )
+-- import           Text.Show.Pretty        hiding ( Time )
 
 newtype SII = SII Text
     deriving stock (Eq, Ord, Show, Read, Generic)

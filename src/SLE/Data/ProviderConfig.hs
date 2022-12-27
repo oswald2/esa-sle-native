@@ -17,6 +17,8 @@ module SLE.Data.ProviderConfig
     , cfgRAFPort
     , cfgRAFPeer
     , cfgRAFPortID
+    , cfgRAFBufferSize
+    , cfgRAFLatency
     ) where
 
 
@@ -31,25 +33,29 @@ import           Data.Aeson
 import           Data.Aeson.Encode.Pretty       ( encodePretty )
 
 import           SLE.Data.Bind
-
-import           SLE.Data.CommonConfig
 import           SLE.Data.Common
+import           SLE.Data.CommonConfig
+import           SLE.Data.TimedBuffer           ( Timeout )
 
 data RAFConfig = RAFConfig
-    { _cfgRAFSII    :: !SII
-    , _cfgRAFPort   :: !Word16
-    , _cfgRAFPeer   :: !Text
-    , _cfgRAFPortID :: !Text
+    { _cfgRAFSII        :: !SII
+    , _cfgRAFPort       :: !Word16
+    , _cfgRAFPeer       :: !Text
+    , _cfgRAFPortID     :: !Text
+    , _cfgRAFBufferSize :: !Word32
+    , _cfgRAFLatency    :: !Timeout
     }
     deriving stock (Show, Generic)
     deriving anyclass (FromJSON, ToJSON)
 
 defaultRAFConfig :: RAFConfig
 defaultRAFConfig = RAFConfig
-    { _cfgRAFSII    = SII "sagr=3.spack=facility-PASS1.rsl-fg=1.raf=onlc1"
-    , _cfgRAFPort   = 5008
-    , _cfgRAFPeer   = "EGSCC"
-    , _cfgRAFPortID = "PARAGONTT"
+    { _cfgRAFSII        = SII "sagr=3.spack=facility-PASS1.rsl-fg=1.raf=onlc1"
+    , _cfgRAFPort       = 5008
+    , _cfgRAFPeer       = "EGSCC"
+    , _cfgRAFPortID     = "PARAGONTT"
+    , _cfgRAFBufferSize = 100
+    , _cfgRAFLatency    = 1_000_000
     }
 
 

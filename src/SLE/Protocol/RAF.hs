@@ -6,7 +6,6 @@ module SLE.Protocol.RAF
 import           RIO
 import qualified RIO.Vector                    as V
 
-import           SLE.Data.ProviderConfig
 import           SLE.Data.RAF
 
 import           SLE.Protocol.SLEProtocol
@@ -27,8 +26,8 @@ runRAF
     -> m ()
 runRAF var = do
     let cfg = var ^. rafVarCfg
-    listenSLE (var ^. rafSleHandle)
-              (fromIntegral (cfg ^. cfgRAFPort))
+    listenRAF (var ^. rafSleHandle)
+              cfg
               (rafStateMachine cfg var)
     runRAF var
 

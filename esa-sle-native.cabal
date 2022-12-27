@@ -77,6 +77,7 @@ library
     SLE.Data.UserConfig
     SLE.Data.Handle
     SLE.Data.RAFOps
+    SLE.Data.TimedBuffer
     SLE.Protocol.TMLProtocol
     SLE.Protocol.SLEProtocol
     SLE.Protocol.Provider 
@@ -115,7 +116,9 @@ library
     cryptohash-sha256,
     aeson-pretty,
     pretty-show,
-    transformers
+    transformers,
+    stm,
+    array 
 
 
 

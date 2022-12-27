@@ -1,5 +1,5 @@
 module SLE.Protocol.SLEProtocol
-    ( listenSLE
+    ( listenRAF
     , connectSLE
     ) where
 
@@ -15,17 +15,17 @@ import           Conduit.SocketReconnector
 import           Data.Conduit.Attoparsec
 import           Data.Conduit.List
 import           Data.Conduit.Network
-import           Network.Socket                 ( PortNumber )
 
 import           SLE.Data.Common
 import           SLE.Data.CommonConfig
 import           SLE.Data.DEL
 import           SLE.Data.Handle
-import           SLE.Data.WriteCmd
 import           SLE.Data.PDU
 import           SLE.Data.PDUParser
+import           SLE.Data.ProviderConfig
 import           SLE.Data.TMLConfig
 import           SLE.Data.TMLMessage
+import           SLE.Data.WriteCmd
 
 import           SLE.State.Classes
 import           SLE.State.Events
@@ -297,7 +297,7 @@ processWriteTML hdl = go
 -- | Runs a server socket and listens for incoming connections. Calls 'onServerDisconnect'
 -- in case the client disconnects and calls 'processServerReadSLE' and 
 -- 'processServerSendSLE' in parallel threads for reading/writing the socket
-listenSLE
+listenRAF
     :: ( MonadUnliftIO m
        , MonadReader env m
        , HasLogFunc env
@@ -306,16 +306,18 @@ listenSLE
        , HasTimer env
        )
     => SleHandle
-    -> PortNumber
+    -> RAFConfig
     -> (SlePdu -> m ())
     -> m ()
-listenSLE hdl serverPort process = do
+listenRAF hdl cfg process = do
     void
-        $ runGeneralTCPServer (serverSettings (fromIntegral serverPort) "*")
+        $ runGeneralTCPServer
+              (serverSettings (fromIntegral (cfg ^. cfgRAFPort)) "*")
         $ \app -> do
               logInfo "New connection on server socket"
-              race_ (processServerReadSLE hdl process app)
-                    (processServerSendSLE hdl app)
+              let netThreads = race_ (processServerReadSLE hdl process app)
+                                     (processServerSendSLE hdl app)
+              race_ netThreads (processSleTransferBuffer hdl cfg)
               logInfo "Server threads stopped, restarting for listening"
     onServerDisconnect
 
@@ -393,3 +395,8 @@ processServerSendSLE
 processServerSendSLE hdl app =
     runConduitRes $ processWriteTML hdl .| appSink app
 
+
+processSleTransferBuffer :: (MonadUnliftIO m) => SleHandle -> RAFConfig -> m ()
+processSleTransferBuffer hdl cfg = do
+    pdus <- readFrameOrNotifications hdl (cfg ^. cfgRAFLatency)
+    writeSLE hdl (SLEPdu (SlePduRafTranserBuffer pdus))

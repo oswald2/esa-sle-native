@@ -180,18 +180,3 @@ processActiveState _cfg _var pdu = do
     return ServiceBound 
 
 
--- processState :: (MonadIO m, MonadReader env m, HasLogFunc env) => RAFConfig -> RAF -> SleRafCmd -> m RAF
--- processState cfg raf cmd = 
---   case raf ^. rafState of 
---     ServiceInit -> do 
---       -- set service to bound 
---       let newRAF = raf & rafState .~ ServiceBound 
---       return $! newRAF  
---     ServiceBound -> do 
---       logWarn $ "RAF: " <> display (raf ^. rafSII) <> ": received BIND, but service is already bound"
---       return raf 
---     ServiceActive -> do 
---       logWarn $ "RAF: " <> display (raf ^. rafSII) <> ": received BIND, but service is already active"
---       return raf 
-
-
