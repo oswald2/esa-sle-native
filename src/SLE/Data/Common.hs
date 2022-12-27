@@ -80,6 +80,7 @@ import           SLE.Data.CCSDSTime
 
 import           Text.Builder                  as TB
 
+import           Text.Show.Pretty        hiding ( Time )
 
 newtype SII = SII Text
     deriving stock (Eq, Ord, Show, Read, Generic)
@@ -182,6 +183,11 @@ parseTime = do
             case timeFromBS bs of
                 Left  err -> throwError err
                 Right t   -> return t
+        Other Context 0 bs : rest -> do
+            put rest
+            case timeFromBS bs of
+                Left  err -> throwError err
+                Right t   -> return t
         _ -> throwError "parseTime: no time found"
 
 
@@ -280,14 +286,15 @@ parseBasicASN1 p f = do
     x <- get
     case x of
         (val : rest) -> do
-          --traceM $ "Val: " <> T.pack (show val)
+            -- traceM $ "Val: " <> T.pack (show val) <> "\nrest:\n" <> T.pack
+            --     (ppShow rest)
             if p val
                 then do
-                --traceM "Match."
+                    -- traceM "Match."
                     put rest
                     return (f val)
                 else do
-                --traceM "No Match."
+                    -- traceM "No Match."
                     throwError "parseASN1: Predicate did not match"
         _ -> throwError "parseASN1: list empty, could not parse value"
 

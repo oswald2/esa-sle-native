@@ -12,14 +12,15 @@ import           SLE.Data.Common
 import           SLE.Data.RAFOps
 
 data SlePdu =
-  SlePduBind SleBindInvocation
-  | SlePduBindReturn SleBindReturn
-  | SlePduUnbind SleUnbind
-  | SlePduUnbindReturn SleUnbindReturn
-  | SlePduRafStart RafStartInvocation
-  | SlePduRafStartReturn RafStartReturn
-  | SlePduStop SleStopInvocation
-  | SlePduAck SleAcknowledgement
+  SlePduBind !SleBindInvocation
+  | SlePduBindReturn !SleBindReturn
+  | SlePduUnbind !SleUnbind
+  | SlePduUnbindReturn !SleUnbindReturn
+  | SlePduRafStart !RafStartInvocation
+  | SlePduRafStartReturn !RafStartReturn
+  | SlePduStop !SleStopInvocation
+  | SlePduAck !SleAcknowledgement
+  | SlePduRafTranserBuffer !RafTransferBuffer
   deriving (Show, Generic)
 
 
@@ -45,14 +46,15 @@ setCredentials (SlePduStop val) creds =
     SlePduStop $ val & sleStopCredentials ?~ creds
 setCredentials (SlePduAck val) creds =
     SlePduAck $ val & sleAckCredentials ?~ creds
-
+setCredentials v@(SlePduRafTranserBuffer _) _ = v
 
 instance EncodeASN1 SlePdu where
-    encode (SlePduBind           val) = encode val
-    encode (SlePduBindReturn     val) = encode val
-    encode (SlePduUnbind         val) = encode val
-    encode (SlePduUnbindReturn   val) = encode val
-    encode (SlePduRafStart       val) = encode val
-    encode (SlePduRafStartReturn val) = encode val
-    encode (SlePduStop           val) = encode val
-    encode (SlePduAck            val) = encode val
+    encode (SlePduBind             val) = encode val
+    encode (SlePduBindReturn       val) = encode val
+    encode (SlePduUnbind           val) = encode val
+    encode (SlePduUnbindReturn     val) = encode val
+    encode (SlePduRafStart         val) = encode val
+    encode (SlePduRafStartReturn   val) = encode val
+    encode (SlePduStop             val) = encode val
+    encode (SlePduAck              val) = encode val
+    encode (SlePduRafTranserBuffer val) = encode val

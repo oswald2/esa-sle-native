@@ -26,6 +26,8 @@ module SLE.Data.RAFOps
     , rafSyncNCredentials
     , rafSyncNNotification
     , parseTransferBuffer
+    , parseFrameOrNotification
+    , parseRafTransferDataInvocation
     , rafTransCredentials
     , rafTransERT
     , rafTransAntennaID
@@ -445,97 +447,83 @@ makeLenses ''RafTransferDataInvocation
 
 rafTransferDataInvocation :: RafTransferDataInvocation -> [ASN1]
 rafTransferDataInvocation RafTransferDataInvocation {..} =
-    [ Start Sequence
-    , credentials _rafTransCredentials
+    [ credentials _rafTransCredentials
     , time _rafTransERT
     , antennaID _rafTransAntennaID
     , IntVal (fromIntegral _rafTransDataContinuity)
     , frameQuality _rafTransFrameQuality
     , privateAnnotation _rafTransPrivateAnnotation
     , OctetString _rafTransData
-    , End Sequence
     ]
 
 parseRafTransferDataInvocation :: Parser RafTransferDataInvocation
 parseRafTransferDataInvocation = do
-    parseSequence body
-  where
-    body = do
-        creds   <- parseCredentials
-        ert     <- parseTime
-        antenna <- parseAntennaID
-        cont    <- parseIntVal
-        qual    <- parseFrameQuality
-        priv    <- parsePrivateAnnotation
-        dat     <- parseOctetString
-        return $ RafTransferDataInvocation
-            { _rafTransCredentials       = creds
-            , _rafTransERT               = ert
-            , _rafTransAntennaID         = antenna
-            , _rafTransDataContinuity    = fromIntegral cont
-            , _rafTransFrameQuality      = qual
-            , _rafTransPrivateAnnotation = priv
-            , _rafTransData              = dat
-            }
+    creds   <- parseCredentials
+    ert     <- parseTime
+    antenna <- parseAntennaID
+    cont    <- parseIntVal
+    qual    <- parseFrameQuality
+    priv    <- parsePrivateAnnotation
+    dat     <- parseOctetString
+    return $ RafTransferDataInvocation
+        { _rafTransCredentials       = creds
+        , _rafTransERT               = ert
+        , _rafTransAntennaID         = antenna
+        , _rafTransDataContinuity    = fromIntegral cont
+        , _rafTransFrameQuality      = qual
+        , _rafTransPrivateAnnotation = priv
+        , _rafTransData              = dat
+        }
 
 data FrameOrNotification = TransFrame !RafTransferDataInvocation | TransNotification !RafSyncNotifyInvocation
     deriving (Show, Generic)
 
-frameOrNotification :: FrameOrNotification -> ASN1
+frameOrNotification :: FrameOrNotification -> [ASN1]
 frameOrNotification (TransFrame fr) =
-    Other Context 0 (encodeASN1' DER (rafTransferDataInvocation fr))
+    Start (Container Context 0)
+        :  rafTransferDataInvocation fr
+        ++ [End (Container Context 0)]
 frameOrNotification (TransNotification n) =
-    Other Context 1 (encodeASN1' DER (rafSyncNotification n))
+    Start (Container Context 1)
+        :  rafSyncNotification n
+        ++ [End (Container Context 1)]
 
 parseFrameOrNotification :: Parser FrameOrNotification
-parseFrameOrNotification = parseChoice frame
-                                       notif
-                                       "Error parsing FrameOrNotification"
+parseFrameOrNotification = do
+    x <- get
+    case x of
+        (Start (Container Context 0) : rest) -> do
+            put rest
+            pdu <- parseRafTransferDataInvocation
+            void $ endContainer 0
+            return $ TransFrame pdu
+        (Start (Container Context 1) : rest) -> do
+            put rest
+            pdu <- parseRafSyncNotification
+            void $ endContainer 1
+            return $ TransNotification pdu
+        _ -> throwError "Could not parse FrameOrNotification"
   where
-    frame bs = do
-        case decodeASN1' DER bs of
-            Left err ->
-                throwError
-                    $  "Error parsing RAF Transfer Data Invocation: "
-                    <> fromString (show err)
-            Right val -> case parseASN1 parseRafTransferDataInvocation val of
-                Left err ->
-                    throwError
-                        $  "Error parsing RAF Transfer Data Invocation: "
-                        <> fromString (show err)
-                Right fr -> return $ TransFrame fr
+    endContainer x = parseBasicASN1 (== End (Container Context x)) (const ())
 
-    notif bs = do
-        case decodeASN1' DER bs of
-            Left err ->
-                throwError
-                    $  "Error parsing RAF Transfer Data Notification: "
-                    <> fromString (show err)
-            Right val -> case parseASN1 parseRafSyncNotification val of
-                Left err ->
-                    throwError
-                        $  "Error parsing RAF Transfer Data Notification: "
-                        <> fromString (show err)
-                Right n -> return $ TransNotification n
 
 type RafTransferBuffer = [FrameOrNotification]
 
 rafTransferBuffer :: RafTransferBuffer -> [ASN1]
 rafTransferBuffer buf =
     Start (Container Context 8)
-        :  Start Sequence
-        :  map frameOrNotification buf
-        ++ [End Sequence, End (Container Context 8)]
+        :  concatMap frameOrNotification buf
+        ++ [End (Container Context 8)]
 
 instance EncodeASN1 RafTransferBuffer where
     encode buf = encodeASN1' DER (rafTransferBuffer buf)
 
 parseTransferBuffer :: Parser RafTransferBuffer
 parseTransferBuffer = do
-    buf <- parseSequence (manyA parseFrameOrNotification)
+    buf <- manyA parseFrameOrNotification
     void endContainer
     return buf
   where
-    endContainer = parseBasicASN1 (== End (Container Context 102)) (const ())
+    endContainer = parseBasicASN1 (== End (Container Context 8)) (const ())
 
 

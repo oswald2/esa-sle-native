@@ -3,7 +3,7 @@
 #-}
 module SLE.Data.Bind
     ( Credentials
-    , SleBindInvocation
+    , SleBindInvocation(..)
     , mkSleBindInvocation
     , mkSleUnbindBindInvocation
     , Time(..)
@@ -203,7 +203,7 @@ data SleBindInvocation = SleBindInvocation
 makeLenses ''SleBindInvocation
 
 mkSleBindInvocation
-    :: Credentials 
+    :: Credentials
     -> AuthorityIdentifier
     -> PortID
     -> ApplicationIdentifier
@@ -454,7 +454,7 @@ data SleUnbind = SleUnbind
     deriving (Show, Generic)
 makeLenses ''SleUnbind
 
-mkSleUnbindBindInvocation ::Credentials -> UnbindReason -> SleUnbind
+mkSleUnbindBindInvocation :: Credentials -> UnbindReason -> SleUnbind
 mkSleUnbindBindInvocation creds reason =
     SleUnbind { _sleUnbindCredentials = creds, _sleUnbindReason = reason }
 
