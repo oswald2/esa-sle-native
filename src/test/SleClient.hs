@@ -10,10 +10,11 @@ import qualified RIO.Text                      as T
 
 import           SLE.Data.Api
 import           SLE.Data.Bind
+import           SLE.Data.Common
+import           SLE.Data.RAFOps
 import           SLE.Data.ServiceInstanceID
 import           SLE.Data.TMLConfig
 import           SLE.Data.UserConfig
-
 import           SLE.Protocol.User
 
 
@@ -32,7 +33,10 @@ main = do
 sleProcedure :: UserConfig -> SleHandle -> IO ()
 sleProcedure cfg hdl = do
     sendBind cfg hdl
-    threadDelay 2000000
+    sendStart cfg hdl 
+    threadDelay 200000000
+    T.putStrLn "Terminating..."
+    sendStop cfg hdl
     sendUnbind cfg hdl
 
 
@@ -41,6 +45,7 @@ sendBind cfg hdl = do
     bind
         (cfg ^. cfgCommon)
         hdl
+        Nothing
         RtnAllFrames
         (PortID "TMPORT")
         [ ServiceInstanceAttribute SAGR  "3"
@@ -49,6 +54,16 @@ sendBind cfg hdl = do
         , ServiceInstanceAttribute RAF   "onlc1"
         ]
 
+
+sendStart :: UserConfig -> SleHandle -> IO ()
+sendStart cfg hdl = do
+    startRAF (cfg ^. cfgCommon) hdl Nothing 1 Nothing Nothing AllFrames
+
+
+sendStop :: UserConfig -> SleHandle -> IO ()
+sendStop cfg hdl = do
+    stopRAF (cfg ^. cfgCommon) hdl Nothing 2
+
 sendUnbind :: UserConfig -> SleHandle -> IO ()
 sendUnbind cfg hdl = do
-    unbind (cfg ^. cfgCommon) hdl UnbindEnd
+    unbind (cfg ^. cfgCommon) hdl Nothing UnbindEnd

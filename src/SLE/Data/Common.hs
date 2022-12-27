@@ -36,6 +36,7 @@ module SLE.Data.Common
     , parseTime
     , parseConditionalTime
     , parseOctetString
+    , parseChoice
     , Diagnostics(..)
     , diagnostics
     , parseDiagnostics
@@ -49,6 +50,12 @@ module SLE.Data.Common
     , sleAckInvokeID
     , sleResult
     , parseSleAcknowledgement
+    , AntennaID(..)
+    , antennaID
+    , parseAntennaID
+    , PrivateAnnotation
+    , privateAnnotation
+    , parsePrivateAnnotation
     ) where
 
 import           RIO
@@ -66,8 +73,8 @@ import           Data.ASN1.BinaryEncoding
 import           Data.ASN1.Encoding
 import           Data.ASN1.Prim
 import           Data.ASN1.Types
+import           Data.Aeson
 import           Data.Attoparsec.ByteString     ( parseOnly )
-import Data.Aeson
 
 import           SLE.Data.CCSDSTime
 
@@ -131,15 +138,30 @@ getCredentials _ = Nothing
 
 parseCredentials :: Parser Credentials
 parseCredentials = do
+    parseChoice
+        (\bs -> if B.null bs then return Nothing else return (Just bs))
+        (const (return Nothing))
+        "parseCredentials: no credentials found"
+
+parseChoice
+    :: (MonadError Text m, MonadState [ASN1] m)
+    => (ByteString -> m b)
+    -> (ByteString -> m b)
+    -> Text
+    -> m b
+parseChoice choice0 choice1 errTxt = do
     x <- get
     case x of
+        ((Other Context 0 bs) : rest) -> do
+            put rest
+            choice0 bs
         ((Other Context 1 bs) : rest) -> do
             put rest
-            if B.null bs then return Nothing else return (Just bs)
-        ((Other Context 0 _) : rest) -> do
-            put rest
-            return Nothing
-        _ -> throwError "parseCredentials: no credentials found"
+            choice1 bs
+        (o : _) ->
+            throwError $ "parseChoice: expected choice, got " <> fromString
+                (show o)
+        _ -> throwError errTxt
 
 data Time =
   Time CCSDSTime
@@ -197,18 +219,16 @@ conditionalTime (Just t) =
 
 parseConditionalTime :: Parser ConditionalTime
 parseConditionalTime = do
-    x <- get
-    case x of
-        ((Other Context 0 _) : rest) -> do
-            put rest
-            return Nothing
-        ((Other Context 1 t) : rest) -> do
-            put rest
-            case timeFromBS t of
-                Left  err -> throwError err
-                Right tm  -> return (Just tm)
-        _ -> throwError
-            "Could not parse conditional time, no conditional time found"
+    parseChoice
+        (const (return Nothing))
+        tim
+        "Could not parse conditional time, no conditional time found"
+  where
+    tim t = do
+        case timeFromBS t of
+            Left  err -> throwError err
+            Right tm  -> return (Just tm)
+
 
 visibleString :: Text -> ASN1
 visibleString t = ASN1String (ASN1CharacterString Visible (encodeUtf8 t))
@@ -471,3 +491,47 @@ parseSleAcknowledgement = content
                                   , _sleAckInvokeID    = fromIntegral invokeID
                                   , _sleResult         = result
                                   }
+
+
+data AntennaID = GlobalForm OID | LocalForm ByteString
+    deriving (Show, Generic)
+
+antennaID :: AntennaID -> ASN1
+antennaID (GlobalForm oid) = Other Context 0 (encodeASN1' DER [OID oid])
+antennaID (LocalForm  bs ) = Other Context 1 bs
+
+parseAntennaID :: Parser AntennaID
+parseAntennaID = parseChoice global loc "Error parsing AntennaID"
+  where
+    global bs = case decodeASN1' DER bs of
+        Left err ->
+            throwError $ "Erro parsing global antenna ID: " <> fromString
+                (show err)
+        Right (OID o : rest) -> do
+            put rest
+            return $ GlobalForm o
+        Right _ ->
+            throwError $ "Error parsing global antenna ID, no OID provided"
+
+    loc bs = return $ LocalForm bs
+
+
+type PrivateAnnotation = Maybe ByteString
+
+privateAnnotation :: PrivateAnnotation -> ASN1
+privateAnnotation Nothing =
+    Other Context 0 (encodeASN1' DER [Data.ASN1.Types.Null])
+privateAnnotation (Just v) = Other Context 1 (encodeASN1' DER [OctetString v])
+
+parsePrivateAnnotation :: Parser PrivateAnnotation
+parsePrivateAnnotation = parseChoice (const (return Nothing))
+                                     annot
+                                     "Error parsing Private Annotation"
+  where
+    annot bs = do
+        case decodeASN1' DER bs of
+            Left err ->
+                throwError $ "Error parsing Private Annotation: " <> fromString
+                    (show err)
+            Right (OctetString str : _) -> return (Just str)
+            Right _ -> throwError "Error parsing Private Annotation"
