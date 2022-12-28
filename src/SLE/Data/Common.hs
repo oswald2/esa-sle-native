@@ -56,6 +56,7 @@ module SLE.Data.Common
     , PrivateAnnotation
     , privateAnnotation
     , parsePrivateAnnotation
+    , RAFIdx(..)
     ) where
 
 import           RIO
@@ -542,3 +543,8 @@ parsePrivateAnnotation = parseChoice (const (return Nothing))
                     (show err)
             Right (OctetString str : _) -> return (Just str)
             Right _ -> throwError "Error parsing Private Annotation"
+
+
+
+newtype RAFIdx = RAFIdx Int
+    deriving stock (Show, Generic)

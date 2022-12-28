@@ -21,6 +21,7 @@ runRAF
        , HasEventHandler env
        , HasProviderConfig env
        , HasTimer env
+       , HasRAF env
        )
     => RAFVar
     -> m ()
@@ -28,6 +29,7 @@ runRAF var = do
     let cfg = var ^. rafVarCfg
     listenRAF (var ^. rafSleHandle)
               cfg
+              (var ^. rafIdx)
               (rafStateMachine cfg var)
     runRAF var
 

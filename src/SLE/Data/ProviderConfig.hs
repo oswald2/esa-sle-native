@@ -4,6 +4,7 @@
 module SLE.Data.ProviderConfig
     ( ProviderConfig(..)
     , RAFConfig(..)
+    , RAFIdx(..)
     , SleAuthType(..)
     , configPretty
     , defaultProviderConfigFileName
@@ -35,6 +36,7 @@ import           Data.Aeson.Encode.Pretty       ( encodePretty )
 import           SLE.Data.Bind
 import           SLE.Data.Common
 import           SLE.Data.CommonConfig
+
 
 data RAFConfig = RAFConfig
     { _cfgRAFSII        :: !SII

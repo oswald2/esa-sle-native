@@ -29,6 +29,8 @@ import           SLE.Data.WriteCmd
 
 import           SLE.State.Classes
 import           SLE.State.Events
+import           SLE.State.RAFClasses
+import           SLE.State.RAFState
 
 import           SLE.Protocol.TMLProtocol
 
@@ -152,74 +154,6 @@ processServerSLEMsg processSlePdu = awaitForever $ \tlm -> do
                     lift $ processSlePdu pdu
 
 
-
--- processSLEBind
---     :: ( MonadUnliftIO m
---        , MonadReader env m
---        , HasLogFunc env
---        , HasEventHandler env
---        , HasSleHandle env
---        , HasCommonConfig env
---        )
---     => ConduitT TMLMessage Void m ()
--- processSLEBind = do
---     x <- await
---     case x of
---         Nothing  -> return ()
---         Just msg -> do
---             let encSle = msg ^. tmlMsgData
---             case decodeASN1 DER (BL.fromStrict encSle) of
---                 Left err ->
---                     logError
---                         $  "Error decoding ASN1 message: "
---                         <> displayShow err
---                 Right ls -> do
---                     lift $ logDebug $ "Received ASN1: " <> fromString
---                         (ppShow ls)
---                     let result = parseASN1 parseSleBind ls
---                     case result of
---                         Left err ->
---                             logError
---                                 $  "Error decoding SLE BIND message: "
---                                 <> display err
---                         Right bind -> do
---                             lift $ processSleBind bind
-
-
-
--- processSleBind
---     :: ( MonadIO m
---        , MonadReader env m
---        , HasLogFunc env
---        , HasCommonConfig env
---        , HasEventHandler env
---        , HasSleHandle env
---        )
---     => SleBindInvocation
---     -> m ()
--- processSleBind msg = do
---     logDebug $ "Received SLE Bind Invocation: " <> fromString (ppShow msg)
---     env <- ask
---     liftIO $ sleRaiseEvent env (SLEBindReceived msg)
-
---     -- TODO: for now, we just send a positive result back 
---     let cfg = env ^. commonCfg
---     let ret = SleBindReturn
---             { _sleBindRetCredentials = Nothing
---             , _sleBindRetResponderID = cfg ^. cfgResponder
---             , _sleBindRetResult      = BindResVersion (VersionNumber 3)
---             }
---         pdu = SlePduBindReturn ret
-
---     -- send the bind response
---     writeSLE (env ^. getHandle) (SLEPdu pdu)
-
---     return ()
-
-
-
-
-
 -- | Read input from the queue from the 'SleHandle'. If there is nothing received 
 -- within the configured timeout (send heartbeat), returns 'Nothing'. This indicates
 -- that a heartbeat message should be sent
@@ -305,12 +239,14 @@ listenRAF
        , HasEventHandler env
        , HasProviderConfig env
        , HasTimer env
+       , HasRAF env
        )
     => SleHandle
     -> RAFConfig
+    -> RAFIdx
     -> (SlePdu -> m ())
     -> m ()
-listenRAF hdl cfg process = do
+listenRAF hdl cfg idx process = do
     void
         $ runGeneralTCPServer
               (serverSettings (fromIntegral (cfg ^. cfgRAFPort)) "*")
@@ -318,7 +254,7 @@ listenRAF hdl cfg process = do
               logInfo "New connection on server socket"
               let netThreads = race_ (processServerReadSLE hdl process app)
                                      (processServerSendSLE hdl app)
-              race_ netThreads (processSleTransferBuffer hdl cfg)
+              race_ netThreads (processSleTransferBuffer hdl cfg idx)
               logInfo "Server threads stopped, restarting for listening"
     onServerDisconnect
 
@@ -397,7 +333,25 @@ processServerSendSLE hdl app =
     runConduitRes $ processWriteTML hdl .| appSink app
 
 
-processSleTransferBuffer :: (MonadUnliftIO m) => SleHandle -> RAFConfig -> m ()
-processSleTransferBuffer hdl cfg = do
-    pdus <- readFrameOrNotifications hdl (Timeout (cfg ^. cfgRAFLatency))
-    writeSLE hdl (SLEPdu (SlePduRafTranserBuffer pdus))
+processSleTransferBuffer
+    :: (MonadUnliftIO m, MonadReader env m, HasRAF env)
+    => SleHandle
+    -> RAFConfig
+    -> RAFIdx
+    -> m ()
+processSleTransferBuffer hdl cfg idx = do
+    env <- ask
+    loop env
+
+  where
+    loop env = do
+        raf <- getRAF env idx
+        case raf ^. rafState of
+            ServiceActive -> do
+                pdus <- readFrameOrNotifications
+                    hdl
+                    (Timeout (cfg ^. cfgRAFLatency))
+                writeSLE hdl (SLEPdu (SlePduRafTranserBuffer pdus))
+            _ -> atomically $ do
+                r <- getRAFSTM env idx
+                when (r ^. rafState /= ServiceActive) retrySTM

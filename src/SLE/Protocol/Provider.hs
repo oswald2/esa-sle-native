@@ -12,8 +12,8 @@ import           SLE.State.ProviderState
 import           SLE.Protocol.RAF
 
 
-startServer :: ProviderConfig -> SleEventHandler -> IO ()
-startServer cfg eventHandler = do
+startServer :: ProviderConfig -> SleEventHandler -> RIO ProviderState () -> IO ()
+startServer cfg eventHandler action = do
     defLogOptions <- logOptionsHandle stdout True
     let logOptions = setLogMinLevel LevelDebug defLogOptions
     withLogFunc logOptions $ \logFunc -> do
@@ -21,5 +21,6 @@ startServer cfg eventHandler = do
 
         runRIO state $ do
             logDebug "Starting listening on SLE..."
-            runRAFs
+            concurrently_ runRAFs action
+
 

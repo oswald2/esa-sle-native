@@ -18,6 +18,7 @@ module SLE.State.RAFState
     , rafQueue
     , rafSleHandle
     , rafVarCfg
+    , rafIdx
     , sendSleRafCmd
     , sendSlePdu
     ) where
@@ -52,6 +53,7 @@ data RAFVar = RAFVar
     , _rafQueue     :: !(TBQueue SleRafCmd)
     , _rafSleHandle :: !SleHandle
     , _rafVarCfg    :: !RAFConfig
+    , _rafIdx       :: !RAFIdx
     }
 makeLenses ''RAFVar
 
@@ -64,14 +66,14 @@ rafStartState cfg = RAF { _rafSII                   = cfg ^. cfgRAFSII
                         }
 
 
-newRAFVarIO :: (MonadIO m) => RAFConfig -> m RAFVar
-newRAFVarIO cfg = do
+newRAFVarIO :: (MonadIO m) => RAFConfig -> RAFIdx -> m RAFVar
+newRAFVarIO cfg idx = do
     let raf = rafStartState cfg
     var <- newTVarIO raf
     q   <- newTBQueueIO 100
     hdl <- newSleHandle (fromIntegral (cfg ^. cfgRAFPort))
                         (cfg ^. cfgRAFBufferSize)
-    return $! (RAFVar var q hdl cfg)
+    return $! (RAFVar var q hdl cfg idx)
 
 
 readRAFVarIO :: (MonadIO m) => RAFVar -> m RAF
