@@ -34,6 +34,7 @@ import           SLE.Protocol.TMLProtocol
 
 import           Data.ASN1.BinaryEncoding
 import           Data.ASN1.Encoding
+import           Data.STM.TimedBuffer
 
 import           Text.Show.Pretty
 
@@ -398,5 +399,5 @@ processServerSendSLE hdl app =
 
 processSleTransferBuffer :: (MonadUnliftIO m) => SleHandle -> RAFConfig -> m ()
 processSleTransferBuffer hdl cfg = do
-    pdus <- readFrameOrNotifications hdl (cfg ^. cfgRAFLatency)
+    pdus <- readFrameOrNotifications hdl (Timeout (cfg ^. cfgRAFLatency))
     writeSLE hdl (SLEPdu (SlePduRafTranserBuffer pdus))

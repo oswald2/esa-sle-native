@@ -30,6 +30,8 @@ resolver: lts-20.4
 #   - wai
 packages: 
 - .
+- timed-buffer
+
 # The following packages have been ignored due to incompatibility with the
 # resolver compiler, dependency conflicts with other packages
 # or unsatisfied dependencies.

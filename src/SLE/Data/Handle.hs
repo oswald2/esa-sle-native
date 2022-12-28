@@ -23,8 +23,9 @@ import           Control.Lens
 
 import           Network.Socket                 ( PortNumber )
 
+import           Data.STM.TimedBuffer
+
 import           SLE.Data.RAFOps
-import           SLE.Data.TimedBuffer
 import           SLE.Data.WriteCmd
 
 data SleHandle = SleHandle

@@ -77,7 +77,6 @@ library
     SLE.Data.UserConfig
     SLE.Data.Handle
     SLE.Data.RAFOps
-    SLE.Data.TimedBuffer
     SLE.Protocol.TMLProtocol
     SLE.Protocol.SLEProtocol
     SLE.Protocol.Provider 
@@ -118,7 +117,9 @@ library
     pretty-show,
     transformers,
     stm,
-    array 
+    array,
+    unliftio,
+    timed-buffer
 
 
 
@@ -255,3 +256,5 @@ test-suite TestRafTransfer
         asn1-encoding,
         asn1-types,
         hspec
+
+

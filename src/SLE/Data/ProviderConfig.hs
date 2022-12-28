@@ -35,7 +35,6 @@ import           Data.Aeson.Encode.Pretty       ( encodePretty )
 import           SLE.Data.Bind
 import           SLE.Data.Common
 import           SLE.Data.CommonConfig
-import           SLE.Data.TimedBuffer           ( Timeout )
 
 data RAFConfig = RAFConfig
     { _cfgRAFSII        :: !SII
@@ -43,7 +42,7 @@ data RAFConfig = RAFConfig
     , _cfgRAFPeer       :: !Text
     , _cfgRAFPortID     :: !Text
     , _cfgRAFBufferSize :: !Word32
-    , _cfgRAFLatency    :: !Timeout
+    , _cfgRAFLatency    :: !Int
     }
     deriving stock (Show, Generic)
     deriving anyclass (FromJSON, ToJSON)
