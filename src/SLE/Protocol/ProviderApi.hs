@@ -23,12 +23,11 @@ rafSendFrame idx ert frame = do
         cfg     = var ^. rafVarCfg
         antenna = cfg ^. cfgRAFAntennaID
 
-    raf  <- readRAFVarIO var
-
-    cont <- atomically $ do
+    (raf, cont) <- atomically $ do
+        raf <- readTVar (var ^. rafVar)
         val <- readTVar (var ^. rafContinuity) 
         writeTVar (var ^. rafContinuity) 0 
-        return val
+        return (raf, val)
 
     let pdu = force $ TransFrame RafTransferDataInvocation
             { _rafTransCredentials       = Nothing
