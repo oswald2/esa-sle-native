@@ -1,4 +1,4 @@
-module SLE.Data.Api
+module SLE.Protocol.UserApi
     ( SleHandle
     , withSleHandle
     , bind

@@ -8,13 +8,13 @@ import qualified Data.Text.IO                  as T
 import           RIO
 import qualified RIO.Text                      as T
 
-import           SLE.Data.Api
 import           SLE.Data.Bind
 import           SLE.Data.RAFOps
 import           SLE.Data.ServiceInstanceID
 import           SLE.Data.TMLConfig
 import           SLE.Data.UserConfig
 import           SLE.Protocol.User
+import           SLE.Protocol.UserApi
 
 
 main :: IO ()
@@ -32,7 +32,7 @@ main = do
 sleProcedure :: UserConfig -> SleHandle -> IO ()
 sleProcedure cfg hdl = do
     sendBind cfg hdl
-    sendStart cfg hdl 
+    sendStart cfg hdl
     threadDelay 200000000
     T.putStrLn "Terminating..."
     sendStop cfg hdl

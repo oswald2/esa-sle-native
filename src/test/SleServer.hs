@@ -16,8 +16,9 @@ import           RIO
 import qualified RIO.Text                      as T
 
 import           SLE.Data.ProviderConfig
-
-import           SLE.Protocol.Provider
+import           SLE.Protocol.RAF
+import           SLE.State.Events
+import           SLE.State.ProviderState
 
 import           System.Directory               ( doesFileExist )
 
@@ -83,3 +84,21 @@ main = do
     return ()
 
 
+
+startServer :: ProviderConfig -> SleEventHandler -> IO ()
+startServer cfg eventHandler = do
+    defLogOptions <- logOptionsHandle stdout True
+    let logOptions = setLogMinLevel LevelDebug defLogOptions
+    withLogFunc logOptions $ \logFunc -> do
+        state <- initialState cfg logFunc eventHandler
+
+        runRIO state $ do
+            logDebug "Starting listening on SLE..."
+            concurrently_ runRAFs action
+
+action :: RIO ProviderState ()
+action = do 
+    -- perform transfer data test
+    
+
+    return ()

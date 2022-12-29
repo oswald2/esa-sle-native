@@ -57,6 +57,7 @@ module SLE.Data.Common
     , privateAnnotation
     , parsePrivateAnnotation
     , RAFIdx(..)
+    , InvokeID(..)
     ) where
 
 import           RIO
@@ -547,4 +548,8 @@ parsePrivateAnnotation = parseChoice (const (return Nothing))
 
 
 newtype RAFIdx = RAFIdx Int
+    deriving stock (Show, Generic)
+
+
+newtype InvokeID =InvokeID Word16
     deriving stock (Show, Generic)

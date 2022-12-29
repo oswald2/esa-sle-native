@@ -59,7 +59,6 @@ library
   -- Modules exported by the library.
   exposed-modules:
     Conduit.SocketReconnector
-    SLE.Data.Api
     SLE.Data.WriteCmd
     SLE.Data.TMLMessage
     SLE.Data.TMLConfig
@@ -82,6 +81,7 @@ library
     SLE.Protocol.Provider 
     SLE.Protocol.User
     SLE.Protocol.RAF
+    SLE.Protocol.UserApi
     SLE.State.ProviderState
     SLE.State.UserState
     SLE.State.Classes

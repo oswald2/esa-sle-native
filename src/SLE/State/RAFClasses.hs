@@ -2,9 +2,10 @@ module SLE.State.RAFClasses
     ( HasRAF(..)
     , getRAF
     , getRAFSTM
+    , getRAFSleHandle
     ) where
 
-import           RIO
+import           RIO                     hiding ( (^.) )
 
 import           Control.Lens
 
@@ -13,7 +14,7 @@ import           SLE.Data.Handle
 import           SLE.State.RAFState
 
 class HasRAF env where
-  getRAFs :: Getter env (Vector (RAFVar, SleHandle))
+  getRAFs :: Getter env (Vector RAFVar)
   getRAFVar :: env -> RAFIdx -> RAFVar
 
 
@@ -22,3 +23,6 @@ getRAF env idx = readRAFVarIO (getRAFVar env idx)
 
 getRAFSTM :: (HasRAF env) => env -> RAFIdx -> STM RAF
 getRAFSTM env idx = readRAFVar (getRAFVar env idx)
+
+getRAFSleHandle :: (HasRAF env) => env -> RAFIdx -> SleHandle
+getRAFSleHandle env idx = getRAFVar env idx ^. rafSleHandle
