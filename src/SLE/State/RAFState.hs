@@ -19,8 +19,10 @@ module SLE.State.RAFState
     , rafSleHandle
     , rafVarCfg
     , rafIdx
+    , rafContinuity
     , sendSleRafCmd
     , sendSlePdu
+    , sendFrameOrNotification
     ) where
 
 import           RIO                     hiding ( (.~)
@@ -49,11 +51,12 @@ makeLenses ''RAF
 data SleRafCmd = BindRaf
 
 data RAFVar = RAFVar
-    { _rafVar       :: !(TVar RAF)
-    , _rafQueue     :: !(TBQueue SleRafCmd)
-    , _rafSleHandle :: !SleHandle
-    , _rafVarCfg    :: !RAFConfig
-    , _rafIdx       :: !RAFIdx
+    { _rafVar        :: !(TVar RAF)
+    , _rafQueue      :: !(TBQueue SleRafCmd)
+    , _rafSleHandle  :: !SleHandle
+    , _rafVarCfg     :: !RAFConfig
+    , _rafIdx        :: !RAFIdx
+    , _rafContinuity :: !(TVar Int32)
     }
 makeLenses ''RAFVar
 
@@ -69,11 +72,12 @@ rafStartState cfg = RAF { _rafSII                   = cfg ^. cfgRAFSII
 newRAFVarIO :: (MonadIO m) => RAFConfig -> RAFIdx -> m RAFVar
 newRAFVarIO cfg idx = do
     let raf = rafStartState cfg
-    var <- newTVarIO raf
-    q   <- newTBQueueIO 100
-    hdl <- newSleHandle (fromIntegral (cfg ^. cfgRAFPort))
-                        (cfg ^. cfgRAFBufferSize)
-    return $! (RAFVar var q hdl cfg idx)
+    var  <- newTVarIO raf
+    q    <- newTBQueueIO 100
+    cont <- newTVarIO (-1)
+    hdl  <- newSleHandle (fromIntegral (cfg ^. cfgRAFPort))
+                         (cfg ^. cfgRAFBufferSize)
+    return $! (RAFVar var q hdl cfg idx cont)
 
 
 readRAFVarIO :: (MonadIO m) => RAFVar -> m RAF
@@ -98,3 +102,8 @@ sendSleRafCmd var cmd = atomically $ writeTBQueue (_rafQueue var) cmd
 
 sendSlePdu :: (MonadIO m) => RAFVar -> SleWrite -> m ()
 sendSlePdu var input = writeSLE (_rafSleHandle var) input
+
+
+sendFrameOrNotification :: (MonadIO m) => RAFVar -> FrameOrNotification -> m ()
+sendFrameOrNotification var value =
+    writeFrameOrNotification (var ^. rafSleHandle) value

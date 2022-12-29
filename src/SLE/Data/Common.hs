@@ -169,7 +169,8 @@ parseChoice choice0 choice1 errTxt = do
 data Time =
   Time CCSDSTime
   | TimePico CCSDSTimePico
-  deriving (Show, Generic)
+  deriving stock (Show, Generic)
+  deriving anyclass (NFData)
 
 time :: Time -> ASN1
 time (Time     t) = OctetString . builderBytes . ccsdsTimeBuilder $ t
@@ -502,12 +503,13 @@ parseSleAcknowledgement = content
                                   }
 
 
-data AntennaID = GlobalForm OID | LocalForm ByteString
-    deriving (Show, Generic)
+data AntennaID = GlobalForm OID | LocalForm Text
+    deriving stock (Show, Generic)
+    deriving anyclass (ToJSON, FromJSON, NFData)
 
 antennaID :: AntennaID -> ASN1
 antennaID (GlobalForm oid) = Other Context 0 (encodeASN1' DER [OID oid])
-antennaID (LocalForm  bs ) = Other Context 1 bs
+antennaID (LocalForm  bs ) = Other Context 1 (encodeUtf8 bs)
 
 parseAntennaID :: Parser AntennaID
 parseAntennaID = parseChoice global loc "Error parsing AntennaID"
@@ -522,7 +524,9 @@ parseAntennaID = parseChoice global loc "Error parsing AntennaID"
         Right _ ->
             throwError $ "Error parsing global antenna ID, no OID provided"
 
-    loc bs = return $ LocalForm bs
+    loc bs = case decodeUtf8' bs of
+        Left  _err -> return $ LocalForm "UNKNOWN"
+        Right txt  -> return $ LocalForm txt
 
 
 type PrivateAnnotation = Maybe ByteString

@@ -82,6 +82,7 @@ library
     SLE.Protocol.User
     SLE.Protocol.RAF
     SLE.Protocol.UserApi
+    SLE.Protocol.ProviderApi
     SLE.State.ProviderState
     SLE.State.UserState
     SLE.State.Classes

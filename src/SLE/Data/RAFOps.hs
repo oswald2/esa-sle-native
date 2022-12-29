@@ -54,7 +54,8 @@ import           SLE.Data.Common
 
 
 data FrameQuality = GoodOnly | ErredOnly | AllFrames | FrameQualInvalid
-    deriving (Eq, Ord, Enum, Show, Generic)
+    deriving stock (Eq, Ord, Enum, Show, Generic)
+    deriving anyclass (NFData)
 
 frameQuality :: FrameQuality -> ASN1
 frameQuality GoodOnly         = IntVal 0
@@ -263,7 +264,8 @@ instance EncodeASN1 RafStartReturn where
 type CarrierLockStatus = LockStatus
 
 data LockStatus = InLock | OutOfLock | NotInUse | LockStatusUnknown
-    deriving (Show, Generic)
+    deriving stock (Show, Generic)
+    deriving anyclass (NFData)
 
 lockStatus :: LockStatus -> ASN1
 lockStatus InLock            = IntVal 0
@@ -288,8 +290,8 @@ data RafProductionStatus =
     ProdRunning
     | ProdInterrupted
     | ProdHalted
-    deriving (Show, Generic)
-
+    deriving stock (Show, Generic)
+    deriving anyclass (NFData)
 
 rafProductionStatus :: RafProductionStatus -> ASN1
 rafProductionStatus ProdRunning     = IntVal 0
@@ -319,7 +321,8 @@ data LockStatusReport = LockStatusReport
     , _lockStatRepSubCarrierLockStatus :: !LockStatus
     , _lockStatRepSymbolLockStatus     :: !SymbolLockStatus
     }
-    deriving (Show, Generic)
+    deriving stock (Show, Generic)
+    deriving anyclass (NFData)
 makeLenses ''LockStatusReport
 
 lockStatusReport :: LockStatusReport -> [ASN1]
@@ -349,7 +352,8 @@ data Notification =
     | ProductionStatusChange !RafProductionStatus
     | ExcessiveDataBacklog
     | EndOfData
-    deriving (Show, Generic)
+    deriving stock (Show, Generic)
+    deriving anyclass (NFData)
 
 notification :: Notification -> ASN1
 notification (LossFrameSync v) =
@@ -408,7 +412,8 @@ data RafSyncNotifyInvocation = RafSyncNotifyInvocation
     { _rafSyncNCredentials  :: !Credentials
     , _rafSyncNNotification :: !Notification
     }
-    deriving (Show, Generic)
+    deriving stock (Show, Generic)
+    deriving anyclass NFData
 makeLenses ''RafSyncNotifyInvocation
 
 
@@ -441,7 +446,8 @@ data RafTransferDataInvocation = RafTransferDataInvocation
     , _rafTransPrivateAnnotation :: !PrivateAnnotation
     , _rafTransData              :: !ByteString
     }
-    deriving (Show, Generic)
+    deriving stock (Show, Generic)
+    deriving anyclass NFData
 makeLenses ''RafTransferDataInvocation
 
 
@@ -476,7 +482,8 @@ parseRafTransferDataInvocation = do
         }
 
 data FrameOrNotification = TransFrame !RafTransferDataInvocation | TransNotification !RafSyncNotifyInvocation
-    deriving (Show, Generic)
+    deriving stock (Show, Generic)
+    deriving anyclass (NFData)
 
 frameOrNotification :: FrameOrNotification -> [ASN1]
 frameOrNotification (TransFrame fr) =

@@ -18,6 +18,7 @@ module SLE.Data.ProviderConfig
     , cfgRAFPort
     , cfgRAFPeer
     , cfgRAFPortID
+    , cfgRAFAntennaID
     , cfgRAFBufferSize
     , cfgRAFLatency
     ) where
@@ -43,6 +44,7 @@ data RAFConfig = RAFConfig
     , _cfgRAFPort       :: !Word16
     , _cfgRAFPeer       :: !Text
     , _cfgRAFPortID     :: !Text
+    , _cfgRAFAntennaID  :: !AntennaID
     , _cfgRAFBufferSize :: !Word32
     , _cfgRAFLatency    :: !Int
     }
@@ -55,6 +57,7 @@ defaultRAFConfig = RAFConfig
     , _cfgRAFPort       = 5008
     , _cfgRAFPeer       = "EGSCC"
     , _cfgRAFPortID     = "PARAGONTT"
+    , _cfgRAFAntennaID  = LocalForm "PARAGONTT"
     , _cfgRAFBufferSize = 100
     , _cfgRAFLatency    = 1_000_000
     }

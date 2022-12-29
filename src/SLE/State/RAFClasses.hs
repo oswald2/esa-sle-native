@@ -3,6 +3,7 @@ module SLE.State.RAFClasses
     , getRAF
     , getRAFSTM
     , getRAFSleHandle
+    , getRAFConfig
     ) where
 
 import           RIO                     hiding ( (^.) )
@@ -11,6 +12,7 @@ import           Control.Lens
 
 import           SLE.Data.Common
 import           SLE.Data.Handle
+import           SLE.Data.ProviderConfig
 import           SLE.State.RAFState
 
 class HasRAF env where
@@ -26,3 +28,6 @@ getRAFSTM env idx = readRAFVar (getRAFVar env idx)
 
 getRAFSleHandle :: (HasRAF env) => env -> RAFIdx -> SleHandle
 getRAFSleHandle env idx = getRAFVar env idx ^. rafSleHandle
+
+getRAFConfig :: (HasRAF env) => env -> RAFIdx -> RAFConfig
+getRAFConfig env idx = getRAFVar env idx ^. rafVarCfg

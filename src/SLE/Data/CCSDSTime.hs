@@ -20,8 +20,11 @@ import           RIO
 import           Data.Time.Clock
 import           Data.Time.Clock.POSIX
 
+
+
 data CCSDSTime = CCSDSTime !Word16 !Word32 !Word16
-    deriving (Eq, Show, Generic)
+    deriving stock (Eq, Show, Generic)
+    deriving anyclass NFData
 
 ccsdsNullTime :: CCSDSTime
 ccsdsNullTime = CCSDSTime 0 0 0
@@ -34,7 +37,8 @@ instance Ord CCSDSTime where
         x -> x
 
 data CCSDSTimePico = CCSDSTimePico !Word16 !Word32 !Word32
-    deriving (Eq, Show, Generic)
+    deriving stock (Eq, Show, Generic)
+    deriving anyclass NFData
 
 ccsdsPicoNullTime :: CCSDSTimePico
 ccsdsPicoNullTime = CCSDSTimePico 0 0 0
@@ -75,3 +79,5 @@ ccsdsTimePicoBuilder (CCSDSTimePico days secs pico) =
 ccsdsTimePicoParser :: Parser CCSDSTimePico
 ccsdsTimePicoParser = do
     CCSDSTimePico <$> A.anyWord16be <*> A.anyWord32be <*> A.anyWord32be
+
+
