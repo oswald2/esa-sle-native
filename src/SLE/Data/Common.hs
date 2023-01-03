@@ -504,7 +504,7 @@ parseSleAcknowledgement = content
 
 
 data AntennaID = GlobalForm OID | LocalForm Text
-    deriving stock (Show, Generic)
+    deriving stock (Show, Read, Generic)
     deriving anyclass (ToJSON, FromJSON, NFData)
 
 antennaID :: AntennaID -> ASN1

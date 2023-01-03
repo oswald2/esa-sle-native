@@ -9,6 +9,7 @@ module SLE.Data.Bind
     , Time(..)
     , IntPosShort(..)
     , AuthorityIdentifier(..)
+    , unAuthorityID
     , PortID(..)
     , VersionNumber(..)
     , ApplicationIdentifier(..)
@@ -68,8 +69,11 @@ import           SLE.Data.ServiceInstanceID
 
 
 
-newtype AuthorityIdentifier = AuthorityIdentifier { unAuthorityID :: Text }
-  deriving (Eq, Ord, Show, Generic)
+newtype AuthorityIdentifier = AuthorityIdentifier Text
+  deriving (Eq, Ord, Show, Read, Generic)
+
+unAuthorityID :: AuthorityIdentifier -> Text
+unAuthorityID (AuthorityIdentifier x) = x
 
 instance FromJSON AuthorityIdentifier
 instance ToJSON AuthorityIdentifier where
@@ -174,8 +178,8 @@ parseApplicationIdentifier = do
 
 
 
-newtype VersionNumber = VersionNumber { unVersionNumber :: Word16 }
-  deriving stock (Eq, Show, Generic)
+newtype VersionNumber = VersionNumber Word16
+  deriving stock (Eq, Show, Read, Generic)
   deriving anyclass (FromJSON, ToJSON)
 
 

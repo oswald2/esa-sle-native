@@ -48,7 +48,7 @@ data RAFConfig = RAFConfig
     , _cfgRAFBufferSize :: !Word32
     , _cfgRAFLatency    :: !Int
     }
-    deriving stock (Show, Generic)
+    deriving stock (Show, Read, Generic)
     deriving anyclass (FromJSON, ToJSON)
 
 defaultRAFConfig :: RAFConfig
@@ -67,7 +67,7 @@ data ProviderConfig = ProviderConfig
     { _cfgCommon :: !CommonConfig
     , _cfgRAFs   :: !(Vector RAFConfig)
     }
-    deriving (Show, Generic)
+    deriving (Show, Read, Generic)
     deriving anyclass (FromJSON, ToJSON)
 
 

@@ -30,7 +30,7 @@ data SleAuthType =
     AuthNone
     | AuthBind
     | AuthAll
-    deriving (Eq, Ord, Enum, Show, Generic)
+    deriving (Eq, Ord, Enum, Show, Read, Generic)
 
 
 instance FromJSON SleAuthType
@@ -46,7 +46,7 @@ data CommonConfig = CommonConfig
     , _cfgVersion   :: !VersionNumber
     , _cfgPassword  :: !Text
     }
-    deriving (Show, Generic)
+    deriving (Show, Read, Generic)
 
 instance FromJSON CommonConfig
 instance ToJSON CommonConfig where

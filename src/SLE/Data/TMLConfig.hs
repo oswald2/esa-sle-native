@@ -35,7 +35,7 @@ data TMLConfig = TMLConfig {
   , cfgMaxHeartBeat :: Word16
   , cfgMinDeadFactor :: Word16
   , cfgMaxDeadFactor :: Word16
-  } deriving (Show, Generic)
+  } deriving (Show, Read, Generic)
 
 
 instance FromJSON TMLConfig
