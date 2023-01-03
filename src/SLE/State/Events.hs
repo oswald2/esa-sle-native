@@ -14,21 +14,22 @@ data SleEvent =
   | TMLCouldNotConnect
   | TMLDisconnect
   | TMLProtocolAbort
-  | TMLParseError Text
-  | TMLError Text
+  | TMLParseError !Text
+  | TMLError !Text
   | TMLPeerAbort
-  | SLEBindReceived SleBindInvocation
-  | SLEBindSucceed SII
-  | SLEBindFailed SII BindDiagnostic
-  | SLEUnbindReceived SleUnbind
-  | SLEUnbindSucceed SII
-  | SLEUnbindFailed SII
-  | SLERafStartReceived  RafStartInvocation
-  | SLERafStartFailed SII
-  | SLERafStartSucceed  SII
-  | SLERafStopReceived SleStopInvocation
-  | SLERafStopFailed SII
-  | SLERafStopSucceed SII
+  | SLEBindReceived !SleBindInvocation
+  | SLEBindSucceed !SII
+  | SLEBindFailed !SII !BindDiagnostic
+  | SLEUnbindReceived !SleUnbind
+  | SLEUnbindSucceed !SII
+  | SLEUnbindFailed !SII
+  | SLERafStartReceived  !RafStartInvocation
+  | SLERafStartFailed !SII
+  | SLERafStartSucceed  !SII
+  | SLERafStopReceived !SleStopInvocation
+  | SLERafStopFailed !SII
+  | SLERafStopSucceed !SII
+  | SLERafStatus !RAFIdx !ServiceState
   deriving (Show, Generic)
 
 type SleEventHandler = SleEvent -> IO ()

@@ -59,6 +59,7 @@ rafStateMachine cfg var pdu = do
         ServiceBound  -> processBoundState cfg var pdu
         ServiceActive -> processActiveState cfg var pdu
     setRAFState var newState
+    sleRaiseEvent $ SLERafStatus (var ^. rafIdx) newState
 
 processInitState
     :: ( MonadIO m
@@ -89,7 +90,7 @@ processInitState cfg var (SlePduBind pdu) = do
                     , AccessDenied
                     )
                 else Right ()
-                                      -- Check, if we are a RAF Bind Request
+                                              -- Check, if we are a RAF Bind Request
             if pdu ^. sleBindServiceType /= RtnAllFrames
                 then Left
                     ( "Requested Service is not RAF: "
@@ -97,7 +98,7 @@ processInitState cfg var (SlePduBind pdu) = do
                     , ServiceTypeNotSupported
                     )
                 else Right ()
-                                      -- check the requested SLE Version 
+                                              -- check the requested SLE Version 
             if (pdu ^. sleVersionNumber /= VersionNumber 3)
                     && (pdu ^. sleVersionNumber /= VersionNumber 4)
                 then Left
