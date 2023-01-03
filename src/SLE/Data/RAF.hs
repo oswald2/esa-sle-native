@@ -1,6 +1,5 @@
 {-# LANGUAGE 
   TemplateHaskell
-  , LinearTypes
 #-}
 module SLE.Data.RAF
     ( RAF

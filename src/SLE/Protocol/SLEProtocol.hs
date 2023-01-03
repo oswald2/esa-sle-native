@@ -194,8 +194,6 @@ processSLEInput (SLEPdu pdu) = do
     logDebug
         $  "processSLEInput: sending TLM Message: "
         <> fromString (ppShow tlmMsg)
-        <> "\n Encoded: "
-        <> display (TB.run (hexData encTlmMsg))
     yield encTlmMsg
     return False
 
