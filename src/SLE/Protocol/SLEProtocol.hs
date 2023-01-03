@@ -360,3 +360,4 @@ processSleTransferBuffer hdl cfg idx = do
             _ -> atomically $ do
                 r <- getRAFSTM env idx
                 when (r ^. rafState /= ServiceActive) retrySTM
+        loop env
