@@ -22,9 +22,9 @@ import           System.Timer.Updatable
 
 import           SLE.Data.CommonConfig
 import           SLE.Data.Handle
-import           SLE.Data.WriteCmd
 import           SLE.Data.TMLConfig
 import           SLE.Data.TMLMessage
+import           SLE.Data.WriteCmd
 
 import           SLE.State.Classes
 import           SLE.State.Events
@@ -211,7 +211,7 @@ heartBeatReceiveTimeOut
     => SleHandle
     -> m ()
 heartBeatReceiveTimeOut hdl = do
-    logWarn "heartBeatReceiveTimeout"
+    logWarn "SLE HeartBeat Timeout"
     protocolAbort hdl
 
 
@@ -221,7 +221,7 @@ protocolAbort
     => SleHandle
     -> m ()
 protocolAbort hdl = do
-    logDebug "ProtocolAbort called!"
+    logDebug "SLE ProtocolAbort called!"
     sleRaiseEvent TMLProtocolAbort
     writeSLE hdl SLEAbort
 

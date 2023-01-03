@@ -191,9 +191,8 @@ processSLEInput (SLEPdu pdu) = do
     encPdu <- liftIO $ encodePDU cfg pdu
     let tlmMsg    = tmlSleMsg encPdu
         encTlmMsg = builderBytes $ tmlMessageBuilder tlmMsg
-    logDebug
-        $  "processSLEInput: sending TLM Message: "
-        <> fromString (ppShow tlmMsg)
+    logDebug $ "processSLEInput: sending TLM Message: " <> fromString
+        (ppShow tlmMsg)
     yield encTlmMsg
     return False
 
@@ -249,11 +248,19 @@ listenRAF hdl cfg idx process = do
         $ runGeneralTCPServer
               (serverSettings (fromIntegral (cfg ^. cfgRAFPort)) "*")
         $ \app -> do
-              logInfo "New connection on server socket"
+              logInfo
+                  $  "SLE RAF "
+                  <> display (cfg ^. cfgRAFSII)
+                  <> ": new connection on server socket: "
+                  <> display (cfg ^. cfgRAFPort)
               let netThreads = race_ (processServerReadSLE hdl process app)
                                      (processServerSendSLE hdl app)
               race_ netThreads (processSleTransferBuffer hdl cfg idx)
-              logInfo "Server threads stopped, restarting for listening"
+              logInfo
+                  $  "SLE RAF "
+                  <> display (cfg ^. cfgRAFSII)
+                  <> " disconnect on server socket: "
+                  <> display (cfg ^. cfgRAFPort)
     onServerDisconnect
 
 -- | Reads from the socket and forwards the data to the TML Message parser conduit.

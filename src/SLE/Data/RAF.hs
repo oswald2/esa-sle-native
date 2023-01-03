@@ -22,6 +22,7 @@ import           Control.Lens
 
 import           SLE.Data.Bind
 import           SLE.Data.Common
+import           SLE.Data.CommonConfig
 import           SLE.Data.PDU
 import           SLE.Data.ProviderConfig
 import           SLE.Data.RAFOps
@@ -41,7 +42,12 @@ bindRAF raf = raf & rafState .~ ServiceBound
 
 
 rafStateMachine
-    :: (MonadIO m, MonadReader env m, HasEventHandler env, HasLogFunc env)
+    :: ( MonadIO m
+       , MonadReader env m
+       , HasCommonConfig env
+       , HasEventHandler env
+       , HasLogFunc env
+       )
     => RAFConfig
     -> RAFVar
     -> SlePdu
@@ -55,7 +61,12 @@ rafStateMachine cfg var pdu = do
     setRAFState var newState
 
 processInitState
-    :: (MonadIO m, MonadReader env m, HasEventHandler env, HasLogFunc env)
+    :: ( MonadIO m
+       , MonadReader env m
+       , HasCommonConfig env
+       , HasEventHandler env
+       , HasLogFunc env
+       )
     => RAFConfig
     -> RAFVar
     -> SlePdu
@@ -64,6 +75,8 @@ processInitState cfg var (SlePduBind pdu) = do
     logDebug "processInitState: BIND"
 
     sleRaiseEvent (SLEBindReceived pdu)
+
+    cmCfg <- RIO.view commonCfg
 
     let auth = AuthorityIdentifier (cfg ^. cfgRAFPeer)
         sii  = toSII (pdu ^. sleServiceInstanceID)
@@ -76,7 +89,7 @@ processInitState cfg var (SlePduBind pdu) = do
                     , AccessDenied
                     )
                 else Right ()
-              -- Check, if we are a RAF Bind Request
+                                      -- Check, if we are a RAF Bind Request
             if pdu ^. sleBindServiceType /= RtnAllFrames
                 then Left
                     ( "Requested Service is not RAF: "
@@ -84,7 +97,7 @@ processInitState cfg var (SlePduBind pdu) = do
                     , ServiceTypeNotSupported
                     )
                 else Right ()
-              -- check the requested SLE Version 
+                                      -- check the requested SLE Version 
             if (pdu ^. sleVersionNumber /= VersionNumber 3)
                     && (pdu ^. sleVersionNumber /= VersionNumber 4)
                 then Left
@@ -105,8 +118,7 @@ processInitState cfg var (SlePduBind pdu) = do
             let ret    = SLEPdu $ SlePduBindReturn retPdu
                 retPdu = SleBindReturn
                     { _sleBindRetCredentials = Nothing
-                    , _sleBindRetResponderID = AuthorityIdentifier
-                                                   (cfg ^. cfgRAFPortID)
+                    , _sleBindRetResponderID = cmCfg ^. cfgResponder
                     , _sleBindRetResult      = BindResVersion
                                                    (pdu ^. sleVersionNumber)
                     }
