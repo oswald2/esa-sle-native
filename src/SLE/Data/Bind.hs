@@ -75,6 +75,9 @@ newtype AuthorityIdentifier = AuthorityIdentifier Text
 unAuthorityID :: AuthorityIdentifier -> Text
 unAuthorityID (AuthorityIdentifier x) = x
 
+instance Display AuthorityIdentifier where
+    textDisplay (AuthorityIdentifier x) = x
+
 instance FromJSON AuthorityIdentifier
 instance ToJSON AuthorityIdentifier where
     toEncoding = genericToEncoding defaultOptions
@@ -86,10 +89,6 @@ authorityIdentifier (AuthorityIdentifier x) = visibleString x
 parseAuthorityIdentifier :: Parser AuthorityIdentifier
 parseAuthorityIdentifier = do
     AuthorityIdentifier <$> parseVisibleString
-
-instance Display AuthorityIdentifier where
-    display (AuthorityIdentifier val) = display val
-
 
 
 newtype PortID = PortID { unPortID :: Text }
