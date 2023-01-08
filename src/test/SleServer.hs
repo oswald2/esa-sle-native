@@ -83,6 +83,8 @@ main = do
     startServer cfg handler
     return ()
 
+perfFunc :: Word64 -> IO ()
+perfFunc len = T.putStrLn $ "Sent " <> fromString (show len) <> " bytes"
 
 
 startServer :: ProviderConfig -> SleEventHandler -> IO ()
@@ -94,11 +96,11 @@ startServer cfg eventHandler = do
 
         runRIO state $ do
             logDebug "Starting listening on SLE..."
-            concurrently_ runRAFs action
+            concurrently_ (runRAFs perfFunc) action
 
 action :: RIO ProviderState ()
-action = do 
+action = do
     -- perform transfer data test
-    
+
 
     return ()

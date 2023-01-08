@@ -60,7 +60,7 @@ startRAF
     -> Word16
     -> ConditionalTime
     -> ConditionalTime
-    -> FrameQuality
+    -> ReqFrameQuality
     -> m ()
 startRAF _cfg hdl creds invokeID start stop quality = do
     let pdu = RafStartInvocation { _rafStartCredentials       = creds

@@ -4,6 +4,7 @@ module SLE.Protocol.Provider
 
 import           RIO
 
+import qualified Data.Text.IO                  as T
 import           SLE.Data.ProviderConfig
 
 import           SLE.State.Events
@@ -12,7 +13,12 @@ import           SLE.State.ProviderState
 import           SLE.Protocol.RAF
 
 
-startServer :: ProviderConfig -> SleEventHandler -> RIO ProviderState () -> IO ()
+
+perfFunc :: Word64 -> IO ()
+perfFunc len = T.putStrLn $ "Sent " <> fromString (show len) <> " bytes"
+
+startServer
+    :: ProviderConfig -> SleEventHandler -> RIO ProviderState () -> IO ()
 startServer cfg eventHandler action = do
     defLogOptions <- logOptionsHandle stdout True
     let logOptions = setLogMinLevel LevelDebug defLogOptions
@@ -21,6 +27,6 @@ startServer cfg eventHandler action = do
 
         runRIO state $ do
             logDebug "Starting listening on SLE..."
-            concurrently_ runRAFs action
+            concurrently_ (runRAFs perfFunc) action
 
 

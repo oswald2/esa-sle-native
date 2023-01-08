@@ -4,6 +4,7 @@ module SLE.Protocol.SLEProtocol
     ) where
 
 import           RIO
+import qualified RIO.ByteString                as B
 import qualified RIO.ByteString.Lazy           as BL
 import qualified RIO.Text                      as T
 
@@ -40,7 +41,7 @@ import           Data.STM.TimedBuffer
 
 import           Text.Show.Pretty
 
-import           Text.Builder                  as TB
+-- import           Text.Builder                  as TB
 
 
 
@@ -54,12 +55,13 @@ connectSLE
        )
     => SleHandle
     -> ConnectAddr
+    -> (Word64 -> IO ())
     -> m ()
-connectSLE hdl addr = do
+connectSLE hdl addr perfFunc = do
     runGeneralTCPReconnectClient
         (clientSettings (fromIntegral (port addr)) (encodeUtf8 (host addr)))
         200000
-        (processConnect hdl)
+        (processConnect hdl perfFunc)
         onDisconnect
 
 
@@ -72,9 +74,10 @@ processConnect
        , HasTimer env
        )
     => SleHandle
+    -> (Word64 -> IO ())
     -> AppData
     -> m ()
-processConnect hdl appData = do
+processConnect hdl perfFunc appData = do
     env <- ask
     logInfo "SLE: Connected to provider."
     sleRaiseEvent TMLConnect
@@ -95,7 +98,7 @@ processConnect hdl appData = do
     logDebug "Running chains..."
     race_
         (runConduitRes (appSource appData .| processReadTML hdl processSLEMsg))
-        (runConduitRes (processWriteTML hdl .| appSink appData))
+        (runConduitRes (processWriteTML hdl perfFunc .| appSink appData))
 
     return ()
 
@@ -176,16 +179,19 @@ readSLEInput hdl = do
 -- if there is one. Returns 'True' if the loop should terminate and 'False' otherwise.
 processSLEInput
     :: (MonadUnliftIO m, MonadReader env m, HasCommonConfig env, HasLogFunc env)
-    => SleWrite
+    => (Word64 -> IO ())
+    -> SleWrite
     -> ConduitT () ByteString m Bool
-processSLEInput SLEAbort      = return True
-processSLEInput SLEAbortPeer  = return True
-processSLEInput SLEStopListen = return True
-processSLEInput (SLEMsg msg)  = do
+processSLEInput _        SLEAbort      = return True
+processSLEInput _        SLEAbortPeer  = return True
+processSLEInput _        SLEStopListen = return True
+processSLEInput perfFunc (SLEMsg msg)  = do
     logDebug $ "processSLEInput: " <> fromString (ppShow msg)
-    yield $ builderBytes $ tmlMessageBuilder msg
+    let dat = builderBytes $ tmlMessageBuilder msg
+    yield dat
+    liftIO $ perfFunc (fromIntegral (B.length dat))
     return False
-processSLEInput (SLEPdu pdu) = do
+processSLEInput perfFunc (SLEPdu pdu) = do
     logDebug $ "processSLEInput: SLE PDU: " <> fromString (ppShow pdu)
     cfg    <- view commonCfg
     encPdu <- liftIO $ encodePDU cfg pdu
@@ -194,6 +200,7 @@ processSLEInput (SLEPdu pdu) = do
     logDebug $ "processSLEInput: sending TLM Message: " <> fromString
         (ppShow tlmMsg)
     yield encTlmMsg
+    liftIO $ perfFunc (fromIntegral (B.length encTlmMsg))
     return False
 
 -- | Listen on the queue in the 'SleHandle'. If it returns 'Nothing', this means that 
@@ -207,15 +214,16 @@ processWriteTML
        , HasLogFunc env
        )
     => SleHandle
+    -> (Word64 -> IO ())
     -> ConduitT () ByteString m ()
-processWriteTML hdl = go
+processWriteTML hdl perfFunc = go
   where
     go = do
         val <- readSLEInput hdl
         case val of
             Just inp -> do
                 logDebug $ "Sending SLE Input: " <> fromString (ppShow inp)
-                terminate <- processSLEInput inp
+                terminate <- processSLEInput perfFunc inp
                 if terminate
                     then
                         logDebug
@@ -242,8 +250,9 @@ listenRAF
     -> RAFConfig
     -> RAFIdx
     -> (SlePdu -> m ())
+    -> (Word64 -> IO ())
     -> m ()
-listenRAF hdl cfg idx process = do
+listenRAF hdl cfg idx process perfFunc = do
     void
         $ runGeneralTCPServer
               (serverSettings (fromIntegral (cfg ^. cfgRAFPort)) "*")
@@ -253,8 +262,9 @@ listenRAF hdl cfg idx process = do
                   <> display (cfg ^. cfgRAFSII)
                   <> ": new connection on server socket: "
                   <> display (cfg ^. cfgRAFPort)
-              let netThreads = race_ (processServerReadSLE hdl process app)
-                                     (processServerSendSLE hdl app)
+              let netThreads = race_
+                      (processServerReadSLE hdl process app)
+                      (processServerSendSLE hdl perfFunc app)
               race_ netThreads (processSleTransferBuffer hdl cfg idx)
               logInfo
                   $  "SLE RAF "
@@ -332,10 +342,11 @@ processServerSendSLE
        , HasTimer env
        )
     => SleHandle
+    -> (Word64 -> IO ())
     -> AppData
     -> m ()
-processServerSendSLE hdl app =
-    runConduitRes $ processWriteTML hdl .| appSink app
+processServerSendSLE hdl perfFunc app =
+    runConduitRes $ processWriteTML hdl perfFunc .| appSink app
 
 
 processSleTransferBuffer

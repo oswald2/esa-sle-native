@@ -4,6 +4,8 @@ module SLE.Protocol.User
 
 import           RIO
 
+import qualified Data.Text.IO                  as T
+
 import           SLE.Data.Handle
 import           SLE.Data.TMLConfig
 import           SLE.Data.UserConfig
@@ -13,6 +15,8 @@ import           SLE.Protocol.SLEProtocol
 import           SLE.State.Events
 import           SLE.State.UserState
 
+perfFunc :: Word64 -> IO ()
+perfFunc len = T.putStrLn $ "Sent " <> fromString (show len) <> " bytes"
 
 startClient :: ConnectAddr -> SleEventHandler -> SleHandle -> IO ()
 startClient addr eventHandler hdl = do
@@ -22,6 +26,6 @@ startClient addr eventHandler hdl = do
         state <- initialState defaultUserConfig logFunc eventHandler hdl
 
         runRIO state $ do
-            connectSLE hdl addr
+            connectSLE hdl addr perfFunc
 
 

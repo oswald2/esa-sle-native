@@ -23,15 +23,17 @@ runRAF
        , HasTimer env
        , HasRAF env
        )
-    => RAFVar
+    => (Word64 -> IO ())
+    -> RAFVar
     -> m ()
-runRAF var = do
+runRAF perfFunc var = do
     let cfg = var ^. rafVarCfg
     listenRAF (var ^. rafSleHandle)
               cfg
               (var ^. rafIdx)
               (rafStateMachine cfg var)
-    runRAF var
+              perfFunc
+    runRAF perfFunc var
 
 
 
@@ -44,10 +46,13 @@ runRAFs
        , HasTimer env
        , HasRAF env
        )
-    => m ()
-runRAFs = do
+    => (Word64 -> IO ())
+    -> m ()
+runRAFs perfFunc = do
     env <- ask
     let rafs    = env ^. getRAFs
-        threads = V.foldl (\prev raf -> prev <> conc (runRAF raf)) mempty rafs
+        threads = V.foldl (\prev raf -> prev <> conc (runRAF perfFunc raf))
+                          mempty
+                          rafs
     runConc threads
 

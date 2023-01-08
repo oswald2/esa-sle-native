@@ -57,6 +57,8 @@ module SLE.Data.Common
     , privateAnnotation
     , parsePrivateAnnotation
     , RAFIdx(..)
+    , RCFIdx(..)
+    , TMIdx(..)
     , InvokeID(..)
     ) where
 
@@ -552,6 +554,12 @@ parsePrivateAnnotation = parseChoice (const (return Nothing))
 
 
 newtype RAFIdx = RAFIdx Int
+    deriving stock (Show, Generic)
+
+newtype RCFIdx = RCFIdx Int
+    deriving stock (Show, Generic)
+
+data TMIdx = TMRAF !RAFIdx | TMRCF !RCFIdx | TMFirst !Word8
     deriving stock (Show, Generic)
 
 

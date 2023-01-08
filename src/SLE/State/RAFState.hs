@@ -43,7 +43,7 @@ data RAF = RAF
     , _rafState                 :: !ServiceState
     , _rafStateStartTime        :: !ConditionalTime
     , _rafStateStopTime         :: !ConditionalTime
-    , _rafStateRequestedQuality :: !FrameQuality
+    , _rafStateRequestedQuality :: !ReqFrameQuality
     }
 makeLenses ''RAF
 

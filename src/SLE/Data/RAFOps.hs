@@ -1,6 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 module SLE.Data.RAFOps
     ( FrameQuality(..)
+    , ReqFrameQuality(..)
     , RafStartInvocation(..)
     , RafStartReturn(..)
     , rafStartCredentials
@@ -52,20 +53,39 @@ import           Data.ASN1.Types
 import           SLE.Data.Common
 
 
-
-data FrameQuality = GoodOnly | ErredOnly | AllFrames | FrameQualInvalid
+data FrameQuality = FrameGood | FrameErred | FrameUndetermined
     deriving stock (Eq, Ord, Enum, Show, Generic)
     deriving anyclass (NFData)
 
 frameQuality :: FrameQuality -> ASN1
-frameQuality GoodOnly         = IntVal 0
-frameQuality ErredOnly        = IntVal 1
-frameQuality AllFrames        = IntVal 2
-frameQuality FrameQualInvalid = IntVal 127
-
+frameQuality FrameGood  = IntVal 0
+frameQuality FrameErred = IntVal 1
+frameQuality _          = IntVal 2
 
 parseFrameQuality :: Parser FrameQuality
 parseFrameQuality = do
+    v <- parseIntVal
+    case v of
+        0 -> return FrameGood
+        1 -> return FrameErred
+        2 -> return FrameUndetermined
+        _ -> return FrameUndetermined
+
+
+
+data ReqFrameQuality = GoodOnly | ErredOnly | AllFrames | FrameQualInvalid
+    deriving stock (Eq, Ord, Enum, Show, Generic)
+    deriving anyclass (NFData)
+
+reqFrameQuality :: ReqFrameQuality -> ASN1
+reqFrameQuality GoodOnly         = IntVal 0
+reqFrameQuality ErredOnly        = IntVal 1
+reqFrameQuality AllFrames        = IntVal 2
+reqFrameQuality FrameQualInvalid = IntVal 127
+
+
+parseReqFrameQuality :: Parser ReqFrameQuality
+parseReqFrameQuality = do
     v <- parseIntVal
     case v of
         0 -> return GoodOnly
@@ -79,7 +99,7 @@ data RafStartInvocation = RafStartInvocation
     , _rafStartInvokeID          :: !Word16
     , _rafStartTime              :: !ConditionalTime
     , _rafStopTime               :: !ConditionalTime
-    , _rafStartRequestedTimeQual :: !FrameQuality
+    , _rafStartRequestedTimeQual :: !ReqFrameQuality
     }
     deriving (Show, Generic)
 makeLenses ''RafStartInvocation
@@ -93,7 +113,7 @@ rafStartInvocation RafStartInvocation {..} =
     , IntVal (fromIntegral _rafStartInvokeID)
     , conditionalTime _rafStartTime
     , conditionalTime _rafStopTime
-    , frameQuality _rafStartRequestedTimeQual
+    , reqFrameQuality _rafStartRequestedTimeQual
     , End (Container Context 0)
     ]
 
@@ -107,7 +127,7 @@ parseRafStart = content
         invokeID <- parseIntVal
         start    <- parseConditionalTime
         stop     <- parseConditionalTime
-        qual     <- parseFrameQuality
+        qual     <- parseReqFrameQuality
         void endContainer
         return RafStartInvocation { _rafStartCredentials       = creds
                                   , _rafStartInvokeID = fromIntegral invokeID
@@ -322,7 +342,7 @@ data LockStatusReport = LockStatusReport
     , _lockStatRepSymbolLockStatus     :: !SymbolLockStatus
     }
     deriving stock (Show, Generic)
-    deriving anyclass (NFData)
+    deriving anyclass NFData
 makeLenses ''LockStatusReport
 
 lockStatusReport :: LockStatusReport -> [ASN1]
