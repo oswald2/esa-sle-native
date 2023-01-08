@@ -32,7 +32,7 @@ mkHashInput :: CommonConfig -> CCSDSTime -> Int32 -> HashInput
 mkHashInput cfg t r = HashInput
     { _hiTime         = t
     , _hiRandomNumber = r
-    , _hiUserName     = unAuthorityID (cfg ^. cfgInitiator)
+    , _hiUserName     = unAuthorityID (cfg ^. cfgLocal)
     , _hiPassword     = cfg ^. cfgPassword
     }
 

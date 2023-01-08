@@ -3,6 +3,7 @@
 #-}
 module SLE.Data.Bind
     ( Credentials
+    , Password(..)
     , SleBindInvocation(..)
     , mkSleBindInvocation
     , mkSleUnbindBindInvocation
@@ -70,7 +71,8 @@ import           SLE.Data.ServiceInstanceID
 
 
 newtype AuthorityIdentifier = AuthorityIdentifier Text
-  deriving (Eq, Ord, Show, Read, Generic)
+  deriving stock (Eq, Ord, Show, Read, Generic)
+  deriving anyclass (FromJSON, ToJSON, Hashable)
 
 unAuthorityID :: AuthorityIdentifier -> Text
 unAuthorityID (AuthorityIdentifier x) = x
@@ -78,17 +80,27 @@ unAuthorityID (AuthorityIdentifier x) = x
 instance Display AuthorityIdentifier where
     textDisplay (AuthorityIdentifier x) = x
 
-instance FromJSON AuthorityIdentifier
-instance ToJSON AuthorityIdentifier where
-    toEncoding = genericToEncoding defaultOptions
-
-
 authorityIdentifier :: AuthorityIdentifier -> ASN1
 authorityIdentifier (AuthorityIdentifier x) = visibleString x
 
 parseAuthorityIdentifier :: Parser AuthorityIdentifier
 parseAuthorityIdentifier = do
     AuthorityIdentifier <$> parseVisibleString
+
+
+newtype Password = Password Text
+  deriving (Eq, Ord, Show, Read, Generic)
+
+unPassword :: Password -> Text
+unPassword (Password pw) = pw
+
+instance Display Password where
+    textDisplay (Password _) = "***"
+
+instance FromJSON Password
+instance ToJSON Password where
+    toEncoding = genericToEncoding defaultOptions
+
 
 
 newtype PortID = PortID { unPortID :: Text }

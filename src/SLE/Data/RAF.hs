@@ -17,6 +17,7 @@ module SLE.Data.RAF
 import           RIO                     hiding ( (.~)
                                                 , (^.)
                                                 )
+import qualified RIO.Set                       as S
 
 import           Control.Lens
 
@@ -79,18 +80,18 @@ processInitState cfg var (SlePduBind pdu) = do
 
     cmCfg <- RIO.view commonCfg
 
-    let auth = AuthorityIdentifier (cfg ^. cfgRAFPeer)
-        sii  = toSII (pdu ^. sleServiceInstanceID)
+    let authSet = var ^. rafPeers
+        sii     = toSII (pdu ^. sleServiceInstanceID)
     let res = do
           -- first, when a bind comes in, perform some checks
-            if pdu ^. sleBindInitiatorID /= auth
+            if isPeer authSet (pdu ^. sleBindInitiatorID)
                 then Left
-                    ( "Access Denied, initiator now allowed: "
+                    ( "Access Denied, initiator not allowed: "
                         <> display (pdu ^. sleBindInitiatorID)
                     , AccessDenied
                     )
                 else Right ()
-                                              -- Check, if we are a RAF Bind Request
+                                                          -- Check, if we are a RAF Bind Request
             if pdu ^. sleBindServiceType /= RtnAllFrames
                 then Left
                     ( "Requested Service is not RAF: "
@@ -98,7 +99,7 @@ processInitState cfg var (SlePduBind pdu) = do
                     , ServiceTypeNotSupported
                     )
                 else Right ()
-                                              -- check the requested SLE Version 
+                                                          -- check the requested SLE Version 
             if (pdu ^. sleVersionNumber /= VersionNumber 3)
                     && (pdu ^. sleVersionNumber /= VersionNumber 4)
                 then Left
@@ -119,7 +120,7 @@ processInitState cfg var (SlePduBind pdu) = do
             let ret    = SLEPdu $ SlePduBindReturn retPdu
                 retPdu = SleBindReturn
                     { _sleBindRetCredentials = Nothing
-                    , _sleBindRetResponderID = cmCfg ^. cfgResponder
+                    , _sleBindRetResponderID = cmCfg ^. cfgLocal
                     , _sleBindRetResult      = BindResVersion
                                                    (pdu ^. sleVersionNumber)
                     }

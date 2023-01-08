@@ -5,7 +5,7 @@ module SLE.Data.UserConfig
     ( UserConfig(..)
     , defaultUserConfig
     , defaultUserConfigFileName
-    , cfgUserName
+    -- , cfgUserName
     , cfgCommon
     , writeConfigJSON
     , loadConfigJSON
@@ -22,7 +22,7 @@ import           Control.Lens
 import           Data.Aeson
 import           Data.Aeson.Encode.Pretty       ( encodePretty )
 
-import           SLE.Data.Bind
+-- import           SLE.Data.Bind
 import           SLE.Data.CommonConfig
 
 
@@ -44,8 +44,8 @@ defaultUserConfig :: UserConfig
 defaultUserConfig = UserConfig defaultCommonConfig
 
 
-cfgUserName :: Getter UserConfig Text
-cfgUserName = Control.Lens.to (unAuthorityID . _cfgInitiator . _cfgCommon)
+-- cfgUserName :: Getter UserConfig Text
+-- cfgUserName = Control.Lens.to (unAuthorityID . _cfgInitiator . _cfgCommon)
 
 makeLenses ''UserConfig
 

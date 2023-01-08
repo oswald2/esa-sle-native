@@ -20,6 +20,7 @@ module SLE.State.RAFState
     , rafVarCfg
     , rafIdx
     , rafContinuity
+    , rafPeers
     , sendSleRafCmd
     , sendSlePdu
     , sendFrameOrNotification
@@ -31,12 +32,13 @@ import           RIO                     hiding ( (.~)
 
 import           Control.Lens
 
+import           SLE.Data.Bind
 import           SLE.Data.Common
+import           SLE.Data.CommonConfig
 import           SLE.Data.Handle
 import           SLE.Data.ProviderConfig
 import           SLE.Data.RAFOps
 import           SLE.Data.WriteCmd
-
 
 data RAF = RAF
     { _rafSII                   :: !SII
@@ -57,6 +59,7 @@ data RAFVar = RAFVar
     , _rafVarCfg     :: !RAFConfig
     , _rafIdx        :: !RAFIdx
     , _rafContinuity :: !(TVar Int32)
+    , _rafPeers      :: !(HashMap AuthorityIdentifier Peer)
     }
 makeLenses ''RAFVar
 
@@ -69,15 +72,15 @@ rafStartState cfg = RAF { _rafSII                   = cfg ^. cfgRAFSII
                         }
 
 
-newRAFVarIO :: (MonadIO m) => RAFConfig -> RAFIdx -> m RAFVar
-newRAFVarIO cfg idx = do
+newRAFVarIO :: (MonadIO m) => CommonConfig -> RAFConfig -> RAFIdx -> m RAFVar
+newRAFVarIO commonCfg cfg idx = do
     let raf = rafStartState cfg
     var  <- newTVarIO raf
     q    <- newTBQueueIO 100
     cont <- newTVarIO (-1)
     hdl  <- newSleHandle (fromIntegral (cfg ^. cfgRAFPort))
                          (cfg ^. cfgRAFBufferSize)
-    return $! (RAFVar var q hdl cfg idx cont)
+    return $! RAFVar var q hdl cfg idx cont (mkPeerSet commonCfg)
 
 
 readRAFVarIO :: (MonadIO m) => RAFVar -> m RAF

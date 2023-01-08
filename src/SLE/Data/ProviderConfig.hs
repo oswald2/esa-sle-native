@@ -12,11 +12,11 @@ module SLE.Data.ProviderConfig
     , writeConfigJSON
     , loadConfigJSON
     , cfgCommon
-    , SLE.Data.ProviderConfig.cfgUserName
+    -- , SLE.Data.ProviderConfig.cfgUserName
     , cfgRAFs
     , cfgRAFSII
     , cfgRAFPort
-    , cfgRAFPeer
+    -- , cfgRAFPeer
     , cfgRAFPortID
     , cfgRAFAntennaID
     , cfgRAFBufferSize
@@ -34,7 +34,7 @@ import           Control.Lens
 import           Data.Aeson
 import           Data.Aeson.Encode.Pretty       ( encodePretty )
 
-import           SLE.Data.Bind
+-- import           SLE.Data.Bind
 import           SLE.Data.Common
 import           SLE.Data.CommonConfig
 
@@ -42,7 +42,6 @@ import           SLE.Data.CommonConfig
 data RAFConfig = RAFConfig
     { _cfgRAFSII        :: !SII
     , _cfgRAFPort       :: !Word16
-    , _cfgRAFPeer       :: !Text
     , _cfgRAFPortID     :: !Text
     , _cfgRAFAntennaID  :: !AntennaID
     , _cfgRAFBufferSize :: !Word32
@@ -55,7 +54,6 @@ defaultRAFConfig :: RAFConfig
 defaultRAFConfig = RAFConfig
     { _cfgRAFSII        = SII "sagr=3.spack=facility-PASS1.rsl-fg=1.raf=onlc1"
     , _cfgRAFPort       = 5008
-    , _cfgRAFPeer       = "EGSCC"
     , _cfgRAFPortID     = "PARAGONTT"
     , _cfgRAFAntennaID  = LocalForm "PARAGONTT"
     , _cfgRAFBufferSize = 100
@@ -82,8 +80,8 @@ defaultProviderConfig = ProviderConfig
     }
 
 
-cfgUserName :: Getter ProviderConfig Text
-cfgUserName = Control.Lens.to (unAuthorityID . _cfgInitiator . _cfgCommon)
+-- cfgUserName :: Getter ProviderConfig Text
+-- cfgUserName = Control.Lens.to (unAuthorityID . cfgLocal . cfgCommon)
 
 makeLenses ''ProviderConfig
 makeLenses ''RAFConfig

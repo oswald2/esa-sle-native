@@ -52,7 +52,7 @@ initialState cfg logFunc eventHandler = do
     hbtr <- liftIO $ newTVarIO (fromIntegral (cfgHeartbeat tmlCfg) * 1_000_000)
 
     -- create the RAFs 
-    let createFunc idx cfg' = newRAFVarIO cfg' (RAFIdx idx)
+    let createFunc idx cfg' = newRAFVarIO (cfg ^. cfgCommon) cfg' (RAFIdx idx)
 
     rafs <- V.imapM createFunc (cfg ^. cfgRAFs)
 

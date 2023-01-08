@@ -13,10 +13,10 @@ import           SLE.Data.Bind
 import           SLE.Data.Common
 import           SLE.Data.CommonConfig
 import           SLE.Data.Handle
-import           SLE.Data.WriteCmd
 import           SLE.Data.PDU
 import           SLE.Data.RAFOps
 import           SLE.Data.ServiceInstanceID
+import           SLE.Data.WriteCmd
 
 -- import           Text.Builder
 
@@ -35,8 +35,8 @@ bind
     -> m ()
 bind cfg hdl creds appID port attrs = do
   -- create an SLE Bind Invocation
-    let bnd = mkSleBindInvocation creds 
-                                  (cfg ^. cfgInitiator)
+    let bnd = mkSleBindInvocation creds
+                                  (cfg ^. cfgLocal)
                                   port
                                   appID
                                   (cfg ^. cfgVersion)
@@ -46,7 +46,13 @@ bind cfg hdl creds appID port attrs = do
 
 
 
-unbind :: (MonadIO m) => CommonConfig -> SleHandle -> Credentials -> UnbindReason -> m ()
+unbind
+    :: (MonadIO m)
+    => CommonConfig
+    -> SleHandle
+    -> Credentials
+    -> UnbindReason
+    -> m ()
 unbind _cfg hdl creds reason = do
     let pdu = mkSleUnbindBindInvocation creds reason
     writeSLE hdl (SLEPdu (SlePduUnbind pdu))
@@ -71,12 +77,12 @@ startRAF _cfg hdl creds invokeID start stop quality = do
                                  }
     writeSLE hdl (SLEPdu (SlePduRafStart pdu))
 
-stopRAF :: (MonadIO m) => CommonConfig -> SleHandle -> Credentials -> Word16 -> m () 
-stopRAF _cfg hdl creds  invokeID = do 
-    let pdu = SleStopInvocation { 
-                    _sleStopCredentials = creds
-                    , _sleStopInvokeID = invokeID
-                    }
+stopRAF
+    :: (MonadIO m) => CommonConfig -> SleHandle -> Credentials -> Word16 -> m ()
+stopRAF _cfg hdl creds invokeID = do
+    let pdu = SleStopInvocation { _sleStopCredentials = creds
+                                , _sleStopInvokeID    = invokeID
+                                }
     writeSLE hdl (SLEPdu (SlePduStop pdu))
 
 -- sendFrame :: (Monad m) => SleHandle -> ByteString -> m ()

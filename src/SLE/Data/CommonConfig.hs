@@ -4,16 +4,20 @@
 module SLE.Data.CommonConfig
     ( SleAuthType(..)
     , CommonConfig(..)
+    , Peer(..)
     , defaultCommonConfig
     , cfgTML
-    , cfgInitiator
-    , cfgResponder
+    , cfgPeers
+    , cfgLocal
     , cfgAuthorize
     , cfgPassword
     , cfgVersion
+    , mkPeerSet
+    , isPeer
     ) where
 
 import           RIO
+import qualified RIO.HashMap                   as HM
 
 import           Control.Lens
 
@@ -37,11 +41,21 @@ instance FromJSON SleAuthType
 instance ToJSON SleAuthType where
     toEncoding = genericToEncoding defaultOptions
 
+data Peer = Peer
+    { cfgPeerAuthorityID :: !AuthorityIdentifier
+    , cfgPeerPassword    :: !Password
+    }
+    deriving (Eq, Ord, Show, Read, Generic)
+
+instance FromJSON Peer
+instance ToJSON Peer where
+    toEncoding = genericToEncoding defaultOptions
+
 
 data CommonConfig = CommonConfig
     { _cfgTML       :: !TMLConfig
-    , _cfgInitiator :: !AuthorityIdentifier
-    , _cfgResponder :: !AuthorityIdentifier
+    , _cfgPeers     :: [Peer]
+    , _cfgLocal     :: !AuthorityIdentifier
     , _cfgAuthorize :: !SleAuthType
     , _cfgVersion   :: !VersionNumber
     , _cfgPassword  :: !Text
@@ -53,12 +67,20 @@ instance ToJSON CommonConfig where
     toEncoding = genericToEncoding defaultOptions
 
 
+mkPeerSet :: CommonConfig -> HashMap AuthorityIdentifier Peer
+mkPeerSet cfg = foldl' (\h p -> HM.insert (cfgPeerAuthorityID p) p h)
+                       HM.empty
+                       (_cfgPeers cfg)
+
+isPeer :: HashMap AuthorityIdentifier Peer -> AuthorityIdentifier -> Bool
+isPeer hm auid = HM.member auid hm
+
 
 defaultCommonConfig :: CommonConfig
 defaultCommonConfig = CommonConfig
     { _cfgTML       = SLE.Data.TMLConfig.defaultConfig
-    , _cfgInitiator = AuthorityIdentifier "EGSCC"
-    , _cfgResponder = AuthorityIdentifier "PARAGONTT"
+    , _cfgPeers = [Peer (AuthorityIdentifier "EGSCC") (Password "0x12345678")]
+    , _cfgLocal     = AuthorityIdentifier "PARAGONTT"
     , _cfgAuthorize = AuthNone
     , _cfgVersion   = VersionNumber 3
     , _cfgPassword  = "PASSWD"
