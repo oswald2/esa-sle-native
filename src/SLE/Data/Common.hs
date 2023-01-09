@@ -175,20 +175,15 @@ data Time =
   deriving anyclass (NFData)
 
 time :: Time -> ASN1
-time (Time     t) = OctetString . builderBytes . ccsdsTimeBuilder $ t
-time (TimePico t) = OctetString . builderBytes . ccsdsTimePicoBuilder $ t
+time (Time     t) = Other Context 0 $ builderBytes . ccsdsTimeBuilder $ t
+time (TimePico t) = Other Context 1 $ builderBytes . ccsdsTimePicoBuilder $ t
 
 
 parseTime :: Parser Time
 parseTime = do
     x <- get
     case x of
-        OctetString bs : rest -> do
-            put rest
-            case timeFromBS bs of
-                Left  err -> throwError err
-                Right t   -> return t
-        Other Context 0 bs : rest -> do
+        Other Context _ bs : rest -> do
             put rest
             case timeFromBS bs of
                 Left  err -> throwError err
@@ -534,22 +529,14 @@ parseAntennaID = parseChoice global loc "Error parsing AntennaID"
 type PrivateAnnotation = Maybe ByteString
 
 privateAnnotation :: PrivateAnnotation -> ASN1
-privateAnnotation Nothing =
-    Other Context 0 (encodeASN1' DER [Data.ASN1.Types.Null])
-privateAnnotation (Just v) = Other Context 1 (encodeASN1' DER [OctetString v])
+privateAnnotation Nothing  = Other Context 0 B.empty
+privateAnnotation (Just v) = Other Context 1 v
 
 parsePrivateAnnotation :: Parser PrivateAnnotation
 parsePrivateAnnotation = parseChoice (const (return Nothing))
                                      annot
                                      "Error parsing Private Annotation"
-  where
-    annot bs = do
-        case decodeASN1' DER bs of
-            Left err ->
-                throwError $ "Error parsing Private Annotation: " <> fromString
-                    (show err)
-            Right (OctetString str : _) -> return (Just str)
-            Right _ -> throwError "Error parsing Private Annotation"
+    where annot bs = return (Just bs)
 
 
 

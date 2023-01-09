@@ -27,7 +27,7 @@
     "_cfgRAFs": [
         {
             "_cfgRAFAntennaID": {
-                "contents": "PARAGONTT",
+                "contents": "",
                 "tag": "LocalForm"
             },
             "_cfgRAFBufferSize": 100,

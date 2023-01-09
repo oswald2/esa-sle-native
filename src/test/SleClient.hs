@@ -9,6 +9,7 @@ import           RIO
 import qualified RIO.Text                      as T
 
 import           SLE.Data.Bind
+import           SLE.Data.CommonConfig
 import           SLE.Data.RAFOps
 import           SLE.Data.ServiceInstanceID
 import           SLE.Data.TMLConfig
@@ -17,12 +18,18 @@ import           SLE.Protocol.User
 import           SLE.Protocol.UserApi
 
 
+
+sleConfig :: UserConfig
+sleConfig =
+    defaultUserConfig & cfgCommon . cfgLocal .~ AuthorityIdentifier "EGSCC"
+
+
 main :: IO ()
 main = do
     let addr = ConnectAddr { host = "localhost", port = 5100 }
 
         handler msg = T.putStrLn $ "HANDLER: " <> T.pack (show msg)
-        cfg = defaultUserConfig
+        cfg = sleConfig
 
     withSleHandle (port addr) 100 $ \hdl -> do
         void $ concurrently (startClient addr handler hdl)
