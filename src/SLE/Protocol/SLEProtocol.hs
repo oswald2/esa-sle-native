@@ -314,6 +314,7 @@ processServerReadSLE hdl process app = do
     runConduitRes $ appSource app .| processReadTML
         hdl
         (processServerSLEMsg (lift . process))
+    logDebug "processServerReadSLE leaves"
 
   where
     sink = do
@@ -345,21 +346,25 @@ processServerSendSLE
     -> (Word64 -> IO ())
     -> AppData
     -> m ()
-processServerSendSLE hdl perfFunc app =
+processServerSendSLE hdl perfFunc app = do
     runConduitRes $ processWriteTML hdl perfFunc .| appSink app
+    logDebug "processServerSendSLE leaves"
 
 
 processSleTransferBuffer
-    :: (MonadUnliftIO m, MonadReader env m, HasRAF env)
+    :: (MonadUnliftIO m, MonadReader env m, HasRAF env, HasLogFunc env)
     => SleHandle
     -> RAFConfig
     -> RAFIdx
     -> m ()
 processSleTransferBuffer hdl cfg idx = do
+    logDebug "processSleTransferBuffer enters"
     env <- ask
     loop env
+    logDebug "processSleTransferBuffer leaves"
 
   where
+    loop :: (MonadUnliftIO m, MonadReader env m, HasRAF env) => env -> m ()
     loop env = do
         raf' <- getRAF env idx
         forM_ raf' $ \raf -> do

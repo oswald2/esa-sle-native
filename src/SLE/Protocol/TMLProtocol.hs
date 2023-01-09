@@ -46,6 +46,7 @@ processReadTML
     -> ConduitT ByteString Void m ()
 processReadTML hdl processor = do
     conduitParserEither tmlPduParser .| worker .| processPDU hdl .| processor
+    logDebug "processReadTML leaves"
   where
     worker = do
         x <- await
@@ -255,10 +256,16 @@ checkPDU cfg (TMLPDUCtxt msg) = case chkContextMsg cfg msg of
 
 -- | Called when the server side TML layer looses the connection to the client
 onServerDisconnect
-    :: (MonadUnliftIO m, MonadReader env m, HasLogFunc env, HasEventHandler env)
+    :: ( MonadUnliftIO m
+       , MonadReader env m
+       , HasLogFunc env
+       , HasEventHandler env
+       , HasTimer env
+       )
     => m ()
 onServerDisconnect = do
-    logWarn "Server is disconnecting..."
+    logWarn "Server is disconnected..."
+    stopTimers
     sleRaiseEvent TMLDisconnect
     return ()
 
