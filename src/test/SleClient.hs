@@ -19,7 +19,7 @@ import           SLE.Protocol.UserApi
 
 main :: IO ()
 main = do
-    let addr = ConnectAddr { host = "localhost", port = 5008 }
+    let addr = ConnectAddr { host = "localhost", port = 5100 }
 
         handler msg = T.putStrLn $ "HANDLER: " <> T.pack (show msg)
         cfg = defaultUserConfig

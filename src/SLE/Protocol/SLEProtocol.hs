@@ -361,14 +361,16 @@ processSleTransferBuffer hdl cfg idx = do
 
   where
     loop env = do
-        raf <- getRAF env idx
-        case raf ^. rafState of
-            ServiceActive -> do
-                pdus <- readFrameOrNotifications
-                    hdl
-                    (Timeout (cfg ^. cfgRAFLatency))
-                writeSLE hdl (SLEPdu (SlePduRafTranserBuffer pdus))
-            _ -> atomically $ do
-                r <- getRAFSTM env idx
-                when (r ^. rafState /= ServiceActive) retrySTM
+        raf' <- getRAF env idx
+        forM_ raf' $ \raf -> do
+            case raf ^. rafState of
+                ServiceActive -> do
+                    pdus <- readFrameOrNotifications
+                        hdl
+                        (Timeout (cfg ^. cfgRAFLatency))
+                    writeSLE hdl (SLEPdu (SlePduRafTranserBuffer pdus))
+                _ -> atomically $ do
+                    r' <- getRAFSTM env idx
+                    forM_ r' $ \r ->
+                        when (r ^. rafState /= ServiceActive) retrySTM
         loop env

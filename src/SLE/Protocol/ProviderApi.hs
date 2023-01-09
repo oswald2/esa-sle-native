@@ -22,29 +22,29 @@ rafSendFrame
     -> ByteString
     -> m ()
 rafSendFrame idx ert quality frame = do
-    env <- ask
+    var' <- getRAFVar idx
 
-    let var     = getRAFVar env idx
-        cfg     = var ^. rafVarCfg
-        antenna = cfg ^. cfgRAFAntennaID
+    forM_ var' $ \var -> do
+        let cfg     = var ^. rafVarCfg
+            antenna = cfg ^. cfgRAFAntennaID
 
-    (_raf, cont) <- atomically $ do
-        raf <- readTVar (var ^. rafVar)
-        val <- readTVar (var ^. rafContinuity)
-        writeTVar (var ^. rafContinuity) 0
-        return (raf, val)
+        (_raf, cont) <- atomically $ do
+            raf <- readTVar (var ^. rafVar)
+            val <- readTVar (var ^. rafContinuity)
+            writeTVar (var ^. rafContinuity) 0
+            return (raf, val)
 
-    let pdu = force $ TransFrame RafTransferDataInvocation
-            { _rafTransCredentials       = Nothing
-            , _rafTransERT               = ert
-            , _rafTransAntennaID         = antenna
-            , _rafTransDataContinuity    = cont
-            , _rafTransFrameQuality      = quality
-            , _rafTransPrivateAnnotation = Nothing
-            , _rafTransData              = frame
-            }
+        let pdu = force $ TransFrame RafTransferDataInvocation
+                { _rafTransCredentials       = Nothing
+                , _rafTransERT               = ert
+                , _rafTransAntennaID         = antenna
+                , _rafTransDataContinuity    = cont
+                , _rafTransFrameQuality      = quality
+                , _rafTransPrivateAnnotation = Nothing
+                , _rafTransData              = frame
+                }
 
-    sendFrameOrNotification var pdu
+        sendFrameOrNotification var pdu
 
 
 rcfSendFrame

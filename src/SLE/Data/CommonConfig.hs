@@ -68,9 +68,8 @@ instance ToJSON CommonConfig where
 
 
 mkPeerSet :: CommonConfig -> HashMap AuthorityIdentifier Peer
-mkPeerSet cfg = foldl' (\h p -> HM.insert (cfgPeerAuthorityID p) p h)
-                       HM.empty
-                       (_cfgPeers cfg)
+mkPeerSet cfg =
+    HM.fromList $ map (\p -> (cfgPeerAuthorityID p, p)) (_cfgPeers cfg)
 
 isPeer :: HashMap AuthorityIdentifier Peer -> AuthorityIdentifier -> Bool
 isPeer hm auid = HM.member auid hm

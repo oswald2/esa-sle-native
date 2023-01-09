@@ -52,6 +52,7 @@ import           Data.ASN1.Types
 
 import           SLE.Data.Common
 
+import           Text.Show.Pretty               ( ppShow )
 
 data FrameQuality = FrameGood | FrameErred | FrameUndetermined
     deriving stock (Eq, Ord, Enum, Show, Generic)
@@ -473,14 +474,16 @@ makeLenses ''RafTransferDataInvocation
 
 rafTransferDataInvocation :: RafTransferDataInvocation -> [ASN1]
 rafTransferDataInvocation RafTransferDataInvocation {..} =
-    [ credentials _rafTransCredentials
-    , time _rafTransERT
-    , antennaID _rafTransAntennaID
-    , IntVal (fromIntegral _rafTransDataContinuity)
-    , frameQuality _rafTransFrameQuality
-    , privateAnnotation _rafTransPrivateAnnotation
-    , OctetString _rafTransData
-    ]
+    let dat =
+            [ credentials _rafTransCredentials
+            , time _rafTransERT
+            , antennaID _rafTransAntennaID
+            , IntVal (fromIntegral _rafTransDataContinuity)
+            , frameQuality _rafTransFrameQuality
+            , privateAnnotation _rafTransPrivateAnnotation
+            , OctetString _rafTransData
+            ]
+    in  trace ("TransferData: " <> fromString (ppShow dat)) dat
 
 parseRafTransferDataInvocation :: Parser RafTransferDataInvocation
 parseRafTransferDataInvocation = do
@@ -538,9 +541,12 @@ type RafTransferBuffer = [FrameOrNotification]
 
 rafTransferBuffer :: RafTransferBuffer -> [ASN1]
 rafTransferBuffer buf =
-    Start (Container Context 8)
-        :  concatMap frameOrNotification buf
-        ++ [End (Container Context 8)]
+    let dat =
+            Start (Container Context 8)
+                :  concatMap frameOrNotification buf
+                ++ [End (Container Context 8)]
+    in  trace ("TransferBuffer: " <> fromString (ppShow dat)) dat
+
 
 instance EncodeASN1 RafTransferBuffer where
     encode buf = encodeASN1' DER (rafTransferBuffer buf)

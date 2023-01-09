@@ -6,7 +6,6 @@ module SLE.State.ProviderState
 
 import           RIO
 import qualified RIO.Vector                    as V
-import qualified RIO.Vector.Unsafe             as V
 
 import           System.Timer.Updatable
 
@@ -92,4 +91,4 @@ instance HasProviderConfig ProviderState where
 
 instance HasRAF ProviderState where
     getRAFs = lens _appRAFs (\st rafs -> st { _appRAFs = rafs })
-    getRAFVar env (RAFIdx idx) = (env ^. getRAFs) `V.unsafeIndex` idx
+    getRAFVar' env (RAFIdx idx) = (V.!?) (env ^. getRAFs) idx

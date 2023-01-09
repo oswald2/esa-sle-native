@@ -11,19 +11,26 @@
 module Main where
 
 
-import qualified Data.Text.IO                  as T
 import           RIO
+import qualified RIO.ByteString                as B
 import qualified RIO.Text                      as T
 
+import qualified Data.Text.IO                  as T
+
+import           SLE.Data.CCSDSTime
+import           SLE.Data.Common
 import           SLE.Data.ProviderConfig
+import           SLE.Data.RAFOps
 import           SLE.Protocol.RAF
 import           SLE.State.Events
 import           SLE.State.ProviderState
+import           SLE.State.RAFState
 
 import           System.Directory               ( doesFileExist )
 
 import           Options.Generic
 
+import           SLE.State.RAFClasses
 import           Text.Show.Pretty
 
 
@@ -96,11 +103,33 @@ startServer cfg eventHandler = do
 
         runRIO state $ do
             logDebug "Starting listening on SLE..."
-            concurrently_ (runRAFs perfFunc) action
+            race_ (runRAFs perfFunc) action
 
 action :: RIO ProviderState ()
 action = do
     -- perform transfer data test
+    liftIO $ T.putStr " > "
+    line <- liftIO T.getLine
 
-
-    return ()
+    case T.toUpper line of
+        "SEND" -> do
+            var' <- getRAFVar (RAFIdx 0)
+            forM_ var' $ \var -> do
+                t <- liftIO $ getCurrentTime
+                let
+                    frame = TransFrame RafTransferDataInvocation
+                        { _rafTransCredentials       = Nothing
+                        , _rafTransERT               = SLE.Data.Common.Time t
+                        , _rafTransAntennaID         = LocalForm "ANTENNA"
+                        , _rafTransDataContinuity    = -1
+                        , _rafTransFrameQuality      = FrameGood
+                        , _rafTransPrivateAnnotation = Nothing
+                        , _rafTransData = B.pack [0x01, 0x02, 0x03, 0x04]
+                        }
+                sendFrameOrNotification var frame
+            action
+        "QUIT" -> return ()
+        "EXIT" -> return ()
+        x      -> do
+            liftIO $ T.putStrLn $ "Command " <> x <> " not known, ignoring"
+            action

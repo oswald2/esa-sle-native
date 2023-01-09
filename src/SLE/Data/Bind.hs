@@ -71,7 +71,8 @@ import           SLE.Data.ServiceInstanceID
 
 
 newtype AuthorityIdentifier = AuthorityIdentifier Text
-  deriving stock (Eq, Ord, Show, Read, Generic)
+  deriving stock (Show, Read, Generic)
+  deriving newtype (Eq, Ord)
   deriving anyclass (FromJSON, ToJSON, Hashable)
 
 unAuthorityID :: AuthorityIdentifier -> Text
