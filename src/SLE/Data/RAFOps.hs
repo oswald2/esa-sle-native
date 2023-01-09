@@ -483,7 +483,7 @@ rafTransferDataInvocation RafTransferDataInvocation {..} =
             , privateAnnotation _rafTransPrivateAnnotation
             , OctetString _rafTransData
             ]
-    in  trace ("TransferData: " <> fromString (ppShow dat)) dat
+    in  {- trace ("TransferData: " <> fromString (ppShow dat))-} dat
 
 parseRafTransferDataInvocation :: Parser RafTransferDataInvocation
 parseRafTransferDataInvocation = do
@@ -545,7 +545,7 @@ rafTransferBuffer buf =
             Start (Container Context 8)
                 :  concatMap frameOrNotification buf
                 ++ [End (Container Context 8)]
-    in  trace ("TransferBuffer: " <> fromString (ppShow dat)) dat
+    in  {- trace ("TransferBuffer: " <> fromString (ppShow dat)) -} dat
 
 
 instance EncodeASN1 RafTransferBuffer where
