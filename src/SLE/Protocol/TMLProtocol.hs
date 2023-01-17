@@ -7,12 +7,10 @@ module SLE.Protocol.TMLProtocol
     , heartBeatMessage
     , startTimers
     , stopTimers
-    , onServerDisconnect
     ) where
 
 import           ByteString.StrictBuilder
 import           Conduit
-import           Control.Concurrent.Killable
 import           Data.Conduit.Attoparsec
 import           RIO
 import qualified RIO.Text                      as T
@@ -48,12 +46,14 @@ processReadTML
     -> ConduitT ByteString Void m ()
 processReadTML hdl processor = do
     conduitParserEither tmlPduParser .| worker .| processPDU hdl .| processor
-    logDebug "processReadTML leaves"
+    logWarn "processReadTML leaves"
   where
     worker = do
         x <- await
         case x of
-            Nothing  -> return ()
+            Nothing  -> do
+                logWarn "worker: closed upstream"
+                return ()
             Just val -> do
                 case val of
                     Left err -> do
@@ -61,13 +61,14 @@ processReadTML hdl processor = do
                         sleRaiseEvent
                             (TMLParseError (T.pack (errorMessage err)))
                         runRIO env (protocolAbort hdl)
+                        logWarn "worker leaves because of parse error"
                     Right (_, pdu) -> do
                         logDebug $ "Received PDU: " <> fromString (ppShow pdu)
                         lift restartHBRTimer
                         -- process pdu
                         yield pdu
                         worker
-
+        logWarn "worker leaves"
 
 processPDU
     :: ( MonadUnliftIO m
@@ -90,7 +91,7 @@ processPDU hdl = do
         TMLPDUMessage msg -> do
             lift $ logDebug $ "Yielding PDU: " <> fromString (ppShow msg)
             yield msg
-
+    logWarn "processPDU leaves"
 
 processContext
     :: ( MonadUnliftIO m
@@ -170,21 +171,6 @@ startTimersWith hdl hbTime' deadFactor = do
     return ()
 
 
--- | Stop the hearbeat timers 
-stopTimers
-    :: (MonadUnliftIO m, MonadReader env m, HasLogFunc env, HasTimer env)
-    => m ()
-stopTimers = do
-    env <- ask
-    logDebug "Stopping timers..."
-    action <- atomically $ do
-        hbTimer  <- readTVar (env ^. getTimerHBT)
-        hbrTimer <- readTVar (env ^. getTimerHBR)
-        return $ do
-            forM_ hbTimer  kill
-            forM_ hbrTimer kill
-
-    liftIO action
 
 
 -- | Restart the heartbeat timers 
@@ -242,19 +228,5 @@ checkPDU cfg (TMLPDUCtxt msg) = case chkContextMsg cfg msg of
     Right _               -> Right msg
 
 
--- | Called when the server side TML layer looses the connection to the client
-onServerDisconnect
-    :: ( MonadUnliftIO m
-       , MonadReader env m
-       , HasLogFunc env
-       , HasEventHandler env
-       , HasTimer env
-       )
-    => m ()
-onServerDisconnect = do
-    logWarn "Server is disconnected..."
-    stopTimers
-    sleRaiseEvent TMLDisconnect
-    return ()
 
 

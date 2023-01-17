@@ -22,11 +22,8 @@ import           Data.Attoparsec.ByteString     ( Parser )
 import           RIO
 
 import           Data.Time
-import           Data.Time.Calendar
 import           Data.Time.Calendar.OrdinalDate
-import           Data.Time.Clock
 import           Data.Time.Clock.POSIX
-import           Data.Time.Clock.System
 
 import           Text.Builder                  as TB
 

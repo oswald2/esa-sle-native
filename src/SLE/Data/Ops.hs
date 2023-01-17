@@ -1,6 +1,8 @@
 module SLE.Data.Ops
     ( protocolAbort
     , peerAbort
+    , onServerDisconnect
+    , stopTimers
     ) where
 
 import           RIO
@@ -15,7 +17,7 @@ import           SLE.State.Events
 import           SLE.State.ProviderState
 import           SLE.State.RAFClasses
 
-
+import           Control.Concurrent.Killable
 
 
 
@@ -56,3 +58,41 @@ peerAbort hdl diag = do
     let pdu = SlePeerAbort diag
     writeSLE hdl (SLEPdu (SlePduPeerAbort pdu))
     resetState hdl
+
+
+-- | Called when the server side TML layer looses the connection to the client
+onServerDisconnect
+    :: ( MonadUnliftIO m
+       , MonadReader env m
+       , HasLogFunc env
+       , HasEventHandler env
+       , HasTimer env
+       , HasRAF env
+       )
+    => SleHandle
+    -> m ()
+onServerDisconnect hdl = do
+    logWarn "Server is disconnected..."
+    stopTimers
+    sleRaiseEvent TMLDisconnect
+    setServiceState (hdl ^. sleIdx) ServiceInit
+    sleRaiseEvent TMLProtocolAbort
+    resetState hdl
+    return ()
+
+
+-- | Stop the hearbeat timers 
+stopTimers
+    :: (MonadUnliftIO m, MonadReader env m, HasLogFunc env, HasTimer env)
+    => m ()
+stopTimers = do
+    env <- ask
+    logDebug "Stopping timers..."
+    action <- atomically $ do
+        hbTimer  <- readTVar (env ^. getTimerHBT)
+        hbrTimer <- readTVar (env ^. getTimerHBR)
+        return $ do
+            forM_ hbTimer  kill
+            forM_ hbrTimer kill
+
+    liftIO action
