@@ -5,6 +5,7 @@ module SLE.State.UserState
     ) where
 
 import           RIO
+import qualified RIO.Vector                    as V
 
 import           System.Timer.Updatable
 
@@ -14,6 +15,7 @@ import           SLE.Data.TMLConfig
 import           SLE.Data.UserConfig
 import           SLE.State.Classes
 import           SLE.State.Events
+import           SLE.State.RAFClasses
 
 
 
@@ -79,4 +81,8 @@ instance HasCommonConfig UserState where
 instance HasUserConfig UserState where
     userCfg = lens _appConfig (\c cfg -> c { _appConfig = cfg })
 
+
+instance HasRAF UserState where
+    getRAFs = lens (const V.empty) const
+    getRAFVar' _env _idx = Nothing
 

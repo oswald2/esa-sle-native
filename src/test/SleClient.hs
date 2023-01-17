@@ -9,6 +9,7 @@ import           RIO
 import qualified RIO.Text                      as T
 
 import           SLE.Data.Bind
+import           SLE.Data.Common
 import           SLE.Data.CommonConfig
 import           SLE.Data.RAFOps
 import           SLE.Data.ServiceInstanceID
@@ -31,7 +32,7 @@ main = do
         handler msg = T.putStrLn $ "HANDLER: " <> T.pack (show msg)
         cfg = sleConfig
 
-    withSleHandle (port addr) 100 $ \hdl -> do
+    withSleHandle (TMRAF (RAFIdx 0)) 100 $ \hdl -> do
         void $ concurrently (startClient addr handler hdl)
                             (sleProcedure cfg hdl)
 

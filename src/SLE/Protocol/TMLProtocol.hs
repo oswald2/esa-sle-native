@@ -3,7 +3,6 @@ module SLE.Protocol.TMLProtocol
     , processPDU
     , processContext
     , protocolAbort
-    , peerAbort
     , checkPDU
     , heartBeatMessage
     , startTimers
@@ -20,14 +19,16 @@ import qualified RIO.Text                      as T
 import           System.Timer.Updatable
 
 
+import           SLE.Data.Common
 import           SLE.Data.CommonConfig
 import           SLE.Data.Handle
+import           SLE.Data.Ops
 import           SLE.Data.TMLConfig
 import           SLE.Data.TMLMessage
-import           SLE.Data.WriteCmd
 
 import           SLE.State.Classes
 import           SLE.State.Events
+import           SLE.State.RAFClasses
 
 import           Text.Show.Pretty
 
@@ -40,6 +41,7 @@ processReadTML
        , HasEventHandler env
        , HasLogFunc env
        , HasTimer env
+       , HasRAF env
        )
     => SleHandle
     -> ConduitT TMLMessage Void m ()
@@ -74,6 +76,7 @@ processPDU
        , HasLogFunc env
        , HasCommonConfig env
        , HasTimer env
+       , HasRAF env
        )
     => SleHandle
     -> ConduitT TMLPDU TMLMessage m ()
@@ -96,6 +99,7 @@ processContext
        , HasLogFunc env
        , HasCommonConfig env
        , HasEventHandler env
+       , HasRAF env
        )
     => SleHandle
     -> TMLContextMsgRead
@@ -110,7 +114,7 @@ processContext hdl msg = do
                             (_tmlCtxDeadFactor msg)
         Left err -> do
             logError $ "Received illegal context message: " <> displayShow err
-            peerAbort hdl
+            peerAbort hdl PAProtocolError
 
 
 
@@ -128,6 +132,7 @@ startTimers
        , HasLogFunc env
        , HasEventHandler env
        , HasTimer env
+       , HasRAF env
        )
     => SleHandle
     -> m ()
@@ -145,6 +150,7 @@ startTimersWith
        , HasEventHandler env
        , HasLogFunc env
        , HasTimer env
+       , HasRAF env
        )
     => SleHandle
     -> Word16
@@ -208,35 +214,17 @@ restartHBRTimer = do
 
 -- | The heartbeat timeout for hte receiver has timed out 
 heartBeatReceiveTimeOut
-    :: (MonadUnliftIO m, MonadReader env m, HasLogFunc env, HasEventHandler env)
+    :: ( MonadUnliftIO m
+       , MonadReader env m
+       , HasLogFunc env
+       , HasEventHandler env
+       , HasRAF env
+       )
     => SleHandle
     -> m ()
 heartBeatReceiveTimeOut hdl = do
     logWarn "SLE HeartBeat Timeout"
     protocolAbort hdl
-
-
--- | Issue a protocol abort message 
-protocolAbort
-    :: (MonadUnliftIO m, MonadReader env m, HasLogFunc env, HasEventHandler env)
-    => SleHandle
-    -> m ()
-protocolAbort hdl = do
-    logDebug "SLE ProtocolAbort called!"
-    sleRaiseEvent TMLProtocolAbort
-    writeSLE hdl SLEAbort
-
-
--- | Issue a peer abort message
-peerAbort
-    :: (MonadIO m, MonadReader env m, HasLogFunc env, HasEventHandler env)
-    => SleHandle
-    -> m ()
-peerAbort hdl = do
-    logDebug "PeerAbort!"
-    sleRaiseEvent TMLPeerAbort
-    sleRaiseEvent TMLProtocolAbort
-    writeSLE hdl SLEAbort
 
 
 -- | Check a incoming 'TMLPDU' for errors

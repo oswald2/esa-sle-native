@@ -5,6 +5,7 @@ module SLE.State.RAFClasses
     , getRAFSTM
     , getRAFSleHandle
     , getRAFConfig
+    , setRAFServiceState
     ) where
 
 import           RIO                     hiding ( (^.)
@@ -31,11 +32,11 @@ getRAFVar idx = do
 
 getRAF :: (MonadIO m, HasRAF env) => env -> RAFIdx -> m (Maybe RAF)
 getRAF env idx =
-    maybe (pure Nothing) (\v -> Just <$> readRAFVarIO v) (getRAFVar' env idx)
+    maybe (pure Nothing) (fmap Just . readRAFVarIO) (getRAFVar' env idx)
 
 getRAFSTM :: (HasRAF env) => env -> RAFIdx -> STM (Maybe RAF)
 getRAFSTM env idx =
-    maybe (pure Nothing) (\v -> Just <$> readRAFVar v) (getRAFVar' env idx)
+    maybe (pure Nothing) (fmap Just . readRAFVar) (getRAFVar' env idx)
 
 getRAFSleHandle :: (HasRAF env) => env -> RAFIdx -> Maybe SleHandle
 getRAFSleHandle env idx = case getRAFVar' env idx of
@@ -46,3 +47,11 @@ getRAFConfig :: (HasRAF env) => env -> RAFIdx -> Maybe RAFConfig
 getRAFConfig env idx = case getRAFVar' env idx of
     Nothing  -> Nothing
     Just var -> Just (var ^. rafVarCfg)
+
+setRAFServiceState
+    :: (MonadIO m, MonadReader env m, HasRAF env) => RAFIdx -> ServiceState -> m ()
+setRAFServiceState idx state = do 
+    env <- ask 
+    case getRAFVar' env idx of 
+        Nothing -> return () 
+        Just var -> setRAFState var state

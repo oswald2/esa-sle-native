@@ -4,6 +4,8 @@ module SLE.Data.RAFOps
     , ReqFrameQuality(..)
     , RafStartInvocation(..)
     , RafStartReturn(..)
+    , DiagnosticRafStart(..)
+    , RafStartSpecific(..)
     , rafStartCredentials
     , rafStartInvokeID
     , rafStartTime
@@ -52,7 +54,8 @@ import           Data.ASN1.Types
 
 import           SLE.Data.Common
 
-import           Text.Show.Pretty               ( ppShow )
+--import           Text.Show.Pretty               ( ppShow )
+
 
 data FrameQuality = FrameGood | FrameErred | FrameUndetermined
     deriving stock (Eq, Ord, Enum, Show, Generic)
@@ -319,16 +322,6 @@ rafProductionStatus ProdRunning     = IntVal 0
 rafProductionStatus ProdInterrupted = IntVal 1
 rafProductionStatus ProdHalted      = IntVal 2
 
--- parseRafProductionStatus :: Parser RafProductionStatus
--- parseRafProductionStatus = do
---     x <- parseIntVal
---     case intToRafProductionStatus (fromIntegral x) of
---         Just v -> return v
---         Nothing ->
---             throwError
---                 $  "Illegal value for RAF production status: "
---                 <> fromString (show x)
-
 intToRafProductionStatus :: Int -> Maybe RafProductionStatus
 intToRafProductionStatus 0 = Just ProdRunning
 intToRafProductionStatus 1 = Just ProdInterrupted
@@ -483,7 +476,8 @@ rafTransferDataInvocation RafTransferDataInvocation {..} =
             , privateAnnotation _rafTransPrivateAnnotation
             , OctetString _rafTransData
             ]
-    in  {- trace ("TransferData: " <> fromString (ppShow dat))-} dat
+    in      {- trace ("TransferData: " <> fromString (ppShow dat))-}
+        dat
 
 parseRafTransferDataInvocation :: Parser RafTransferDataInvocation
 parseRafTransferDataInvocation = do
@@ -545,7 +539,8 @@ rafTransferBuffer buf =
             Start (Container Context 8)
                 :  concatMap frameOrNotification buf
                 ++ [End (Container Context 8)]
-    in  {- trace ("TransferBuffer: " <> fromString (ppShow dat)) -} dat
+    in      {- trace ("TransferBuffer: " <> fromString (ppShow dat)) -}
+        dat
 
 
 instance EncodeASN1 RafTransferBuffer where

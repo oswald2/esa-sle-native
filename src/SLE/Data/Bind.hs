@@ -92,8 +92,8 @@ parseAuthorityIdentifier = do
 newtype Password = Password Text
   deriving (Eq, Ord, Show, Read, Generic)
 
-unPassword :: Password -> Text
-unPassword (Password pw) = pw
+-- unPassword :: Password -> Text
+-- unPassword (Password pw) = pw
 
 instance Display Password where
     textDisplay (Password _) = "***"
@@ -548,3 +548,5 @@ parseSleUnbindReturn = content
 
 instance EncodeASN1 SleUnbindReturn where
     encode val = encodeASN1' DER (sleUnbindReturn val)
+
+

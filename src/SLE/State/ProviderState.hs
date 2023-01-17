@@ -2,6 +2,7 @@ module SLE.State.ProviderState
     ( ProviderState
     , initialState
     , sleRaiseEvent
+    , setServiceState
     ) where
 
 import           RIO
@@ -13,6 +14,7 @@ import           SLE.State.Classes
 import           SLE.State.Events
 import           SLE.State.RAFClasses
 
+import           SLE.Data.Common
 import           SLE.Data.CommonConfig
 import           SLE.Data.ProviderConfig
 import           SLE.Data.RAF
@@ -92,3 +94,15 @@ instance HasProviderConfig ProviderState where
 instance HasRAF ProviderState where
     getRAFs = lens _appRAFs (\st rafs -> st { _appRAFs = rafs })
     getRAFVar' env (RAFIdx idx) = (V.!?) (env ^. getRAFs) idx
+
+
+setServiceState
+    :: (MonadIO m, MonadReader env m, HasRAF env)
+    => TMIdx
+    -> ServiceState
+    -> m ()
+setServiceState (TMRAF idx ) state  = setRAFServiceState idx state
+setServiceState (TMRCF _idx) _state = return ()  -- TODO 
+setServiceState (TMFirst idx) state = -- TODO 
+    setRAFServiceState (RAFIdx (fromIntegral idx)) state
+

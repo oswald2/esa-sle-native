@@ -60,6 +60,9 @@ module SLE.Data.Common
     , RCFIdx(..)
     , TMIdx(..)
     , InvokeID(..)
+    , PeerAbortDiagnostic(..)
+    , SlePeerAbort(..)
+    , parseSlePeerAbort
     ) where
 
 import           RIO
@@ -174,6 +177,20 @@ data Time =
   deriving stock (Show, Generic)
   deriving anyclass (NFData)
 
+
+instance Eq Time where
+    Time     t1 == Time     t2 = t1 == t2
+    TimePico t1 == TimePico t2 = t1 == t2
+    Time     t1 == TimePico t2 = toPicoTime t1 == t2
+    TimePico t1 == Time     t2 = t1 == toPicoTime t2
+
+instance Ord Time where
+    compare (Time     t1) (Time     t2) = compare t1 t2
+    compare (TimePico t1) (TimePico t2) = compare t1 t2
+    compare (Time     t1) (TimePico t2) = compare (toPicoTime t1) t2
+    compare (TimePico t1) (Time     t2) = compare t1 (toPicoTime t2)
+
+
 time :: Time -> ASN1
 time (Time     t) = Other Context 0 $ builderBytes . ccsdsTimeBuilder $ t
 time (TimePico t) = Other Context 1 $ builderBytes . ccsdsTimePicoBuilder $ t
@@ -220,15 +237,28 @@ type ConditionalTime = Maybe Time
 conditionalTime :: ConditionalTime -> ASN1
 conditionalTime Nothing = Other Context 0 B.empty
 conditionalTime (Just t) =
-    Other Context 1 (BL.toStrict (encodeASN1 DER ([time t])))
+    Other Context 1 (BL.toStrict (encodeASN1 DER [time t]))
 
 
 parseConditionalTime :: Parser ConditionalTime
 parseConditionalTime = do
-    parseChoice
-        (const (return Nothing))
-        tim
-        "Could not parse conditional time, no conditional time found"
+    x <- get
+    case x of
+        ((Other Context 0 _) : rest) -> do
+            put rest
+            return Nothing
+        ((Other Context 1 bs) : rest) -> do
+            put rest
+            tim bs
+        ((Start (Container Context 1)) : Other Context _ bs : End (Container Context 1) : rest)
+            -> do
+                put rest
+                tim bs
+        (asn1 : _) -> do
+            throwError
+                $  "Conditional Time Parser: unexpected ASN1 value: "
+                <> fromString (show asn1)
+        [] -> throwError "Conditional Time: no value found."
   where
     tim t = do
         case timeFromBS t of
@@ -549,6 +579,92 @@ newtype RCFIdx = RCFIdx Int
 data TMIdx = TMRAF !RAFIdx | TMRCF !RCFIdx | TMFirst !Word8
     deriving stock (Show, Generic)
 
-
 newtype InvokeID =InvokeID Word16
     deriving stock (Show, Generic)
+
+
+data PeerAbortDiagnostic =
+    PAAccessDenied
+    | PAUnexpectedResponderID
+    | PAOperationalRequirement
+    | PAProtocolError
+    | PACommunicationsFailure
+    | PAEncodingError
+    | PAReturnTimeout
+    | PAEndOfServiceProvisionPeriod
+    | PAUnsolicitedInvokeID
+    | PAOtherReason
+    | PAOther !Word8
+    deriving stock (Read, Show, Generic)
+
+
+instance Display PeerAbortDiagnostic where
+    display PAAccessDenied                = "Access Denied"
+    display PAUnexpectedResponderID       = "Unexpected Responder ID"
+    display PAOperationalRequirement      = "Operational Requirement"
+    display PAProtocolError               = "Protocol Error"
+    display PACommunicationsFailure       = "Communications Failure"
+    display PAEncodingError               = "Encoding Error"
+    display PAReturnTimeout               = "Return Timeout"
+    display PAEndOfServiceProvisionPeriod = "End Of Service Provision Period"
+    display PAUnsolicitedInvokeID         = "Unsolicited InvokeID"
+    display PAOtherReason                 = "Other Reason"
+    display (PAOther x)                   = "Specific Reason: " <> display x
+
+parsePeerAbortDiagnostic :: Parser PeerAbortDiagnostic
+parsePeerAbortDiagnostic = do
+    x <- parseIntVal
+    case x of
+        0   -> return PAAccessDenied
+        1   -> return PAUnexpectedResponderID
+        2   -> return PAOperationalRequirement
+        3   -> return PAProtocolError
+        4   -> return PACommunicationsFailure
+        5   -> return PAEncodingError
+        6   -> return PAReturnTimeout
+        7   -> return PAEndOfServiceProvisionPeriod
+        8   -> return PAUnsolicitedInvokeID
+        127 -> return PAOtherReason
+        v   -> return $ PAOther (fromIntegral v)
+
+peerAbortDiagnostic :: PeerAbortDiagnostic -> ASN1
+peerAbortDiagnostic PAAccessDenied                = IntVal 0
+peerAbortDiagnostic PAUnexpectedResponderID       = IntVal 1
+peerAbortDiagnostic PAOperationalRequirement      = IntVal 2
+peerAbortDiagnostic PAProtocolError               = IntVal 3
+peerAbortDiagnostic PACommunicationsFailure       = IntVal 4
+peerAbortDiagnostic PAEncodingError               = IntVal 5
+peerAbortDiagnostic PAReturnTimeout               = IntVal 6
+peerAbortDiagnostic PAEndOfServiceProvisionPeriod = IntVal 7
+peerAbortDiagnostic PAUnsolicitedInvokeID         = IntVal 8
+peerAbortDiagnostic PAOtherReason                 = IntVal 127
+peerAbortDiagnostic (PAOther x)                   = IntVal (fromIntegral x)
+
+
+newtype SlePeerAbort = SlePeerAbort PeerAbortDiagnostic
+    deriving stock (Show, Read, Generic)
+
+
+slePeerAbort :: SlePeerAbort -> [ASN1]
+slePeerAbort (SlePeerAbort diag) =
+    [ Start (Container Context 104)
+    , peerAbortDiagnostic diag
+    , End (Container Context 104)
+    ]
+
+instance EncodeASN1 SlePeerAbort where
+    encode val = encodeASN1' DER (slePeerAbort val)
+
+parseSlePeerAbort :: Parser SlePeerAbort
+parseSlePeerAbort = content
+  where
+    endContainer = parseBasicASN1 (== End (Container Context 104)) (const ())
+
+    content      = do
+        reason <- parsePeerAbortDiagnostic
+        void endContainer
+        return $ SlePeerAbort reason
+
+
+
+

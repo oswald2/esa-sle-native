@@ -52,6 +52,7 @@ connectSLE
        , HasEventHandler env
        , HasUserConfig env
        , HasTimer env
+       , HasRAF env 
        )
     => SleHandle
     -> ConnectAddr
@@ -72,6 +73,7 @@ processConnect
        , HasLogFunc env
        , HasCommonConfig env
        , HasTimer env
+       , HasRAF env
        )
     => SleHandle
     -> (Word64 -> IO ())
@@ -157,24 +159,6 @@ processServerSLEMsg processSlePdu = awaitForever $ \tlm -> do
                     lift $ processSlePdu pdu
 
 
--- | Read input from the queue from the 'SleHandle'. If there is nothing received 
--- within the configured timeout (send heartbeat), returns 'Nothing'. This indicates
--- that a heartbeat message should be sent
-readSLEInput
-    :: (MonadIO m, MonadReader env m, HasTimer env)
-    => SleHandle
-    -> m (Maybe SleWrite)
-readSLEInput hdl = do
-    env   <- ask
-    val   <- liftIO $ readTVarIO (env ^. hbt)
-    delay <- registerDelay (fromIntegral val)
-    atomically
-        $   Just
-        <$> readSLEHandle hdl
-        <|> (readTVar delay >>= checkSTM >> pure Nothing)
-
-
-
 -- | Processes the SleWrite and yields a 'ByteString' which is the encoded message 
 -- if there is one. Returns 'True' if the loop should terminate and 'False' otherwise.
 processSLEInput
@@ -219,7 +203,7 @@ processWriteTML
 processWriteTML hdl perfFunc = go
   where
     go = do
-        val <- readSLEInput hdl
+        val <- readSLE hdl
         case val of
             Just inp -> do
                 logDebug $ "Sending SLE Input: " <> fromString (ppShow inp)
@@ -284,6 +268,7 @@ processServerReadSLE
        , HasEventHandler env
        , HasProviderConfig env
        , HasTimer env
+       , HasRAF env 
        )
     => SleHandle
     -> (SlePdu -> m ())
@@ -373,7 +358,9 @@ processSleTransferBuffer hdl cfg idx = do
                     pdus <- readFrameOrNotifications
                         hdl
                         (Timeout (cfg ^. cfgRAFLatency))
-                    writeSLE hdl (SLEPdu (SlePduRafTranserBuffer pdus))
+                    unless (null pdus) $ writeSLE
+                        hdl
+                        (SLEPdu (SlePduRafTransferBuffer pdus))
                 _ -> atomically $ do
                     r' <- getRAFSTM env idx
                     forM_ r' $ \r ->

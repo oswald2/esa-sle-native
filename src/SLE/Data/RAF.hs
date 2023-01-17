@@ -22,42 +22,7 @@ import           Control.Lens                   ( (.~)
                                                 , (^.)
                                                 )
 
-import           SLE.Data.Bind                  ( ApplicationIdentifier
-                                                    ( RtnAllFrames
-                                                    )
-                                                , AuthorityIdentifier
-                                                    ( AuthorityIdentifier
-                                                    )
-                                                , BindDiagnostic
-                                                    ( AccessDenied
-                                                    , NoSuchServiceInstance
-                                                    , ServiceTypeNotSupported
-                                                    , VersionNotSupported
-                                                    )
-                                                , BindResult
-                                                    ( BindResDiag
-                                                    , BindResVersion
-                                                    )
-                                                , SleBindReturn
-                                                    ( SleBindReturn
-                                                    , _sleBindRetCredentials
-                                                    , _sleBindRetResponderID
-                                                    , _sleBindRetResult
-                                                    )
-                                                , SleUnbindReturn
-                                                    ( SleUnbindReturn
-                                                    , _sleUnbindRetCredentials
-                                                    , _sleUnbindRetResult
-                                                    )
-                                                , UnbindResult(Positive)
-                                                , VersionNumber(VersionNumber)
-                                                , sleBindInitiatorID
-                                                , sleBindReturn
-                                                , sleBindServiceType
-                                                , sleServiceInstanceID
-                                                , sleUnbindReason
-                                                , sleVersionNumber
-                                                )
+import           SLE.Data.Bind
 import           SLE.Data.Common                ( ServiceState(..)
                                                 , SleAcknowledgement
                                                     ( SleAcknowledgement
@@ -71,30 +36,12 @@ import           SLE.Data.Common                ( ServiceState(..)
 import           SLE.Data.CommonConfig          ( cfgLocal
                                                 , isPeer
                                                 )
-import           SLE.Data.PDU                   ( SlePdu
-                                                    ( SlePduAck
-                                                    , SlePduBind
-                                                    , SlePduBindReturn
-                                                    , SlePduRafStart
-                                                    , SlePduRafStartReturn
-                                                    , SlePduStop
-                                                    , SlePduUnbind
-                                                    , SlePduUnbindReturn
-                                                    )
-                                                )
+import           SLE.Data.PDU
 import           SLE.Data.ProviderConfig        ( RAFConfig
                                                 , cfgRAFPortID
                                                 , cfgRAFSII
                                                 )
-import           SLE.Data.RAFOps                ( RafStartReturn
-                                                    ( RafStartReturn
-                                                    , _rafStartRetCredentials
-                                                    , _rafStartRetInvokeID
-                                                    , _rafStartRetResult
-                                                    )
-                                                , rafStartCredentials
-                                                , rafStartInvokeID
-                                                )
+import           SLE.Data.RAFOps
 import           SLE.Data.ServiceInstanceID     ( toSII )
 import           SLE.Data.WriteCmd              ( SleWrite(SLEPdu) )
 import           SLE.State.Classes              ( HasCommonConfig(..)
@@ -114,22 +61,7 @@ import           SLE.State.Events               ( SleEvent
                                                     , SLEUnbindSucceed
                                                     )
                                                 )
-import           SLE.State.RAFState             ( RAF
-                                                , RAFVar
-                                                , SleRafCmd(..)
-                                                , getRAFState
-                                                , newRAFVarIO
-                                                , rafIdx
-                                                , rafPeers
-                                                , rafState
-                                                , readRAFVar
-                                                , readRAFVarIO
-                                                , sendSlePdu
-                                                , sendSleRafCmd
-                                                , setRAFState
-                                                , writeRAFVar
-                                                )
-
+import           SLE.State.RAFState
 
 import           Text.Show.Pretty
 
@@ -179,8 +111,8 @@ processInitState cfg var (SlePduBind pdu) = do
 
     let authSet = var ^. rafPeers
         sii     = toSII (pdu ^. sleServiceInstanceID)
-        res = do
-            -- first, when a bind comes in, perform some checks
+        res     = do
+-- first, when a bind comes in, perform some checks
             if not (isPeer authSet (pdu ^. sleBindInitiatorID))
                 then Left
                     ( "Access Denied, initiator not allowed: "
@@ -188,7 +120,7 @@ processInitState cfg var (SlePduBind pdu) = do
                     , AccessDenied
                     )
                 else Right ()
-                -- Check, if we are a RAF Bind Request
+                                                                                            -- Check, if we are a RAF Bind Request
             if pdu ^. sleBindServiceType /= RtnAllFrames
                 then Left
                     ( "Requested Service is not RAF: "
@@ -196,7 +128,7 @@ processInitState cfg var (SlePduBind pdu) = do
                     , ServiceTypeNotSupported
                     )
                 else Right ()
-                -- check the requested SLE Version 
+                                                                                            -- check the requested SLE Version 
             if (pdu ^. sleVersionNumber /= VersionNumber 3)
                     && (pdu ^. sleVersionNumber /= VersionNumber 4)
                 then Left
@@ -238,14 +170,38 @@ processInitState cfg var (SlePduBind pdu) = do
             return ServiceInit
 
 processInitState _ _ (SlePduUnbind _) = do
-    logWarn "Received UNBIND when in init state, ignored"
+    logDebug "Received UNBIND when in init state, ignored"
+    return ServiceInit
+processInitState _ _ (SlePduBindReturn _) = do
+    logDebug "Received BIND RETURN when in init state, ignored"
+    return ServiceInit
+processInitState _ _ (SlePduUnbindReturn _) = do
+    logDebug "Received UNBIND RETURN when in init state, ignored"
+    return ServiceInit
+processInitState _ _ (SlePduRafStart _) = do
+    logDebug "Received START when in init state, ignored"
+    return ServiceInit
+processInitState _ _ (SlePduRafStartReturn _) = do
+    logDebug "Received START RETURN when in init state, ignored"
+    return ServiceInit
+processInitState _ _ (SlePduStop _) = do
+    logDebug "Received STOP when in init state, ignored"
+    return ServiceInit
+processInitState _ _ (SlePduAck _) = do
+    logDebug "Received ACK when in init state, ignored"
+    return ServiceInit
+processInitState _ _ (SlePduRafTransferBuffer _) = do
+    logDebug "Received TRANSFER BUFFER when in init state, ignored"
+    return ServiceInit
+processInitState _ _ (SlePduPeerAbort _) = do
+    logDebug "Received PEER ABORT when in init state, ignored"
     return ServiceInit
 
-processInitState _cfg _var pdu = do
-    logWarn
-        $  "Init State: Functionality for PDU not yet implemented: "
-        <> fromString (ppShow pdu)
-    return ServiceInit
+-- processInitState _cfg _var pdu = do
+--     logWarn
+--         $  "Init State: Functionality for PDU not yet implemented: "
+--         <> fromString (ppShow pdu)
+--     return ServiceInit
 
 
 processBoundState
@@ -274,8 +230,7 @@ processBoundState cfg var (SlePduRafStart pdu) = do
 
     sleRaiseEvent (SLERafStartReceived pdu)
 
-    -- TODO check values
-    let diag = Nothing
+    let diag = checkTimeRange (pdu ^. rafStartTime) (pdu ^. rafStopTime)
 
     -- send response 
     let ret = SLEPdu $ SlePduRafStartReturn $ RafStartReturn
@@ -283,9 +238,34 @@ processBoundState cfg var (SlePduRafStart pdu) = do
             , _rafStartRetInvokeID    = pdu ^. rafStartInvokeID
             , _rafStartRetResult      = diag
             }
+    case diag of
+        Just _  -> return ()
+        Nothing -> modifyRAF
+            var
+            (\raf ->
+                raf
+                    &  rafStateStartTime
+                    .~ pdu
+                    ^. rafStartTime
+                    &  rafStateStopTime
+                    .~ pdu
+                    ^. rafStopTime
+                    &  rafStateRequestedQuality
+                    .~ pdu
+                    ^. rafStartRequestedTimeQual
+            )
     sendSlePdu var ret
     sleRaiseEvent (SLERafStartSucceed (cfg ^. cfgRAFSII))
     return ServiceActive
+  where
+    checkTimeRange (Just t1) (Just t2) = if t1 <= t2
+        then Nothing
+        else Just (DiagRafStartSpecific RafStartInvalidStopTime)
+    checkTimeRange _ _ = Nothing
+
+processBoundState _cfg _var (SlePduBind _) = do
+    logWarn "Received BIND when in bound state, ignored"
+    return ServiceInit
 
 
 processBoundState _cfg _var pdu = do

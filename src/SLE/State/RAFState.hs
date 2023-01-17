@@ -12,6 +12,7 @@ module SLE.State.RAFState
     , readRAFVarIO
     , readRAFVar
     , writeRAFVar
+    , modifyRAF
     , getRAFState
     , setRAFState
     , rafVar
@@ -78,8 +79,7 @@ newRAFVarIO commonCfg cfg idx = do
     var  <- newTVarIO raf
     q    <- newTBQueueIO 100
     cont <- newTVarIO (-1)
-    hdl  <- newSleHandle (fromIntegral (cfg ^. cfgRAFPort))
-                         (cfg ^. cfgRAFBufferSize)
+    hdl  <- newSleHandle (TMRAF idx) (cfg ^. cfgRAFBufferSize)
     return $! RAFVar var q hdl cfg idx cont (mkPeerSet commonCfg)
 
 
@@ -99,6 +99,13 @@ setRAFState :: (MonadIO m) => RAFVar -> ServiceState -> m ()
 setRAFState var st = atomically $ do
     raf <- readTVar (_rafVar var)
     writeTVar (_rafVar var) (raf & rafState .~ st)
+
+
+modifyRAF :: (MonadIO m) => RAFVar -> (RAF -> RAF) -> m ()
+modifyRAF var f = atomically $ do
+    raf <- readTVar (_rafVar var)
+    let !newst = f raf
+    writeTVar (_rafVar var) newst
 
 sendSleRafCmd :: (MonadIO m) => RAFVar -> SleRafCmd -> m ()
 sendSleRafCmd var cmd = atomically $ writeTBQueue (_rafQueue var) cmd
