@@ -21,9 +21,14 @@ import qualified Data.Attoparsec.Binary        as A
 import           Data.Attoparsec.ByteString     ( Parser )
 import           RIO
 
+import           Data.Time
 import           Data.Time.Calendar
+import           Data.Time.Calendar.OrdinalDate
 import           Data.Time.Clock
 import           Data.Time.Clock.POSIX
+import           Data.Time.Clock.System
+
+import           Text.Builder                  as TB
 
 
 
@@ -117,3 +122,39 @@ picoToUTCTime (CCSDSTimePico days milli pico) =
         pico'        = (fromIntegral milli * 1_000_000_000) + fromIntegral pico
         dtime        = picosecondsToDiffTime pico'
     in  UTCTime day dtime
+
+
+utcTimeToComponents :: UTCTime -> (Integer, Int, Int, Int, Int, Int, Int, Int)
+utcTimeToComponents utcTime =
+    let
+        LocalTime day (TimeOfDay hh mm ss) = utcToLocalTime utc utcTime
+        (yr, mn, dom) = toGregorian day
+        (_, doy)      = toOrdinalDate day
+        sec           = truncate ss
+        pico =
+            diffTimeToPicoseconds (utctDayTime utcTime) `rem` 1_000_000_000_000
+        micro = pico `div` 1_000_000
+    in
+        (yr, doy, mn, dom, hh, mm, sec, fromIntegral micro)
+
+displayUTCTimeMicro :: UTCTime -> Text
+displayUTCTimeMicro utcTime =
+    let (yr, doy, _mn, _dom, hh, mm, ss, micro) = utcTimeToComponents utcTime
+    in  TB.run
+            $  TB.padFromLeft 4 '0' (TB.decimal yr)
+            <> TB.char '.'
+            <> TB.padFromLeft 3 '0' (TB.decimal doy)
+            <> TB.char '.'
+            <> TB.padFromLeft 2 '0' (TB.decimal hh)
+            <> TB.char '.'
+            <> TB.padFromLeft 2 '0' (TB.decimal mm)
+            <> TB.char '.'
+            <> TB.padFromLeft 2 '0' (TB.decimal ss)
+            <> TB.char '.'
+            <> TB.padFromLeft 3 '0' (TB.decimal micro)
+
+instance Display CCSDSTime where
+    textDisplay t = displayUTCTimeMicro (toUTCTime t)
+
+instance Display CCSDSTimePico where
+    textDisplay t = displayUTCTimeMicro (picoToUTCTime t)

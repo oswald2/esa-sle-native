@@ -290,6 +290,20 @@ data BindDiagnostic =
   | OtherReason
   deriving (Eq, Ord, Enum, Show, Generic)
 
+instance Display BindDiagnostic where
+    display AccessDenied            = "Access Denied"
+    display ServiceTypeNotSupported = "Service Type Not Supported"
+    display VersionNotSupported     = "Version Not Supported"
+    display NoSuchServiceInstance   = "No Such Service Instance"
+    display AlreadyBound            = "Already Bound"
+    display SiNotAccessibleToThisInitiator =
+        "Service Instance not Accessible to this Initiator"
+    display InconsistentServiceType = "Inconsistend Service Type"
+    display InvalidTime             = "Invalid Time"
+    display OutOfService            = "Out of Service"
+    display OtherReason             = "Other Reason "
+
+
 -- bindDiagnostic :: BindDiagnostic -> ASN1
 -- bindDiagnostic AccessDenied                   = IntVal 0
 -- bindDiagnostic ServiceTypeNotSupported        = IntVal 1

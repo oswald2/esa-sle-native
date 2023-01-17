@@ -190,6 +190,10 @@ instance Ord Time where
     compare (Time     t1) (TimePico t2) = compare (toPicoTime t1) t2
     compare (TimePico t1) (Time     t2) = compare t1 (toPicoTime t2)
 
+instance Display Time where
+    display (Time     t) = display t
+    display (TimePico t) = display t
+
 
 time :: Time -> ASN1
 time (Time     t) = Other Context 0 $ builderBytes . ccsdsTimeBuilder $ t

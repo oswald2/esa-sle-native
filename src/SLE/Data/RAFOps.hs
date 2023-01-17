@@ -81,6 +81,13 @@ data ReqFrameQuality = GoodOnly | ErredOnly | AllFrames | FrameQualInvalid
     deriving stock (Eq, Ord, Enum, Show, Generic)
     deriving anyclass (NFData)
 
+instance Display ReqFrameQuality where
+    display GoodOnly         = "GOOD"
+    display ErredOnly        = "ERRED"
+    display AllFrames        = "ALL"
+    display FrameQualInvalid = "INVALID"
+
+
 reqFrameQuality :: ReqFrameQuality -> ASN1
 reqFrameQuality GoodOnly         = IntVal 0
 reqFrameQuality ErredOnly        = IntVal 1
@@ -476,7 +483,7 @@ rafTransferDataInvocation RafTransferDataInvocation {..} =
             , privateAnnotation _rafTransPrivateAnnotation
             , OctetString _rafTransData
             ]
-    in      {- trace ("TransferData: " <> fromString (ppShow dat))-}
+    in       {- trace ("TransferData: " <> fromString (ppShow dat))-}
         dat
 
 parseRafTransferDataInvocation :: Parser RafTransferDataInvocation
@@ -539,7 +546,7 @@ rafTransferBuffer buf =
             Start (Container Context 8)
                 :  concatMap frameOrNotification buf
                 ++ [End (Container Context 8)]
-    in      {- trace ("TransferBuffer: " <> fromString (ppShow dat)) -}
+    in       {- trace ("TransferBuffer: " <> fromString (ppShow dat)) -}
         dat
 
 
