@@ -258,6 +258,7 @@ listenRAF hdl cfg idx process perfFunc = do
                       (processServerSendSLE hdl perfFunc app)
               res :: Either SomeException () <- try
                   $ race_ netThreads (processSleTransferBuffer hdl cfg idx)
+              onServerDisconnect hdl
               logWarn
                   $  "SLE RAF "
                   <> display (cfg ^. cfgRAFSII)
@@ -265,7 +266,7 @@ listenRAF hdl cfg idx process perfFunc = do
                   <> display (cfg ^. cfgRAFPort)
                   <> ": "
                   <> fromString (show res)
-    onServerDisconnect hdl
+
     -- loop over, we need to start again on disconnect
     listenRAF hdl cfg idx process perfFunc
 
@@ -297,22 +298,24 @@ processServerReadSLE hdl process app = do
     result <- race (runConduitRes initChain) (threadDelay initTime)
     case result of
         Right _ -> do
-            logDebug "Timeout waiting for context message, aborting"
+            logError "Timeout waiting for SLE TML context message, aborting"
             protocolAbort hdl
         Left (Left err) -> do
-            logDebug (display err)
+            logError
+                $  "Error waiting for SLE TML context message: "
+                <> display err
             protocolAbort hdl
         Left (Right Nothing) -> do -- we should terminate
             logDebug "Conduit told us to terminate..."
             protocolAbort hdl
-        Left (Right (Just ctxtMsg)) -> processContext hdl ctxtMsg
-
-    -- now, if we are still here, start the normal processing
-    (res :: Either SomeException ()) <-
-        try $ runConduitRes $ appSource app .| processReadTML
-            hdl
-            (processServerSLEMsg (lift . process))
-    logWarn $ "processServerReadSLE leaves " <> fromString (show res)
+        Left (Right (Just ctxtMsg)) -> do
+            processContext hdl ctxtMsg
+            -- now, if we are still here, start the normal processing
+            (res :: Either SomeException ()) <-
+                try $ runConduitRes $ appSource app .| processReadTML
+                    hdl
+                    (processServerSLEMsg (lift . process))
+            logWarn $ "processServerReadSLE leaves " <> fromString (show res)
 
 
   where
@@ -348,7 +351,7 @@ processServerSendSLE
 processServerSendSLE hdl perfFunc app = do
     res :: Either SomeException () <-
         try $ runConduitRes $ processWriteTML hdl perfFunc .| appSink app
-    logWarn $ "processServerSendSLE leaves" <> fromString (show res)
+    logWarn $ "processServerSendSLE leaves " <> fromString (show res)
 
 
 processSleTransferBuffer
@@ -358,10 +361,10 @@ processSleTransferBuffer
     -> RAFIdx
     -> m ()
 processSleTransferBuffer hdl cfg idx = do
-    logWarn "processSleTransferBuffer enters"
+    logDebug "processSleTransferBuffer enters"
     env                            <- ask
     res :: Either SomeException () <- try $ loop env
-    logWarn $ "processSleTransferBuffer leaves" <> fromString (show res)
+    logDebug $ "processSleTransferBuffer leaves" <> fromString (show res)
 
   where
     loop :: (MonadUnliftIO m, MonadReader env m, HasRAF env) => env -> m ()

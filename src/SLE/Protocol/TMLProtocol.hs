@@ -51,7 +51,7 @@ processReadTML hdl processor = do
     worker = do
         x <- await
         case x of
-            Nothing  -> do
+            Nothing -> do
                 logWarn "worker: closed upstream"
                 return ()
             Just val -> do
@@ -106,13 +106,23 @@ processContext
     -> TMLContextMsgRead
     -> m ()
 processContext hdl msg = do
+    logInfo
+        $  "Received SLE TML Context message with heartbeat inverval: "
+        <> display (_tmlCtxHeartbeatInterval msg)
+        <> " dead factor: "
+        <> display (_tmlCtxDeadFactor msg)
     cfg <- view (commonCfg . cfgTML)
     case chkContextMsg cfg msg of
         Right _ -> do
             stopTimers
-            startTimersWith hdl
-                            (_tmlCtxHeartbeatInterval msg)
-                            (_tmlCtxDeadFactor msg)
+            if _tmlCtxHeartbeatInterval msg > 0
+                then do
+                    startTimersWith hdl
+                                    (_tmlCtxHeartbeatInterval msg)
+                                    (_tmlCtxDeadFactor msg)
+                else do
+                    logInfo
+                        "Heartbeat interval requested to be 0, heartbeat disabled."
         Left err -> do
             logError $ "Received illegal context message: " <> displayShow err
             peerAbort hdl PAProtocolError

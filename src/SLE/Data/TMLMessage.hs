@@ -92,15 +92,19 @@ data CtxtMsgError =
 chkContextMsg :: TMLConfig -> TMLContextMsgRead -> Either CtxtMsgError ()
 chkContextMsg cfg TMLContextMsgRead {..} =
     let chkHB =
-            cfgMinHeartBeat cfg
-                <= _tmlCtxHeartbeatInterval
-                && _tmlCtxHeartbeatInterval
-                <= cfgMaxHeartBeat cfg
+            (_tmlCtxHeartbeatInterval == 0)
+                || (  cfgMinHeartBeat cfg
+                   <= _tmlCtxHeartbeatInterval
+                   && _tmlCtxHeartbeatInterval
+                   <= cfgMaxHeartBeat cfg
+                   )
         chkDF =
-            cfgMinDeadFactor cfg
-                <= _tmlCtxDeadFactor
-                && _tmlCtxDeadFactor
-                <= cfgMaxDeadFactor cfg
+            (_tmlCtxDeadFactor == 0)
+                || (  cfgMinDeadFactor cfg
+                   <= _tmlCtxDeadFactor
+                   && _tmlCtxDeadFactor
+                   <= cfgMaxDeadFactor cfg
+                   )
         chkProtocol = _tmlCtxProtocolID == "ISP1"
         chkVersion  = _tmlCtxVersion == 1
     in  if
