@@ -12,7 +12,6 @@ module Main where
 
 
 import           RIO
-import qualified RIO.ByteString                as B
 import qualified RIO.Text                      as T
 
 import qualified Data.Text.IO                  as T
@@ -115,7 +114,7 @@ action = do
         "SEND" -> do
             var' <- getRAFVar (RAFIdx 0)
             forM_ var' $ \var -> do
-                t <- liftIO $ getCurrentTime
+                -- t <- liftIO $ getCurrentTime
                 let
                     frame = TransFrame RafTransferDataInvocation
                         { _rafTransCredentials       = Nothing

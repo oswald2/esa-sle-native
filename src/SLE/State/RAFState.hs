@@ -41,6 +41,7 @@ import           SLE.Data.ProviderConfig
 import           SLE.Data.RAFOps
 import           SLE.Data.WriteCmd
 
+
 data RAF = RAF
     { _rafSII                   :: !SII
     , _rafState                 :: !ServiceState

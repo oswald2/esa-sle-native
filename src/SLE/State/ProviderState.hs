@@ -3,6 +3,7 @@ module SLE.State.ProviderState
     , initialState
     , sleRaiseEvent
     , setServiceState
+    , appRAFs
     ) where
 
 import           RIO
@@ -22,7 +23,6 @@ import           SLE.Data.TMLConfig
 
 
 
-
 data ProviderState = ProviderState
     { _appTimerHBT         :: !(TVar (Maybe (Updatable ())))
     , _appTimerHBR         :: !(TVar (Maybe (Updatable ())))
@@ -33,6 +33,10 @@ data ProviderState = ProviderState
     , _appEventHandler     :: !SleEventHandler
     , _appRAFs             :: !(Vector RAFVar)
     }
+
+
+appRAFs :: Lens' ProviderState (Vector RAFVar)
+appRAFs = lens _appRAFs (\s v -> s { _appRAFs = v })
 
 
 initialState
@@ -53,7 +57,8 @@ initialState cfg logFunc eventHandler = do
     hbtr <- liftIO $ newTVarIO (fromIntegral (cfgHeartbeat tmlCfg) * 1_000_000)
 
     -- create the RAFs 
-    let createFunc idx cfg' = newRAFVarIO (cfg ^. cfgCommon) cfg' (RAFIdx idx)
+    let createFunc idx cfg' =
+            newRAFVarIO (cfg ^. cfgCommon) cfg' (RAFIdx idx)
 
     rafs <- V.imapM createFunc (cfg ^. cfgRAFs)
 

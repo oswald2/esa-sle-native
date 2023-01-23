@@ -4,6 +4,7 @@
 module SLE.Data.Handle
     ( SleHandle
     , newSleHandle
+    , newSleHandleBuf
     , withSleHandle
     , queueSize
     , writeSLE
@@ -50,6 +51,13 @@ newSleHandle idx bufSize = do
     inp <- newTBQueueIO queueSize
     buf <- liftIO $ newTimedBufferIO bufSize
     return $ SleHandle { _sleInput = inp, _sleBuffer = buf, _sleIdx = idx }
+
+newSleHandleBuf
+    :: (MonadIO m) => TMIdx -> TimedBuffer FrameOrNotification -> m SleHandle
+newSleHandleBuf idx buf = do
+    inp <- newTBQueueIO queueSize
+    return $ SleHandle { _sleInput = inp, _sleBuffer = buf, _sleIdx = idx }
+
 
 withSleHandle
     :: (MonadUnliftIO m) => TMIdx -> Word32 -> (SleHandle -> m a) -> m a
