@@ -191,7 +191,8 @@ processSLEInput perfFunc (SLEPdu pdu) = do
     logDebug $ "processSLEInput: sending TLM Message: " <> fromString
         (ppShow tlmMsg)
     yield encTlmMsg
-    liftIO $ perfFunc (fromIntegral (B.length encTlmMsg))
+    when (isTransfer pdu) $ liftIO $ perfFunc
+        (fromIntegral (B.length encTlmMsg))
     return False
 
 -- | Listen on the queue in the 'SleHandle'. If it returns 'Nothing', this means that 
@@ -315,8 +316,11 @@ processServerReadSLE hdl process app = do
                 try $ runConduitRes $ appSource app .| processReadTML
                     hdl
                     (processServerSLEMsg (lift . process))
-            logWarn $ "processServerReadSLE leaves " <> fromString (show res)
-
+            case res of
+                Left err ->
+                    logWarn $ "processServerReadSLE leaves with: " <> fromString
+                        (show err)
+                Right () -> return ()
 
   where
     sink = do
@@ -351,7 +355,10 @@ processServerSendSLE
 processServerSendSLE hdl perfFunc app = do
     res :: Either SomeException () <-
         try $ runConduitRes $ processWriteTML hdl perfFunc .| appSink app
-    logWarn $ "processServerSendSLE leaves " <> fromString (show res)
+    case res of
+        Left err ->
+            logWarn $ "processServerSendSLE leaves " <> fromString (show err)
+        Right _ -> return ()
 
 
 processSleTransferBuffer
@@ -361,10 +368,12 @@ processSleTransferBuffer
     -> RAFIdx
     -> m ()
 processSleTransferBuffer hdl cfg idx = do
-    logDebug "processSleTransferBuffer enters"
     env                            <- ask
     res :: Either SomeException () <- try $ loop env
-    logDebug $ "processSleTransferBuffer leaves" <> fromString (show res)
+    case res of
+        Left err ->
+            logWarn $ "processSleTransferBuffer leaves" <> fromString (show err)
+        Right _ -> return ()
 
   where
     loop :: (MonadUnliftIO m, MonadReader env m, HasRAF env) => env -> m ()

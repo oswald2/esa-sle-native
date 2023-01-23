@@ -2,6 +2,7 @@ module SLE.Data.PDU
     ( SlePdu(..)
     , setCredentials
     , isBind
+    , isTransfer 
     ) where
 
 import           Control.Lens
@@ -29,6 +30,9 @@ isBind :: SlePdu -> Bool
 isBind (SlePduBind _) = True
 isBind _              = False
 
+isTransfer :: SlePdu -> Bool 
+isTransfer (SlePduRafTransferBuffer _) = True
+isTransfer _ = False 
 
 setCredentials :: SlePdu -> ByteString -> SlePdu
 setCredentials (SlePduBind val) creds =

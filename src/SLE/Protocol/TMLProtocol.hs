@@ -46,13 +46,11 @@ processReadTML
     -> ConduitT ByteString Void m ()
 processReadTML hdl processor = do
     conduitParserEither tmlPduParser .| worker .| processPDU hdl .| processor
-    logWarn "processReadTML leaves"
   where
     worker = do
         x <- await
         case x of
             Nothing -> do
-                logWarn "worker: closed upstream"
                 return ()
             Just val -> do
                 case val of
@@ -61,14 +59,12 @@ processReadTML hdl processor = do
                         sleRaiseEvent
                             (TMLParseError (T.pack (errorMessage err)))
                         runRIO env (protocolAbort hdl)
-                        logWarn "worker leaves because of parse error"
                     Right (_, pdu) -> do
                         logDebug $ "Received PDU: " <> fromString (ppShow pdu)
                         lift restartHBRTimer
                         -- process pdu
                         yield pdu
                         worker
-        logWarn "worker leaves"
 
 processPDU
     :: ( MonadUnliftIO m
@@ -91,7 +87,6 @@ processPDU hdl = do
         TMLPDUMessage msg -> do
             lift $ logDebug $ "Yielding PDU: " <> fromString (ppShow msg)
             yield msg
-    logWarn "processPDU leaves"
 
 processContext
     :: ( MonadUnliftIO m

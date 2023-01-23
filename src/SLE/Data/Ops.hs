@@ -83,14 +83,17 @@ onServerDisconnect hdl = do
 
 -- | Stop the hearbeat timers 
 stopTimers
-    :: (MonadUnliftIO m, MonadReader env m, HasLogFunc env, HasTimer env)
+    :: (MonadUnliftIO m, MonadReader env m, HasTimer env)
     => m ()
 stopTimers = do
     env <- ask
-    logDebug "Stopping timers..."
     action <- atomically $ do
         hbTimer  <- readTVar (env ^. getTimerHBT)
         hbrTimer <- readTVar (env ^. getTimerHBR)
+        
+        writeTVar (env ^. getTimerHBT) Nothing 
+        writeTVar (env ^. getTimerHBR) Nothing 
+        
         return $ do
             forM_ hbTimer  kill
             forM_ hbrTimer kill
