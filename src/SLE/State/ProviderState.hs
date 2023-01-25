@@ -13,6 +13,7 @@ import           System.Timer.Updatable
 
 import           SLE.State.Classes
 import           SLE.State.Events
+import           SLE.State.FCLTUClasses
 import           SLE.State.RAFClasses
 
 import           SLE.Data.Common
@@ -57,8 +58,7 @@ initialState cfg logFunc eventHandler = do
     hbtr <- liftIO $ newTVarIO (fromIntegral (cfgHeartbeat tmlCfg) * 1_000_000)
 
     -- create the RAFs 
-    let createFunc idx cfg' =
-            newRAFVarIO (cfg ^. cfgCommon) cfg' (RAFIdx idx)
+    let createFunc idx cfg' = newRAFVarIO (cfg ^. cfgCommon) cfg' (RAFIdx idx)
 
     rafs <- V.imapM createFunc (cfg ^. cfgRAFs)
 
@@ -102,7 +102,7 @@ instance HasRAF ProviderState where
 
 
 setServiceState
-    :: (MonadIO m, MonadReader env m, HasRAF env)
+    :: (MonadIO m, MonadReader env m, HasRAF env, HasFCLTU env)
     => TMIdx
     -> ServiceState
     -> m ()
@@ -110,4 +110,5 @@ setServiceState (TMRAF idx ) state  = setRAFServiceState idx state
 setServiceState (TMRCF _idx) _state = return ()  -- TODO 
 setServiceState (TMFirst idx) state = -- TODO 
     setRAFServiceState (RAFIdx (fromIntegral idx)) state
+setServiceState (TCFCLTU idx) state = setFCLTUServiceState idx state
 

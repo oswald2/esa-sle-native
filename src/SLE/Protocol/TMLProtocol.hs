@@ -26,6 +26,7 @@ import           SLE.Data.TMLMessage
 
 import           SLE.State.Classes
 import           SLE.State.Events
+import           SLE.State.FCLTUClasses
 import           SLE.State.RAFClasses
 
 import           Text.Show.Pretty
@@ -40,6 +41,7 @@ processReadTML
        , HasLogFunc env
        , HasTimer env
        , HasRAF env
+       , HasFCLTU env
        )
     => SleHandle
     -> ConduitT TMLMessage Void m ()
@@ -74,6 +76,7 @@ processPDU
        , HasCommonConfig env
        , HasTimer env
        , HasRAF env
+       , HasFCLTU env
        )
     => SleHandle
     -> ConduitT TMLPDU TMLMessage m ()
@@ -96,6 +99,7 @@ processContext
        , HasCommonConfig env
        , HasEventHandler env
        , HasRAF env
+       , HasFCLTU env
        )
     => SleHandle
     -> TMLContextMsgRead
@@ -139,6 +143,7 @@ startTimers
        , HasEventHandler env
        , HasTimer env
        , HasRAF env
+       , HasFCLTU env 
        )
     => SleHandle
     -> m ()
@@ -157,6 +162,7 @@ startTimersWith
        , HasLogFunc env
        , HasTimer env
        , HasRAF env
+       , HasFCLTU env
        )
     => SleHandle
     -> Word16
@@ -210,6 +216,7 @@ heartBeatReceiveTimeOut
        , HasLogFunc env
        , HasEventHandler env
        , HasRAF env
+       , HasFCLTU env
        )
     => SleHandle
     -> m ()

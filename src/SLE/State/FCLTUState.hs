@@ -15,6 +15,7 @@ module SLE.State.FCLTUState
     , fcltuState
     , fcltuStateRequestedQuality
     , fcltuVar
+    , fcltuSleHandle
     , fcltuQueue
     , fcltuVarCfg
     , fcltuIdx
@@ -27,6 +28,7 @@ import           Control.Lens                   ( makeLenses )
 import           SLE.Data.Common
 import           SLE.Data.CommonConfig
 import           SLE.Data.FCLTUOps
+import           SLE.Data.Handle
 import           SLE.Data.ProviderConfig
 
 
@@ -43,10 +45,11 @@ data SleFcltuCmd = BindFcltu
 
 
 data FCLTUVar = FCLTUVar
-    { _fcltuVar    :: !(TVar FCLTU)
-    , _fcltuQueue  :: !(TBQueue SleFcltuCmd)
-    , _fcltuVarCfg :: !FCLTUConfig
-    , _fcltuIdx    :: !FCLTUIdx
+    { _fcltuVar       :: !(TVar FCLTU)
+    , _fcltuQueue     :: !(TBQueue SleFcltuCmd)
+    , _fcltuSleHandle :: !SleHandle
+    , _fcltuVarCfg    :: !FCLTUConfig
+    , _fcltuIdx       :: !FCLTUIdx
     }
 makeLenses ''FCLTUVar
 
@@ -65,7 +68,8 @@ newFCLTUVarIO _commonCfg cfg idx = do
     let fcltu = fcltuStartState cfg
     var <- newTVarIO fcltu
     q   <- newTBQueueIO 100
-    return $! FCLTUVar var q cfg idx
+    hdl <- newSleHandle (TCFCLTU idx) 1 -- buffer size is 1 as we don't use a buffer
+    return $! FCLTUVar var q hdl cfg idx
 
 
 readFCLTUVarIO :: (MonadIO m) => FCLTUVar -> m FCLTU

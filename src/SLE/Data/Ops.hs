@@ -16,6 +16,7 @@ import           SLE.State.Classes
 import           SLE.State.Events
 import           SLE.State.ProviderState
 import           SLE.State.RAFClasses
+import           SLE.State.FCLTUClasses
 
 import           Control.Concurrent.Killable
 
@@ -28,6 +29,7 @@ protocolAbort
        , HasLogFunc env
        , HasEventHandler env
        , HasRAF env
+       , HasFCLTU env
        )
     => SleHandle
     -> m ()
@@ -46,7 +48,7 @@ resetState hdl = do
         TMRCF _idx -> return ()
         TMFirst idx ->
             sleRaiseEvent (SLERafStatus (RAFIdx (fromIntegral idx)) ServiceInit)
-
+        TCFCLTU idx -> sleRaiseEvent (SLEFcltuStatus idx ServiceInit)
 
 peerAbort
     :: (MonadIO m, MonadReader env m, HasLogFunc env, HasEventHandler env)
@@ -68,6 +70,7 @@ onServerDisconnect
        , HasEventHandler env
        , HasTimer env
        , HasRAF env
+       , HasFCLTU env
        )
     => SleHandle
     -> m ()
@@ -82,18 +85,16 @@ onServerDisconnect hdl = do
 
 
 -- | Stop the hearbeat timers 
-stopTimers
-    :: (MonadUnliftIO m, MonadReader env m, HasTimer env)
-    => m ()
+stopTimers :: (MonadUnliftIO m, MonadReader env m, HasTimer env) => m ()
 stopTimers = do
-    env <- ask
+    env    <- ask
     action <- atomically $ do
         hbTimer  <- readTVar (env ^. getTimerHBT)
         hbrTimer <- readTVar (env ^. getTimerHBR)
-        
-        writeTVar (env ^. getTimerHBT) Nothing 
-        writeTVar (env ^. getTimerHBR) Nothing 
-        
+
+        writeTVar (env ^. getTimerHBT) Nothing
+        writeTVar (env ^. getTimerHBR) Nothing
+
         return $ do
             forM_ hbTimer  kill
             forM_ hbrTimer kill

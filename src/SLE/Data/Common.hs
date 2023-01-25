@@ -581,13 +581,13 @@ newtype RAFIdx = RAFIdx Int
 newtype RCFIdx = RCFIdx Int
     deriving stock (Show, Generic)
 
-data TMIdx = TMRAF !RAFIdx | TMRCF !RCFIdx | TMFirst !Word8
+data TMIdx = TMRAF !RAFIdx | TMRCF !RCFIdx | TMFirst !Word8 | TCFCLTU !FCLTUIdx
     deriving stock (Show, Generic)
 
 newtype InvokeID =InvokeID Word16
     deriving stock (Show, Generic)
 
-newtype FCLTUIdx = FCLTUIdx Int 
+newtype FCLTUIdx = FCLTUIdx Int
     deriving stock (Show, Generic)
 
 

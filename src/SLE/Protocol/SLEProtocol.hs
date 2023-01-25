@@ -34,6 +34,8 @@ import           SLE.State.Classes
 import           SLE.State.Events
 import           SLE.State.RAFClasses
 import           SLE.State.RAFState
+import           SLE.State.FCLTUClasses
+import           SLE.State.FCLTUState
 
 import           SLE.Protocol.TMLProtocol
 
@@ -55,6 +57,7 @@ connectSLE
        , HasUserConfig env
        , HasTimer env
        , HasRAF env
+       , HasFCLTU env
        )
     => SleHandle
     -> ConnectAddr
@@ -76,6 +79,7 @@ processConnect
        , HasCommonConfig env
        , HasTimer env
        , HasRAF env
+       , HasFCLTU env
        )
     => SleHandle
     -> (Word64 -> IO ())
@@ -238,6 +242,7 @@ listenRAF
        , HasProviderConfig env
        , HasTimer env
        , HasRAF env
+       , HasFCLTU env
        )
     => SleHandle
     -> RAFConfig
@@ -284,6 +289,7 @@ processServerReadSLE
        , HasProviderConfig env
        , HasTimer env
        , HasRAF env
+       , HasFCLTU env
        )
     => SleHandle
     -> (SlePdu -> m ())
@@ -405,6 +411,7 @@ listenFCLTU
        , HasProviderConfig env
        , HasTimer env
        , HasRAF env
+       , HasFCLTU env
        )
     => SleHandle
     -> FCLTUConfig

@@ -30,6 +30,7 @@ data SleEvent =
   | SLERafStopFailed !SII
   | SLERafStopSucceed !SII
   | SLERafStatus !RAFIdx !ServiceState
+  | SLEFcltuStatus !FCLTUIdx !ServiceState
   deriving (Show, Generic)
 
 type SleEventHandler = SleEvent -> IO ()

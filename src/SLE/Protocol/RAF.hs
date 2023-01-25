@@ -11,6 +11,8 @@ import           SLE.Data.RAF
 import           SLE.Protocol.SLEProtocol
 
 import           SLE.State.Classes
+import           SLE.State.FCLTUClasses
+import           SLE.State.FCLTUState
 import           SLE.State.RAFClasses
 import           SLE.State.RAFState
 
@@ -24,6 +26,7 @@ runRAF
        , HasProviderConfig env
        , HasTimer env
        , HasRAF env
+       , HasFCLTU env
        )
     => (Word64 -> IO ())
     -> RAFVar
@@ -47,6 +50,7 @@ runRAFs
        , HasProviderConfig env
        , HasTimer env
        , HasRAF env
+       , HasFCLTU env
        )
     => (Word64 -> IO ())
     -> m ()
