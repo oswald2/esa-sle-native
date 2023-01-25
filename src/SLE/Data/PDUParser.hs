@@ -44,8 +44,9 @@ slePduParser = do
 -- 5   : RAF Schedule Status Report Return 
 -- 6   : RAF Get Parameter Invocation 
 -- 7   : RAF Get Parameter Return 
--- 8   : RAF Transfer Buffer
+-- 8   : RAF Transfer Buffer / FCLTU Throw Event
 -- 9   : RAF Status Report Invocation 
+-- 10  : FCLTU Transfer Data Invocation
 -- 104 : RAF Peer Abort
 parsePDU :: ASN1Tag -> Parser SlePdu
 parsePDU 100 = SlePduBind <$> parseSleBind

@@ -1,5 +1,6 @@
 module SLE.Protocol.SLEProtocol
     ( listenRAF
+    , listenFCLTU
     , connectSLE
     ) where
 
@@ -393,3 +394,45 @@ processSleTransferBuffer hdl cfg idx = do
                     forM_ r' $ \r ->
                         when (r ^. rafState /= ServiceActive) retrySTM
         loop env
+
+
+
+listenFCLTU
+    :: ( MonadUnliftIO m
+       , MonadReader env m
+       , HasLogFunc env
+       , HasEventHandler env
+       , HasProviderConfig env
+       , HasTimer env
+       , HasRAF env
+       )
+    => SleHandle
+    -> FCLTUConfig
+    -> FCLTUIdx
+    -> (SlePdu -> m ())
+    -> (Word64 -> IO ())
+    -> m ()
+listenFCLTU hdl cfg idx process perfFunc = do
+    void
+        $ runGeneralTCPServer
+              (serverSettings (fromIntegral (cfg ^. cfgFCLTUPort)) "*")
+        $ \app -> do
+              logInfo
+                  $  "SLE FCLTU "
+                  <> display (cfg ^. cfgFCLTUSII)
+                  <> ": new connection on server socket: "
+                  <> display (cfg ^. cfgFCLTUPort)
+              res :: Either SomeException () <- try $ race_
+                  (processServerReadSLE hdl process app)
+                  (processServerSendSLE hdl (\_ -> return ()) app)
+              onServerDisconnect hdl
+              logWarn
+                  $  "SLE FCLTU "
+                  <> display (cfg ^. cfgFCLTUSII)
+                  <> " disconnect on server socket: "
+                  <> display (cfg ^. cfgFCLTUPort)
+                  <> ": "
+                  <> fromString (show res)
+
+    -- loop over, we need to start again on disconnect
+    listenFCLTU hdl cfg idx process perfFunc

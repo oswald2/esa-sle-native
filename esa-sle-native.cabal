@@ -77,6 +77,7 @@ library
     SLE.Data.Handle
     SLE.Data.RAFOps
     SLE.Data.Ops 
+    SLE.Data.FCLTUOps
     SLE.Protocol.TMLProtocol
     SLE.Protocol.SLEProtocol
     SLE.Protocol.Provider 
@@ -90,6 +91,7 @@ library
     SLE.State.Events
     SLE.State.RAFClasses
     SLE.State.RAFState
+    SLE.State.FCLTUState
 
   -- Other library packages from which modules are imported.
   build-depends:       

@@ -5,6 +5,8 @@ module SLE.Data.ProviderConfig
     ( ProviderConfig(..)
     , RAFConfig(..)
     , RAFIdx(..)
+    , FCLTUConfig(..)
+    , FCLTUIdx(..)
     , SleAuthType(..)
     , configPretty
     , defaultProviderConfigFileName
@@ -12,15 +14,17 @@ module SLE.Data.ProviderConfig
     , writeConfigJSON
     , loadConfigJSON
     , cfgCommon
-    -- , SLE.Data.ProviderConfig.cfgUserName
     , cfgRAFs
+    , cfgFCLTUs
     , cfgRAFSII
     , cfgRAFPort
-    -- , cfgRAFPeer
     , cfgRAFPortID
     , cfgRAFAntennaID
     , cfgRAFBufferSize
     , cfgRAFLatency
+    , cfgFCLTUSII
+    , cfgFCLTUPort
+    , cfgFCLTUPortID
     ) where
 
 
@@ -54,16 +58,32 @@ defaultRAFConfig :: RAFConfig
 defaultRAFConfig = RAFConfig
     { _cfgRAFSII        = SII "sagr=3.spack=facility-PASS1.rsl-fg=1.raf=onlc1"
     , _cfgRAFPort       = 5008
-    , _cfgRAFPortID     = "PARAGONTT"
+    , _cfgRAFPortID     = "TMPORT"
     , _cfgRAFAntennaID  = LocalForm "PARAGONTT"
     , _cfgRAFBufferSize = 100
     , _cfgRAFLatency    = 1_000_000
+    }
+
+data FCLTUConfig = FCLTUConfig
+    { _cfgFCLTUSII    :: !SII
+    , _cfgFCLTUPort   :: !Word16
+    , _cfgFCLTUPortID :: !Text
+    }
+    deriving stock (Show, Read, Generic)
+    deriving anyclass (FromJSON, ToJSON)
+
+defaultFCLTUConfig :: FCLTUConfig
+defaultFCLTUConfig = FCLTUConfig
+    { _cfgFCLTUSII    = SII "sagr=3.spack=facility-PASS1.fsl-fg=1.cltu=cltu1"
+    , _cfgFCLTUPort   = 5010
+    , _cfgFCLTUPortID = "TCPORT"
     }
 
 
 data ProviderConfig = ProviderConfig
     { _cfgCommon :: !CommonConfig
     , _cfgRAFs   :: !(Vector RAFConfig)
+    , _cfgFCLTUs :: !(Vector FCLTUConfig)
     }
     deriving (Show, Read, Generic)
     deriving anyclass (FromJSON, ToJSON)
@@ -77,14 +97,13 @@ defaultProviderConfig :: ProviderConfig
 defaultProviderConfig = ProviderConfig
     { _cfgCommon = defaultCommonConfig
     , _cfgRAFs   = V.singleton defaultRAFConfig
+    , _cfgFCLTUs = V.singleton defaultFCLTUConfig
     }
 
 
--- cfgUserName :: Getter ProviderConfig Text
--- cfgUserName = Control.Lens.to (unAuthorityID . cfgLocal . cfgCommon)
-
 makeLenses ''ProviderConfig
 makeLenses ''RAFConfig
+makeLenses ''FCLTUConfig
 
 configPretty :: ProviderConfig -> Text
 configPretty cfg = case (decodeUtf8' . B.toStrict . encodePretty) cfg of

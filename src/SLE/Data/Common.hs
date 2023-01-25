@@ -59,6 +59,7 @@ module SLE.Data.Common
     , RAFIdx(..)
     , RCFIdx(..)
     , TMIdx(..)
+    , FCLTUIdx(..)
     , InvokeID(..)
     , PeerAbortDiagnostic(..)
     , SlePeerAbort(..)
@@ -584,6 +585,9 @@ data TMIdx = TMRAF !RAFIdx | TMRCF !RCFIdx | TMFirst !Word8
     deriving stock (Show, Generic)
 
 newtype InvokeID =InvokeID Word16
+    deriving stock (Show, Generic)
+
+newtype FCLTUIdx = FCLTUIdx Int 
     deriving stock (Show, Generic)
 
 
