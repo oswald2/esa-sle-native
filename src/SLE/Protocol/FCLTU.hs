@@ -1,23 +1,23 @@
-module SLE.Protocol.RAF
-    ( runRAF
-    , runRAFs
+module SLE.Protocol.FCLTU
+    ( runFCLTU
+    , runFCLTUs
     ) where
 
 import           RIO
 import qualified RIO.Vector                    as V
 
-import           SLE.Data.RAF
+import           SLE.Data.FCLTU
 
 import           SLE.Protocol.SLEProtocol
 
 import           SLE.State.Classes
-import           SLE.State.FCLTUClasses
 import           SLE.State.RAFClasses
-import           SLE.State.RAFState
+import           SLE.State.FCLTUClasses
+import           SLE.State.FCLTUState
 
 
 
-runRAF
+runFCLTU
     :: ( MonadUnliftIO m
        , MonadReader env m
        , HasLogFunc env
@@ -28,20 +28,20 @@ runRAF
        , HasFCLTU env
        )
     => (Word64 -> IO ())
-    -> RAFVar
+    -> FCLTUVar
     -> m ()
-runRAF perfFunc var = do
-    let cfg = var ^. rafVarCfg
-    listenRAF (var ^. rafSleHandle)
-              cfg
-              (var ^. rafIdx)
-              (rafStateMachine cfg var)
-              perfFunc
-    runRAF perfFunc var
+runFCLTU perfFunc var = do
+    let cfg = var ^. fcltuVarCfg
+    listenFCLTU (var ^. fcltuSleHandle)
+                cfg
+                (var ^. fcltuIdx)
+                (fcltuStateMachine cfg var)
+                perfFunc
+    runFCLTU perfFunc var
 
 
 
-runRAFs
+runFCLTUs
     :: ( MonadUnliftIO m
        , MonadReader env m
        , HasLogFunc env
@@ -53,11 +53,12 @@ runRAFs
        )
     => (Word64 -> IO ())
     -> m ()
-runRAFs perfFunc = do
+runFCLTUs perfFunc = do
     env <- ask
-    let rafs    = env ^. getRAFs
-        threads = V.foldl (\prev raf -> prev <> conc (runRAF perfFunc raf))
-                          mempty
-                          rafs
+    let fcltus  = env ^. getFCLTUs
+        threads = V.foldl
+            (\prev fcltu -> prev <> conc (runFCLTU perfFunc fcltu))
+            mempty
+            fcltus
     runConc threads
 

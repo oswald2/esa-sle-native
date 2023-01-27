@@ -4,6 +4,7 @@ module SLE.State.ProviderState
     , sleRaiseEvent
     , setServiceState
     , appRAFs
+    , appFCLTUs
     ) where
 
 import           RIO
@@ -18,6 +19,7 @@ import           SLE.State.RAFClasses
 
 import           SLE.Data.Common
 import           SLE.Data.CommonConfig
+import           SLE.Data.FCLTU
 import           SLE.Data.ProviderConfig
 import           SLE.Data.RAF
 import           SLE.Data.TMLConfig
@@ -33,11 +35,15 @@ data ProviderState = ProviderState
     , _appLogFunc          :: !LogFunc
     , _appEventHandler     :: !SleEventHandler
     , _appRAFs             :: !(Vector RAFVar)
+    , _appFCLTUs           :: !(Vector FCLTUVar)
     }
 
 
 appRAFs :: Lens' ProviderState (Vector RAFVar)
 appRAFs = lens _appRAFs (\s v -> s { _appRAFs = v })
+
+appFCLTUs :: Lens' ProviderState (Vector FCLTUVar)
+appFCLTUs = lens _appFCLTUs (\s v -> s { _appFCLTUs = v })
 
 
 initialState
@@ -59,8 +65,11 @@ initialState cfg logFunc eventHandler = do
 
     -- create the RAFs 
     let createFunc idx cfg' = newRAFVarIO (cfg ^. cfgCommon) cfg' (RAFIdx idx)
+        createFcltuFunc idx cfg' =
+            newFCLTUVarIO (cfg ^. cfgCommon) cfg' (FCLTUIdx idx)
 
-    rafs <- V.imapM createFunc (cfg ^. cfgRAFs)
+    rafs   <- V.imapM createFunc (cfg ^. cfgRAFs)
+    fcltus <- V.imapM createFcltuFunc (cfg ^. cfgFCLTUs)
 
     return $! ProviderState { _appTimerHBT         = var
                             , _appTimerHBR         = var1
@@ -70,6 +79,7 @@ initialState cfg logFunc eventHandler = do
                             , _appHeartBeat        = hbtr
                             , _appHeartBeatReceive = hbrec
                             , _appRAFs             = rafs
+                            , _appFCLTUs           = fcltus
                             }
 
 
@@ -99,6 +109,10 @@ instance HasProviderConfig ProviderState where
 instance HasRAF ProviderState where
     getRAFs = lens _appRAFs (\st rafs -> st { _appRAFs = rafs })
     getRAFVar' env (RAFIdx idx) = (V.!?) (env ^. getRAFs) idx
+
+instance HasFCLTU ProviderState where
+    getFCLTUs = lens _appFCLTUs (\st fcltus -> st { _appFCLTUs = fcltus })
+    getFCLTUVar' env (FCLTUIdx idx) = (env ^. getFCLTUs) V.!? idx
 
 
 setServiceState

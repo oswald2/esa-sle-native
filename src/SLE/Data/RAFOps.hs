@@ -201,7 +201,7 @@ diagnosticRafStart (DiagRafStartSpecific diag) =
 optionalDiagRafStart :: Maybe DiagnosticRafStart -> ASN1
 optionalDiagRafStart Nothing = Other Context 0 B.empty
 optionalDiagRafStart (Just diag) =
-    Other Context 0 (encodeASN1' DER [diagnosticRafStart diag])
+    Other Context 1 (encodeASN1' DER [diagnosticRafStart diag])
 
 parseOptionalRafStartDiag :: Parser (Maybe DiagnosticRafStart)
 parseOptionalRafStartDiag = do

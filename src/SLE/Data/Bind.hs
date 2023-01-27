@@ -104,7 +104,7 @@ instance ToJSON Password where
 
 
 
-newtype PortID = PortID { unPortID :: Text }
+newtype PortID = PortID Text
   deriving (Eq, Ord, Show, Generic)
 
 

@@ -16,6 +16,7 @@ import           SLE.Data.UserConfig
 import           SLE.State.Classes
 import           SLE.State.Events
 import           SLE.State.RAFClasses
+import           SLE.State.FCLTUClasses
 
 
 
@@ -86,3 +87,7 @@ instance HasRAF UserState where
     getRAFs = lens (const V.empty) const
     getRAFVar' _env _idx = Nothing
 
+
+instance HasFCLTU UserState where
+    getFCLTUs = lens (const V.empty) const
+    getFCLTUVar' _env _idx = Nothing

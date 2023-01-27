@@ -5,6 +5,8 @@ module SLE.Protocol.UserApi
     , unbind
     , startRAF
     , stopRAF
+    , startFCLTU
+    , stopFCLTU
     ) where
 
 import           RIO
@@ -12,6 +14,7 @@ import           RIO
 import           SLE.Data.Bind
 import           SLE.Data.Common
 import           SLE.Data.CommonConfig
+import           SLE.Data.FCLTUOps
 import           SLE.Data.Handle
 import           SLE.Data.PDU
 import           SLE.Data.RAFOps
@@ -85,18 +88,28 @@ stopRAF _cfg hdl creds invokeID = do
                                 }
     writeSLE hdl (SLEPdu (SlePduStop pdu))
 
--- sendFrame :: (Monad m) => SleHandle -> ByteString -> m ()
--- sendFrame = undefined
-
--- sendOCF :: (Monad m) => SleHandle -> Word32 -> m ()
--- sendOCF = undefined
 
 
--- receiveFrame :: (Monad m) => SleHandle -> m ByteString
--- receiveFrame = undefined
+startFCLTU
+    :: (MonadIO m)
+    => CommonConfig
+    -> SleHandle
+    -> Credentials
+    -> Word16
+    -> m ()
+startFCLTU _cfg hdl creds invokeID = do
+    let pdu = FcltuStartInvocation
+            { _fcltuStartCredentials            = creds
+            , _fcltuStartInvokeID               = invokeID
+            , _fcluStartFirstCltuIdentification = CltuIdentification 0
+            }
+    writeSLE hdl (SLEPdu (SlePduFcltuStart pdu))
 
--- receiveOCF :: (Monad m) => SleHandle -> m Word32
--- receiveOCF = undefined
-
-
+stopFCLTU
+    :: (MonadIO m) => CommonConfig -> SleHandle -> Credentials -> Word16 -> m ()
+stopFCLTU _cfg hdl creds invokeID = do
+    let pdu = SleStopInvocation { _sleStopCredentials = creds
+                                , _sleStopInvokeID    = invokeID
+                                }
+    writeSLE hdl (SLEPdu (SlePduStop pdu))
 

@@ -8,6 +8,8 @@ import           RIO
 import           SLE.Data.Bind
 import           SLE.Data.Common
 import           SLE.Data.RAFOps
+import           SLE.Data.FCLTUOps
+
 
 data SleEvent =
   TMLConnect
@@ -31,6 +33,12 @@ data SleEvent =
   | SLERafStopSucceed !SII
   | SLERafStatus !RAFIdx !ServiceState
   | SLEFcltuStatus !FCLTUIdx !ServiceState
+  | SLEFcltuStartReceived !FcltuStartInvocation
+  | SLEFcltuStartFailed !SII
+  | SLEFcltuStartSucceed !SII
+  | SLEFcltuStopReceived !SleStopInvocation
+  | SLEFcltuStopFailed !SII
+  | SLEFcltuStopSucceed !SII
   deriving (Show, Generic)
 
 type SleEventHandler = SleEvent -> IO ()

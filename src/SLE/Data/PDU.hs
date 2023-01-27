@@ -2,7 +2,7 @@ module SLE.Data.PDU
     ( SlePdu(..)
     , setCredentials
     , isBind
-    , isTransfer 
+    , isTransfer
     ) where
 
 import           Control.Lens
@@ -10,7 +10,9 @@ import           RIO
 
 import           SLE.Data.Bind
 import           SLE.Data.Common
+import           SLE.Data.FCLTUOps
 import           SLE.Data.RAFOps
+
 
 data SlePdu =
   SlePduBind !SleBindInvocation
@@ -23,6 +25,10 @@ data SlePdu =
   | SlePduAck !SleAcknowledgement
   | SlePduRafTransferBuffer !RafTransferBuffer
   | SlePduPeerAbort !SlePeerAbort
+  | SlePduFcltuStart !FcltuStartInvocation
+  | SlePduFcltuStartReturn !FcltuStartReturn
+  | SlePduFcltuThrowEvent !FcltuThrowEventInvocation
+  | SlePduFcltuTransferData !FcltuTransDataInvocation
   deriving (Show, Generic)
 
 
@@ -30,9 +36,9 @@ isBind :: SlePdu -> Bool
 isBind (SlePduBind _) = True
 isBind _              = False
 
-isTransfer :: SlePdu -> Bool 
+isTransfer :: SlePdu -> Bool
 isTransfer (SlePduRafTransferBuffer _) = True
-isTransfer _ = False 
+isTransfer _                           = False
 
 setCredentials :: SlePdu -> ByteString -> SlePdu
 setCredentials (SlePduBind val) creds =
@@ -53,6 +59,14 @@ setCredentials (SlePduAck val) creds =
     SlePduAck $ val & sleAckCredentials ?~ creds
 setCredentials v@(SlePduRafTransferBuffer _) _ = v
 setCredentials v@(SlePduPeerAbort         _) _ = v
+setCredentials (SlePduFcltuStart val) creds =
+    SlePduFcltuStart $ val & fcltuStartCredentials ?~ creds
+setCredentials (SlePduFcltuStartReturn val) creds =
+    SlePduFcltuStartReturn $ val & fcltuStartRetCredentials ?~ creds
+setCredentials (SlePduFcltuThrowEvent val) creds =
+    SlePduFcltuThrowEvent $ val & fcltuThrowCredentials ?~ creds
+setCredentials (SlePduFcltuTransferData val) creds =
+    SlePduFcltuTransferData $ val & fcltuDataCredentials ?~ creds
 
 
 instance EncodeASN1 SlePdu where
@@ -66,3 +80,7 @@ instance EncodeASN1 SlePdu where
     encode (SlePduAck               val) = encode val
     encode (SlePduRafTransferBuffer val) = encode val
     encode (SlePduPeerAbort         val) = encode val
+    encode (SlePduFcltuStart        val) = encode val
+    encode (SlePduFcltuStartReturn  val) = encode val
+    encode (SlePduFcltuThrowEvent   val) = encode val
+    encode (SlePduFcltuTransferData val) = encode val

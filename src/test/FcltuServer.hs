@@ -46,7 +46,7 @@ deriving instance Show (Options Unwrapped)
 
 main :: IO ()
 main = do
-    opts <- unwrapRecord "SleServer"
+    opts <- unwrapRecord "FcltuServer"
 
     when (writeconfig opts) $ do
         writeConfigJSON defaultProviderConfig defaultProviderConfigFileName
@@ -102,34 +102,34 @@ startServer cfg eventHandler = do
 
         runRIO state $ do
             logDebug "Starting listening on SLE..."
-            race_ (runRAFs perfFunc) action
+            race_ (runFCLTUs perfFunc) action
 
 action :: RIO ProviderState ()
-action = do
+action = do 
     -- perform transfer data test
     liftIO $ T.putStr " > "
     line <- liftIO T.getLine
 
     case T.toUpper line of
-        "SEND" -> do
-            var' <- getRAFVar (RAFIdx 0)
-            forM_ var' $ \var -> do
-                -- t <- liftIO $ getCurrentTime
-                let
-                    frame = TransFrame RafTransferDataInvocation
-                        { _rafTransCredentials       = Nothing
-                        , _rafTransERT               = SLE.Data.Common.Time
-                                                           (CCSDSTime 23749 59327900 352)
-                        , _rafTransAntennaID         = LocalForm ""
-                        , _rafTransDataContinuity    = -1
-                        , _rafTransFrameQuality      = FrameGood
-                        , _rafTransPrivateAnnotation = Nothing
-                        , _rafTransData              = frameData
-                        }
-                logDebug $ "Sending Transfer Data: " <> fromString
-                    (ppShow frame)
-                sendFrameOrNotification var frame
-            action
+        -- "SEND" -> do
+        --     var' <- getRAFVar (RAFIdx 0)
+        --     forM_ var' $ \var -> do
+        --         -- t <- liftIO $ getCurrentTime
+        --         let
+        --             frame = TransFrame RafTransferDataInvocation
+        --                 { _rafTransCredentials       = Nothing
+        --                 , _rafTransERT               = SLE.Data.Common.Time
+        --                                                    (CCSDSTime 23749 59327900 352)
+        --                 , _rafTransAntennaID         = LocalForm ""
+        --                 , _rafTransDataContinuity    = -1
+        --                 , _rafTransFrameQuality      = FrameGood
+        --                 , _rafTransPrivateAnnotation = Nothing
+        --                 , _rafTransData              = frameData
+        --                 }
+        --         logDebug $ "Sending Transfer Data: " <> fromString
+        --             (ppShow frame)
+        --         sendFrameOrNotification var frame
+        --     action
         "QUIT" -> return ()
         "EXIT" -> return ()
         x      -> do
@@ -137,6 +137,3 @@ action = do
             action
 
 
-frameData :: ByteString
-frameData =
-    "\tq\SOH\SOH\CAN\NUL\b\DC1\192\SOH\NUL\SI\DLE\SOH\SOH\NULc\188@\206\230m\NUL\NUL\NUL\NUL\254X\a\255\192\SOH\EOT2UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU \239\SOH\NUL\NUL\NUL/K"

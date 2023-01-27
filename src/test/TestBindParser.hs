@@ -217,6 +217,18 @@ sleBind = SleBindInvocation
                                     ]
     }
 
+fcltuStartReturn =
+    [ Start (Container Context 1)
+    , Other Context 0 ""
+    , IntVal 1
+    , Start (Container Context 0)
+    , Other Context 0 "\\\215\ETXf0z\NUL\NUL"
+    , Other Context 0 ""
+    , End (Container Context 0)
+    , End (Container Context 1)
+    ]
+
+
 main :: IO ()
 main = hspec $ do
     -- describe "Basic Parser Tests" $ do

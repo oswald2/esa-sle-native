@@ -18,6 +18,7 @@ import           Data.Conduit.Attoparsec
 import           Data.Conduit.List
 import           Data.Conduit.Network
 
+import           SLE.Data.Bind
 import           SLE.Data.Common
 import           SLE.Data.CommonConfig
 import           SLE.Data.DEL
@@ -32,10 +33,9 @@ import           SLE.Data.WriteCmd
 
 import           SLE.State.Classes
 import           SLE.State.Events
+import           SLE.State.FCLTUClasses
 import           SLE.State.RAFClasses
 import           SLE.State.RAFState
-import           SLE.State.FCLTUClasses
-import           SLE.State.FCLTUState
 
 import           SLE.Protocol.TMLProtocol
 
@@ -59,15 +59,16 @@ connectSLE
        , HasRAF env
        , HasFCLTU env
        )
-    => SleHandle
+    => ApplicationIdentifier
+    -> SleHandle
     -> ConnectAddr
     -> (Word64 -> IO ())
     -> m ()
-connectSLE hdl addr perfFunc = do
+connectSLE appID hdl addr perfFunc = do
     runGeneralTCPReconnectClient
         (clientSettings (fromIntegral (port addr)) (encodeUtf8 (host addr)))
         200000
-        (processConnect hdl perfFunc)
+        (processConnect appID hdl perfFunc)
         onDisconnect
 
 
@@ -81,11 +82,12 @@ processConnect
        , HasRAF env
        , HasFCLTU env
        )
-    => SleHandle
+    => ApplicationIdentifier
+    -> SleHandle
     -> (Word64 -> IO ())
     -> AppData
     -> m ()
-processConnect hdl perfFunc appData = do
+processConnect appID hdl perfFunc appData = do
     env <- ask
     logInfo "SLE: Connected to provider."
     sleRaiseEvent TMLConnect
@@ -105,7 +107,9 @@ processConnect hdl perfFunc appData = do
 
     logDebug "Running chains..."
     race_
-        (runConduitRes (appSource appData .| processReadTML hdl processSLEMsg))
+        (runConduitRes
+            (appSource appData .| processReadTML hdl (processSLEMsg appID))
+        )
         (runConduitRes (processWriteTML hdl perfFunc .| appSink appData))
 
     return ()
@@ -126,8 +130,9 @@ onDisconnect = do
 
 processSLEMsg
     :: (MonadUnliftIO m, MonadReader env m, HasLogFunc env)
-    => ConduitT TMLMessage Void m ()
-processSLEMsg = do
+    => ApplicationIdentifier
+    -> ConduitT TMLMessage Void m ()
+processSLEMsg appId = do
     awaitForever $ \msg -> do
         let encSle = msg ^. tmlMsgData
         case decodeASN1 DER (BL.fromStrict encSle) of
@@ -135,7 +140,7 @@ processSLEMsg = do
                 logError $ "Error decoding ASN1 message: " <> displayShow err
             Right ls -> do
                 lift $ logDebug $ "Received ASN1: " <> fromString (ppShow ls)
-                let result = parseASN1 slePduParser ls
+                let result = parseASN1 (slePduParser appId) ls
                 case result of
                     Left err ->
                         logError $ "Error decoding SLE message: " <> display err
@@ -146,9 +151,10 @@ processSLEMsg = do
 
 processServerSLEMsg
     :: (MonadUnliftIO m, MonadReader env m, HasLogFunc env)
-    => (SlePdu -> m ())
+    => ApplicationIdentifier
+    -> (SlePdu -> m ())
     -> ConduitT TMLMessage Void m ()
-processServerSLEMsg processSlePdu = do
+processServerSLEMsg appID processSlePdu = do
     await >>= \case
         Nothing  -> return ()
         Just tlm -> do
@@ -160,7 +166,7 @@ processServerSLEMsg processSlePdu = do
                         <> displayShow err
                 Right ls -> do
                     logDebug $ "Received ASN1: " <> fromString (ppShow ls)
-                    let result = parseASN1 slePduParser ls
+                    let result = parseASN1 (slePduParser appID) ls
                     case result of
                         Left err ->
                             logError $ "Error decoding SLE PDU: " <> display err
@@ -168,7 +174,7 @@ processServerSLEMsg processSlePdu = do
                             logDebug $ "Received SLE PDU: " <> fromString
                                 (ppShow pdu)
                             lift $ processSlePdu pdu
-                            processServerSLEMsg processSlePdu
+                            processServerSLEMsg appID processSlePdu
 
 
 -- | Processes the SleWrite and yields a 'ByteString' which is the encoded message 
@@ -261,7 +267,7 @@ listenRAF hdl cfg idx process perfFunc = do
                   <> ": new connection on server socket: "
                   <> display (cfg ^. cfgRAFPort)
               let netThreads = race_
-                      (processServerReadSLE hdl process app)
+                      (processServerReadSLE RtnAllFrames hdl process app)
                       (processServerSendSLE hdl perfFunc app)
               res :: Either SomeException () <- try
                   $ race_ netThreads (processSleTransferBuffer hdl cfg idx)
@@ -291,11 +297,12 @@ processServerReadSLE
        , HasRAF env
        , HasFCLTU env
        )
-    => SleHandle
+    => ApplicationIdentifier
+    -> SleHandle
     -> (SlePdu -> m ())
     -> AppData
     -> m ()
-processServerReadSLE hdl process app = do
+processServerReadSLE appID hdl process app = do
     env <- ask
     let initChain = appSource app .| conduitParserEither tmlPduParser .| sink
         initTime =
@@ -322,7 +329,7 @@ processServerReadSLE hdl process app = do
             (res :: Either SomeException ()) <-
                 try $ runConduitRes $ appSource app .| processReadTML
                     hdl
-                    (processServerSLEMsg (lift . process))
+                    (processServerSLEMsg appID (lift . process))
             case res of
                 Left err ->
                     logWarn $ "processServerReadSLE leaves with: " <> fromString
@@ -430,7 +437,7 @@ listenFCLTU hdl cfg idx process perfFunc = do
                   <> ": new connection on server socket: "
                   <> display (cfg ^. cfgFCLTUPort)
               res :: Either SomeException () <- try $ race_
-                  (processServerReadSLE hdl process app)
+                  (processServerReadSLE FwdCltu hdl process app)
                   (processServerSendSLE hdl (\_ -> return ()) app)
               onServerDisconnect hdl
               logWarn

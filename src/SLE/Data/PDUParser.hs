@@ -9,6 +9,7 @@ import           SLE.Data.Bind
 import           SLE.Data.Common
 import           SLE.Data.PDU
 import           SLE.Data.RAFOps
+import           SLE.Data.FCLTUOps
 
 import           Data.ASN1.Types
 
@@ -19,13 +20,15 @@ import           Text.Show.Pretty
 import           Text.Builder                  as TB
 
 
-slePduParser :: Parser SlePdu
-slePduParser = do
+
+
+slePduParser :: ApplicationIdentifier -> Parser SlePdu
+slePduParser app = do
     x <- get
     case x of
         (Start (Container Context c) : rest) -> do
             put rest
-            parsePDU c
+            parsePDU app c
         _ -> throwError $ "slePduParser: cannot parse PDU: " <> fromString
             (ppShow x)
 
@@ -48,16 +51,25 @@ slePduParser = do
 -- 9   : RAF Status Report Invocation 
 -- 10  : FCLTU Transfer Data Invocation
 -- 104 : RAF Peer Abort
-parsePDU :: ASN1Tag -> Parser SlePdu
-parsePDU 100 = SlePduBind <$> parseSleBind
-parsePDU 101 = SlePduBindReturn <$> parseSleBindReturn
-parsePDU 102 = SlePduUnbind <$> parseSleUnbind
-parsePDU 103 = SlePduUnbindReturn <$> parseSleUnbindReturn
-parsePDU 104 = SlePduPeerAbort <$> parseSlePeerAbort
-parsePDU 0   = SlePduRafStart <$> parseRafStart
-parsePDU 1   = SlePduRafStartReturn <$> parseRafStartReturn
-parsePDU 2   = SlePduStop <$> parseStopInvocation
-parsePDU 3   = SlePduAck <$> parseSleAcknowledgement
-parsePDU 8   = SlePduRafTransferBuffer <$> parseTransferBuffer
-parsePDU x =
-    throwError $ TB.run $ "SLE PDU not implemented yet: ASN1 Tag " <> decimal x
+parsePDU :: ApplicationIdentifier -> ASN1Tag -> Parser SlePdu
+parsePDU _            100 = SlePduBind <$> parseSleBind
+parsePDU _            101 = SlePduBindReturn <$> parseSleBindReturn
+parsePDU _            102 = SlePduUnbind <$> parseSleUnbind
+parsePDU _            103 = SlePduUnbindReturn <$> parseSleUnbindReturn
+parsePDU _            104 = SlePduPeerAbort <$> parseSlePeerAbort
+parsePDU RtnAllFrames 0   = SlePduRafStart <$> parseRafStart
+parsePDU RtnAllFrames 1   = SlePduRafStartReturn <$> parseRafStartReturn
+parsePDU _            2   = SlePduStop <$> parseStopInvocation
+parsePDU _            3   = SlePduAck <$> parseSleAcknowledgement
+parsePDU RtnAllFrames 8   = SlePduRafTransferBuffer <$> parseTransferBuffer
+parsePDU FwdCltu      8   = SlePduFcltuThrowEvent <$> parseFcltuThrowEvent
+parsePDU FwdCltu      0   = SlePduFcltuStart <$> parseFcltuStart 
+parsePDU FwdCltu      1   = SlePduFcltuStartReturn <$> parseFcltuStartReturn
+parsePDU FwdCltu      10  = SlePduFcltuTransferData <$> parseFcltuTransDataInvocation
+parsePDU t x =
+    throwError
+        $  TB.run
+        $  "SLE PDU not implemented yet: type "
+        <> string (show t)
+        <> " ASN1 Tag "
+        <> decimal x

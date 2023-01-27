@@ -1,17 +1,17 @@
 {-# LANGUAGE 
   TemplateHaskell
 #-}
-module SLE.Data.RAF
-    ( RAF
-    , RAFVar
-    , SleRafCmd(..)
-    , bindRAF
-    , newRAFVarIO
-    , readRAFVar
-    , readRAFVarIO
-    , writeRAFVar
-    , sendSleRafCmd
-    , rafStateMachine
+module SLE.Data.FCLTU
+    ( FCLTU
+    , FCLTUVar
+    , SleFcltuCmd(..)
+    , bindFCLTU
+    , newFCLTUVarIO
+    , readFCLTUVar
+    , readFCLTUVarIO
+    , writeFCLTUVar
+    , sendSleFcltuCmd
+    , fcltuStateMachine
     ) where
 
 import           RIO                     hiding ( (.~)
@@ -23,73 +23,45 @@ import           Control.Lens                   ( (.~)
                                                 )
 
 import           SLE.Data.Bind
-import           SLE.Data.Common                ( ServiceState(..)
-                                                , SleAcknowledgement
-                                                    ( SleAcknowledgement
-                                                    , _sleAckCredentials
-                                                    , _sleAckInvokeID
-                                                    , _sleResult
-                                                    )
-                                                , sleStopCredentials
-                                                , sleStopInvokeID
-                                                )
-import           SLE.Data.CommonConfig          ( cfgLocal
-                                                , isPeer
-                                                )
+import           SLE.Data.CCSDSTime
+import           SLE.Data.Common
+import           SLE.Data.CommonConfig
+import           SLE.Data.FCLTUOps
 import           SLE.Data.PDU
-import           SLE.Data.ProviderConfig        ( RAFConfig
-                                                , cfgRAFPortID
-                                                , cfgRAFSII
-                                                )
-import           SLE.Data.RAFOps
-import           SLE.Data.ServiceInstanceID     ( toSII )
-import           SLE.Data.WriteCmd              ( SleWrite(SLEPdu) )
-import           SLE.State.Classes              ( HasCommonConfig(..)
-                                                , HasEventHandler
-                                                , sleRaiseEvent
-                                                )
-import           SLE.State.Events               ( SleEvent
-                                                    ( SLEBindFailed
-                                                    , SLEBindReceived
-                                                    , SLEBindSucceed
-                                                    , SLERafStartReceived
-                                                    , SLERafStartSucceed
-                                                    , SLERafStatus
-                                                    , SLERafStopReceived
-                                                    , SLERafStopSucceed
-                                                    , SLEUnbindReceived
-                                                    , SLEUnbindSucceed
-                                                    )
-                                                )
-import           SLE.State.RAFState
+import           SLE.Data.ProviderConfig
+import           SLE.Data.ServiceInstanceID
+import           SLE.Data.WriteCmd
+import           SLE.State.Classes
+import           SLE.State.Events
+import           SLE.State.FCLTUState
 
-import           Text.Show.Pretty
+import           Text.Show.Pretty        hiding ( Time )
 
 
 
-bindRAF :: RAF -> RAF
-bindRAF raf = raf & rafState .~ ServiceBound
+bindFCLTU :: FCLTU -> FCLTU
+bindFCLTU fcltu = fcltu & fcltuState .~ ServiceBound
 
 
-rafStateMachine
+fcltuStateMachine
     :: ( MonadIO m
        , MonadReader env m
        , HasCommonConfig env
        , HasEventHandler env
        , HasLogFunc env
        )
-    => RAFConfig
-    -> RAFVar
+    => FCLTUConfig
+    -> FCLTUVar
     -> SlePdu
     -> m ()
-rafStateMachine cfg var pdu = do
-    state    <- getRAFState var
+fcltuStateMachine cfg var pdu = do
+    state    <- getFCLTUState var
     newState <- case state of
         ServiceInit   -> processInitState cfg var pdu
         ServiceBound  -> processBoundState cfg var pdu
         ServiceActive -> processActiveState cfg var pdu
-    setRAFState var newState
-    sleRaiseEvent $ SLERafStatus (var ^. rafIdx) newState
+    setFCLTUState var newState
+    sleRaiseEvent $ SLEFcltuStatus (var ^. fcltuIdx) newState
 
 processInitState
     :: ( MonadIO m
@@ -98,8 +70,8 @@ processInitState
        , HasEventHandler env
        , HasLogFunc env
        )
-    => RAFConfig
-    -> RAFVar
+    => FCLTUConfig
+    -> FCLTUVar
     -> SlePdu
     -> m ServiceState
 processInitState cfg var (SlePduBind pdu) = do
@@ -109,7 +81,7 @@ processInitState cfg var (SlePduBind pdu) = do
 
     cmCfg <- RIO.view commonCfg
 
-    let authSet = var ^. rafPeers
+    let authSet = var ^. fcltuPeers
         sii     = toSII (pdu ^. sleServiceInstanceID)
         res     = do
 -- first, when a bind comes in, perform some checks
@@ -120,7 +92,7 @@ processInitState cfg var (SlePduBind pdu) = do
                     , AccessDenied
                     )
                 else Right ()
-                                                                                            -- Check, if we are a RAF Bind Request
+                                                                                                                -- Check, if we are a RAF Bind Request
             if pdu ^. sleBindServiceType /= RtnAllFrames
                 then Left
                     ( "Requested Service is not RAF: "
@@ -128,7 +100,7 @@ processInitState cfg var (SlePduBind pdu) = do
                     , ServiceTypeNotSupported
                     )
                 else Right ()
-                                                                                            -- check the requested SLE Version 
+                                                                                                                -- check the requested SLE Version 
             if (pdu ^. sleVersionNumber /= VersionNumber 3)
                     && (pdu ^. sleVersionNumber /= VersionNumber 4)
                 then Left
@@ -137,7 +109,7 @@ processInitState cfg var (SlePduBind pdu) = do
                     , VersionNotSupported
                     )
                 else Right ()
-            if sii /= (cfg ^. cfgRAFSII)
+            if sii /= (cfg ^. cfgFCLTUSII)
                 then Left
                     ( "No such service instance supported: " <> display sii
                     , NoSuchServiceInstance
@@ -154,18 +126,19 @@ processInitState cfg var (SlePduBind pdu) = do
                                                    (pdu ^. sleVersionNumber)
                     }
             logDebug $ "ASN1: " <> displayShow (sleBindReturn retPdu)
-            sendSlePdu var ret
+            sendSleFcltuPdu var ret
             sleRaiseEvent (SLEBindSucceed sii)
             return ServiceBound
         Left (errmsg, diag) -> do
             logError errmsg
-            let ret = SLEPdu $ SlePduBindReturn SleBindReturn
+            let
+                ret = SLEPdu $ SlePduBindReturn SleBindReturn
                     { _sleBindRetCredentials = Nothing
                     , _sleBindRetResponderID = AuthorityIdentifier
-                                                   (cfg ^. cfgRAFPortID)
+                                                   (cfg ^. cfgFCLTUPortID)
                     , _sleBindRetResult      = BindResDiag diag
                     }
-            sendSlePdu var ret
+            sendSleFcltuPdu var ret
             sleRaiseEvent (SLEBindFailed sii diag)
             return ServiceInit
 
@@ -206,8 +179,8 @@ processInitState _cfg _var pdu = do
 
 processBoundState
     :: (MonadIO m, MonadReader env m, HasEventHandler env, HasLogFunc env)
-    => RAFConfig
-    -> RAFVar
+    => FCLTUConfig
+    -> FCLTUVar
     -> SlePdu
     -> m ServiceState
 processBoundState cfg var (SlePduUnbind pdu) = do
@@ -221,47 +194,37 @@ processBoundState cfg var (SlePduUnbind pdu) = do
             { _sleUnbindRetCredentials = Nothing
             , _sleUnbindRetResult      = Positive
             }
-    sendSlePdu var ret
-    sleRaiseEvent (SLEUnbindSucceed (cfg ^. cfgRAFSII))
+    sendSleFcltuPdu var ret
+    sleRaiseEvent (SLEUnbindSucceed (cfg ^. cfgFCLTUSII))
     return ServiceInit
 
-processBoundState cfg var (SlePduRafStart pdu) = do
+processBoundState cfg var (SlePduFcltuStart pdu) = do
     logDebug "processBoundState: RAF START"
 
-    sleRaiseEvent (SLERafStartReceived pdu)
+    sleRaiseEvent (SLEFcltuStartReceived pdu)
 
-    let diag = checkTimeRange (pdu ^. rafStartTime) (pdu ^. rafStopTime)
+    now <- getCurrentTime
+
+    let diag = FcltuStartPositive FcltuStartTimes
+            { _fcltuStartRadiationTime = Time now
+            , _fcltuStopRadiationTime  = Nothing
+            }
 
     -- send response 
-    let ret = SLEPdu $ SlePduRafStartReturn $ RafStartReturn
-            { _rafStartRetCredentials = pdu ^. rafStartCredentials
-            , _rafStartRetInvokeID    = pdu ^. rafStartInvokeID
-            , _rafStartRetResult      = diag
+    let ret = SLEPdu $ SlePduFcltuStartReturn $ FcltuStartReturn
+            { _fcltuStartRetCredentials = pdu ^. fcltuStartCredentials
+            , _fcltuStartRetInvokeID    = pdu ^. fcltuStartInvokeID
+            , _fcltuStartRetResult      = diag
             }
     case diag of
-        Just _  -> return ()
-        Nothing -> modifyRAF
-            var
-            (\raf ->
-                raf
-                    &  rafStateStartTime
-                    .~ pdu
-                    ^. rafStartTime
-                    &  rafStateStopTime
-                    .~ pdu
-                    ^. rafStopTime
-                    &  rafStateRequestedQuality
-                    .~ pdu
-                    ^. rafStartRequestedTimeQual
-            )
-    sendSlePdu var ret
-    sleRaiseEvent (SLERafStartSucceed (cfg ^. cfgRAFSII))
+        FcltuStartPositive _ ->
+            modifyFCLTU var (\fcltu -> fcltu & fcltuStartRadiationTime .~ now)
+        _ -> return ()
+
+    sendSleFcltuPdu var ret
+    sleRaiseEvent (SLEFcltuStartSucceed (cfg ^. cfgFCLTUSII))
     return ServiceActive
-  where
-    checkTimeRange (Just t1) (Just t2) = if t1 <= t2
-        then Nothing
-        else Just (DiagRafStartSpecific RafStartInvalidStopTime)
-    checkTimeRange _ _ = Nothing
+
 
 processBoundState _cfg _var (SlePduBind _) = do
     logWarn "Received BIND when in bound state, ignored"
@@ -277,8 +240,8 @@ processBoundState _cfg _var pdu = do
 
 processActiveState
     :: (MonadIO m, MonadReader env m, HasEventHandler env, HasLogFunc env)
-    => RAFConfig
-    -> RAFVar
+    => FCLTUConfig
+    -> FCLTUVar
     -> SlePdu
     -> m ServiceState
 processActiveState cfg var (SlePduStop pdu) = do
@@ -295,8 +258,8 @@ processActiveState cfg var (SlePduStop pdu) = do
             , _sleAckInvokeID    = pdu ^. sleStopInvokeID
             , _sleResult         = diag
             }
-    sendSlePdu var ret
-    sleRaiseEvent (SLERafStopSucceed (cfg ^. cfgRAFSII))
+    sendSleFcltuPdu var ret
+    sleRaiseEvent (SLEFcltuStopSucceed (cfg ^. cfgFCLTUSII))
     return ServiceBound
 
 processActiveState _cfg _var pdu = do

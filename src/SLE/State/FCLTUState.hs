@@ -11,31 +11,37 @@ module SLE.State.FCLTUState
     , setFCLTUState
     , modifyFCLTU
     , sendSleFcltuCmd
+    , sendSleFcltuPdu
     , fcltuSII
     , fcltuState
-    , fcltuStateRequestedQuality
+    , fcltuProdNotification
+    , fcltuStartRadiationTime
     , fcltuVar
     , fcltuSleHandle
     , fcltuQueue
     , fcltuVarCfg
     , fcltuIdx
+    , fcltuPeers
     ) where
 
 import           RIO
 
 import           Control.Lens                   ( makeLenses )
 
+import           SLE.Data.Bind
+import           SLE.Data.CCSDSTime
 import           SLE.Data.Common
 import           SLE.Data.CommonConfig
 import           SLE.Data.FCLTUOps
 import           SLE.Data.Handle
 import           SLE.Data.ProviderConfig
-
+import           SLE.Data.WriteCmd
 
 data FCLTU = FCLTU
-    { _fcltuSII                   :: !SII
-    , _fcltuState                 :: !ServiceState
-    , _fcltuStateRequestedQuality :: !SlduStatusNotification
+    { _fcltuSII                :: !SII
+    , _fcltuState              :: !ServiceState
+    , _fcltuProdNotification   :: !SlduStatusNotification
+    , _fcltuStartRadiationTime :: !CCSDSTime
     }
 makeLenses ''FCLTU
 
@@ -50,26 +56,27 @@ data FCLTUVar = FCLTUVar
     , _fcltuSleHandle :: !SleHandle
     , _fcltuVarCfg    :: !FCLTUConfig
     , _fcltuIdx       :: !FCLTUIdx
+    , _fcltuPeers     :: !(HashMap AuthorityIdentifier Peer)
     }
 makeLenses ''FCLTUVar
 
 
 fcltuStartState :: FCLTUConfig -> FCLTU
-fcltuStartState cfg = FCLTU
-    { _fcltuSII                   = cfg ^. cfgFCLTUSII
-    , _fcltuState                 = ServiceInit
-    , _fcltuStateRequestedQuality = DoNotProduceNotification
-    }
+fcltuStartState cfg = FCLTU { _fcltuSII                = cfg ^. cfgFCLTUSII
+                            , _fcltuState              = ServiceInit
+                            , _fcltuProdNotification = DoNotProduceNotification
+                            , _fcltuStartRadiationTime = ccsdsNullTime
+                            }
 
 
 newFCLTUVarIO
     :: (MonadIO m) => CommonConfig -> FCLTUConfig -> FCLTUIdx -> m FCLTUVar
-newFCLTUVarIO _commonCfg cfg idx = do
+newFCLTUVarIO commonCfg cfg idx = do
     let fcltu = fcltuStartState cfg
     var <- newTVarIO fcltu
     q   <- newTBQueueIO 100
     hdl <- newSleHandle (TCFCLTU idx) 1 -- buffer size is 1 as we don't use a buffer
-    return $! FCLTUVar var q hdl cfg idx
+    return $! FCLTUVar var q hdl cfg idx (mkPeerSet commonCfg)
 
 
 readFCLTUVarIO :: (MonadIO m) => FCLTUVar -> m FCLTU
@@ -99,5 +106,5 @@ modifyFCLTU var f = atomically $ do
 sendSleFcltuCmd :: (MonadIO m) => FCLTUVar -> SleFcltuCmd -> m ()
 sendSleFcltuCmd var cmd = atomically $ writeTBQueue (_fcltuQueue var) cmd
 
--- sendSlePdu :: (MonadIO m) => FCLTUVar -> SleWrite -> m ()
--- sendSlePdu var input = writeSLE (_rafSleHandle var) input
+sendSleFcltuPdu :: (MonadIO m) => FCLTUVar -> SleWrite -> m ()
+sendSleFcltuPdu var input = writeSLE (_fcltuSleHandle var) input
