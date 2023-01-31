@@ -39,6 +39,7 @@ data SleEvent =
   | SLEFcltuStopReceived !SleStopInvocation
   | SLEFcltuStopFailed !SII
   | SLEFcltuStopSucceed !SII
+  | SLEFcltuTransferData !SII !FCLTUIdx !FcltuTransDataInvocation 
   deriving (Show, Generic)
 
 type SleEventHandler = SleEvent -> IO ()

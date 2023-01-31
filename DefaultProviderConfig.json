@@ -6,11 +6,11 @@
         "_cfgPeers": [
             {
                 "cfgPeerAuthorityID": "EGSCC",
-                "cfgPeerPassword": "0x12345678"
+                "cfgPeerPassword": "12345678"
             },
             {
                 "cfgPeerAuthorityID": "SLETT",
-                "cfgPeerPassword": "0x12345678"
+                "cfgPeerPassword": "aabbccddaabbccdd"
             }
         ],
         "_cfgTML": {
@@ -24,16 +24,23 @@
         },
         "_cfgVersion": 3
     },
+    "_cfgFCLTUs": [
+        {
+            "_cfgFCLTUPort": 5009,
+            "_cfgFCLTUPortID": "TCPORT",
+            "_cfgFCLTUSII": "sagr=3.spack=facility-PASS1.fsl-fg=1.cltu=cltu1"
+        }
+    ],
     "_cfgRAFs": [
         {
             "_cfgRAFAntennaID": {
-                "contents": "",
+                "contents": "PARAGONTT",
                 "tag": "LocalForm"
             },
             "_cfgRAFBufferSize": 100,
             "_cfgRAFLatency": 1000000,
-            "_cfgRAFPort": 5100,
-            "_cfgRAFPortID": "PARAGONTT",
+            "_cfgRAFPort": 5008,
+            "_cfgRAFPortID": "TMPORT",
             "_cfgRAFSII": "sagr=3.spack=facility-PASS1.rsl-fg=1.raf=onlc1"
         }
     ]

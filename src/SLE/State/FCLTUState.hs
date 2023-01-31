@@ -12,6 +12,7 @@ module SLE.State.FCLTUState
     , modifyFCLTU
     , sendSleFcltuCmd
     , sendSleFcltuPdu
+    , setCltuID
     , fcltuSII
     , fcltuState
     , fcltuProdNotification
@@ -22,6 +23,7 @@ module SLE.State.FCLTUState
     , fcltuVarCfg
     , fcltuIdx
     , fcltuPeers
+    , fcltuCltuID
     ) where
 
 import           RIO
@@ -42,6 +44,7 @@ data FCLTU = FCLTU
     , _fcltuState              :: !ServiceState
     , _fcltuProdNotification   :: !SlduStatusNotification
     , _fcltuStartRadiationTime :: !CCSDSTime
+    , _fcltuCltuID             :: !CltuIdentification
     }
 makeLenses ''FCLTU
 
@@ -66,6 +69,7 @@ fcltuStartState cfg = FCLTU { _fcltuSII                = cfg ^. cfgFCLTUSII
                             , _fcltuState              = ServiceInit
                             , _fcltuProdNotification = DoNotProduceNotification
                             , _fcltuStartRadiationTime = ccsdsNullTime
+                            , _fcltuCltuID             = CltuIdentification 0
                             }
 
 
@@ -108,3 +112,7 @@ sendSleFcltuCmd var cmd = atomically $ writeTBQueue (_fcltuQueue var) cmd
 
 sendSleFcltuPdu :: (MonadIO m) => FCLTUVar -> SleWrite -> m ()
 sendSleFcltuPdu var input = writeSLE (_fcltuSleHandle var) input
+
+
+setCltuID :: (MonadIO m) => FCLTUVar -> CltuIdentification -> m ()
+setCltuID var cltuID = modifyFCLTU var (\st -> st & fcltuCltuID .~ cltuID)

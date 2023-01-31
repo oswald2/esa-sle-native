@@ -165,7 +165,7 @@ data ServiceInstanceAttribute = ServiceInstanceAttribute
 attrToText :: ServiceInstanceAttribute -> TB.Builder
 attrToText (ServiceInstanceAttribute SPACK val) = text "spack=" <> text val
 attrToText (ServiceInstanceAttribute SAGR  val) = text "sagr=" <> text val
-attrToText (ServiceInstanceAttribute FCLTU val) = text "fcltu=" <> text val
+attrToText (ServiceInstanceAttribute FCLTU val) = text "cltu=" <> text val
 attrToText (ServiceInstanceAttribute RAF   val) = text "raf=" <> text val
 attrToText (ServiceInstanceAttribute RCF   val) = text "rcf=" <> text val
 attrToText (ServiceInstanceAttribute TCVA  val) = text "tcva=" <> text val
@@ -222,14 +222,6 @@ serviceInstanceAttribute ServiceInstanceAttribute {..} =
     , End Set
     ]
 
--- getServiceInstanceAttribute :: [ASN1] -> (Maybe ServiceInstanceAttribute, [ASN1])
--- getServiceInstanceAttribute (Start Set : Start Sequence : oid : str : End Sequence : End Set : rest) = 
---   let sia = do ServiceInstanceAttribute <$> fromOid oid <*> getVisibleString str
---   in 
---   (sia, rest)
--- getServiceInstanceAttribute x = (Nothing, x)
-
-
 parseServiceInstanceAttribute :: Parser ServiceInstanceAttribute
 parseServiceInstanceAttribute = do
     between parseStartSet parseEndSet sequ
@@ -249,18 +241,6 @@ newtype ServiceInstanceIdentifier = ServiceInstanceIdentifier {
 serviceInstanceIdentifier :: ServiceInstanceIdentifier -> [ASN1]
 serviceInstanceIdentifier ServiceInstanceIdentifier {..} =
     Start Sequence : concatMap serviceInstanceAttribute _siIDs <> [End Sequence]
-
-
--- getServiceInstanceIdentifier :: [ASN1] -> (Maybe ServiceInstanceIdentifier, [ASN1])
--- getServiceInstanceIdentifier full@(Start Sequence : sias) =
---   loop sias []
---   where 
---     loop ls acc = 
---       case getServiceInstanceAttribute ls of 
---         (Nothing, End Sequence : rest) -> (Just (ServiceInstanceIdentifier (reverse acc)), rest) 
---         (Nothing, _rest) -> (Nothing, full)
---         (Just attr, rest) -> loop rest (attr : acc)
--- getServiceInstanceIdentifier full = (Nothing, full)
 
 
 parseServiceInstanceIdentifier :: Parser ServiceInstanceIdentifier

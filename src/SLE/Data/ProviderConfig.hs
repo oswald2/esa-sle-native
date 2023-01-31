@@ -75,7 +75,7 @@ data FCLTUConfig = FCLTUConfig
 defaultFCLTUConfig :: FCLTUConfig
 defaultFCLTUConfig = FCLTUConfig
     { _cfgFCLTUSII    = SII "sagr=3.spack=facility-PASS1.fsl-fg=1.cltu=cltu1"
-    , _cfgFCLTUPort   = 5010
+    , _cfgFCLTUPort   = 5009
     , _cfgFCLTUPortID = "TCPORT"
     }
 

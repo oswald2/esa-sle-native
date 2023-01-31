@@ -92,15 +92,15 @@ processInitState cfg var (SlePduBind pdu) = do
                     , AccessDenied
                     )
                 else Right ()
-                                                                                                                -- Check, if we are a RAF Bind Request
-            if pdu ^. sleBindServiceType /= RtnAllFrames
+                                    -- Check, if we are a FCLTU Bind Request
+            if pdu ^. sleBindServiceType /= FwdCltu
                 then Left
-                    ( "Requested Service is not RAF: "
+                    ( "Requested Service is not FCLTU: "
                         <> display (pdu ^. sleBindServiceType)
                     , ServiceTypeNotSupported
                     )
                 else Right ()
-                                                                                                                -- check the requested SLE Version 
+                                    -- check the requested SLE Version 
             if (pdu ^. sleVersionNumber /= VersionNumber 3)
                     && (pdu ^. sleVersionNumber /= VersionNumber 4)
                 then Left
@@ -152,10 +152,10 @@ processInitState _ _ (SlePduUnbindReturn _) = do
     logDebug "Received UNBIND RETURN when in init state, ignored"
     return ServiceInit
 processInitState _ _ (SlePduRafStart _) = do
-    logDebug "Received START when in init state, ignored"
+    logDebug "Received RAF START when in FCLTU init state, ignored"
     return ServiceInit
 processInitState _ _ (SlePduRafStartReturn _) = do
-    logDebug "Received START RETURN when in init state, ignored"
+    logDebug "Received RAF START RETURN when in FCLTU init state, ignored"
     return ServiceInit
 processInitState _ _ (SlePduStop _) = do
     logDebug "Received STOP when in init state, ignored"
@@ -164,7 +164,7 @@ processInitState _ _ (SlePduAck _) = do
     logDebug "Received ACK when in init state, ignored"
     return ServiceInit
 processInitState _ _ (SlePduRafTransferBuffer _) = do
-    logDebug "Received TRANSFER BUFFER when in init state, ignored"
+    logDebug "Received RAF TRANSFER BUFFER when in FCLTU init state, ignored"
     return ServiceInit
 processInitState _ _ (SlePduPeerAbort _) = do
     logDebug "Received PEER ABORT when in init state, ignored"
@@ -184,7 +184,7 @@ processBoundState
     -> SlePdu
     -> m ServiceState
 processBoundState cfg var (SlePduUnbind pdu) = do
-    logDebug "processBoundState: UNBIND"
+    logDebug "FCLTU processBoundState: UNBIND"
 
     sleRaiseEvent (SLEUnbindReceived pdu)
 
@@ -199,7 +199,7 @@ processBoundState cfg var (SlePduUnbind pdu) = do
     return ServiceInit
 
 processBoundState cfg var (SlePduFcltuStart pdu) = do
-    logDebug "processBoundState: RAF START"
+    logDebug "processBoundState: FCLTU START"
 
     sleRaiseEvent (SLEFcltuStartReceived pdu)
 
@@ -209,6 +209,9 @@ processBoundState cfg var (SlePduFcltuStart pdu) = do
             { _fcltuStartRadiationTime = Time now
             , _fcltuStopRadiationTime  = Nothing
             }
+        cltuID = pdu ^. fcluStartFirstCltuIdentification
+
+    setCltuID var cltuID
 
     -- send response 
     let ret = SLEPdu $ SlePduFcltuStartReturn $ FcltuStartReturn
@@ -227,7 +230,7 @@ processBoundState cfg var (SlePduFcltuStart pdu) = do
 
 
 processBoundState _cfg _var (SlePduBind _) = do
-    logWarn "Received BIND when in bound state, ignored"
+    logWarn "Received BIND when in FCLTU bound state, ignored"
     return ServiceInit
 
 
@@ -245,9 +248,9 @@ processActiveState
     -> SlePdu
     -> m ServiceState
 processActiveState cfg var (SlePduStop pdu) = do
-    logDebug "processActiveState: RAF STOP"
+    logDebug "processActiveState: FCLTU STOP"
 
-    sleRaiseEvent (SLERafStopReceived pdu)
+    sleRaiseEvent (SLEFcltuStopReceived pdu)
 
     -- TODO check values
     let diag = Nothing
@@ -262,10 +265,35 @@ processActiveState cfg var (SlePduStop pdu) = do
     sleRaiseEvent (SLEFcltuStopSucceed (cfg ^. cfgFCLTUSII))
     return ServiceBound
 
+processActiveState cfg var (SlePduFcltuTransferData pdu) = do
+    logDebug "processActiveState: FCLTU TRANSFER DATA"
+
+    -- TODO check values
+    let diag       = Nothing
+        !cltuID    = pdu ^. fcltuDataIdent
+        !newCltuID = cltuID + 1
+
+    -- set the CLTU ID in the state 
+    setCltuID var cltuID
+
+    -- send response 
+    let ret = SLEPdu $ SlePduFcltuTransReturn $ FcltuTransferDataReturn
+            { _fcltuTransRetCredentials     = pdu ^. fcltuDataCredentials
+            , _fcltuTransRetInvokeID        = pdu ^. fcltuDataInvokeID
+            , _fcltuTransRetIdentification  = newCltuID
+            , _fcltuTransRetBufferAvailable = maxBound -- we return always the max value here
+            , _fcltuTransRetResult          = diag
+            }
+    sendSleFcltuPdu var ret
+    sleRaiseEvent
+        (SLEFcltuTransferData (cfg ^. cfgFCLTUSII) (var ^. fcltuIdx) pdu)
+    return ServiceActive
+
+
 processActiveState _cfg _var pdu = do
     logWarn
         $  "Active State: Functionality for PDU not yet implemented: "
         <> fromString (ppShow pdu)
-    return ServiceBound
+    return ServiceActive
 
 

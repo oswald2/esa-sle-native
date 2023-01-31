@@ -168,17 +168,6 @@ rafStartSpecific RafStartInvalidStopTime  = IntVal 3
 rafStartSpecific RafStartMissingTimeValue = IntVal 4
 rafStartSpecific RafStartInvalid          = IntVal 127
 
--- rafStartSpecificParser :: Parser RafStartSpecific
--- rafStartSpecificParser = do
---     v <- parseIntVal
---     case v of
---         0 -> return RafStartOutOfService
---         1 -> return RafStartUnableToComply
---         2 -> return RafStartInvalidStartTime
---         3 -> return RafStartInvalidStopTime
---         4 -> return RafStartMissingTimeValue
---         _ -> return RafStartInvalid
-
 rafStartSpecificFromInt :: ASN1 -> RafStartSpecific
 rafStartSpecificFromInt (IntVal 0) = RafStartOutOfService
 rafStartSpecificFromInt (IntVal 1) = RafStartUnableToComply

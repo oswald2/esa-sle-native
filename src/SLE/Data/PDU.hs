@@ -29,6 +29,7 @@ data SlePdu =
   | SlePduFcltuStartReturn !FcltuStartReturn
   | SlePduFcltuThrowEvent !FcltuThrowEventInvocation
   | SlePduFcltuTransferData !FcltuTransDataInvocation
+  | SlePduFcltuTransReturn !FcltuTransferDataReturn
   deriving (Show, Generic)
 
 
@@ -67,6 +68,8 @@ setCredentials (SlePduFcltuThrowEvent val) creds =
     SlePduFcltuThrowEvent $ val & fcltuThrowCredentials ?~ creds
 setCredentials (SlePduFcltuTransferData val) creds =
     SlePduFcltuTransferData $ val & fcltuDataCredentials ?~ creds
+setCredentials (SlePduFcltuTransReturn val) creds =
+    SlePduFcltuTransReturn $ val & fcltuTransRetCredentials ?~ creds
 
 
 instance EncodeASN1 SlePdu where
@@ -84,3 +87,4 @@ instance EncodeASN1 SlePdu where
     encode (SlePduFcltuStartReturn  val) = encode val
     encode (SlePduFcltuThrowEvent   val) = encode val
     encode (SlePduFcltuTransferData val) = encode val
+    encode (SlePduFcltuTransReturn  val) = encode val

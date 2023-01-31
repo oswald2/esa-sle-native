@@ -75,10 +75,14 @@ isPeer :: HashMap AuthorityIdentifier Peer -> AuthorityIdentifier -> Bool
 isPeer hm auid = HM.member auid hm
 
 
+defaultPeers :: [Peer]
+defaultPeers = [Peer (AuthorityIdentifier "EGSCC") (Password "12345678"), 
+    Peer (AuthorityIdentifier "SLETT") (Password "aabbccddaabbccdd")]
+
 defaultCommonConfig :: CommonConfig
 defaultCommonConfig = CommonConfig
     { _cfgTML       = SLE.Data.TMLConfig.defaultConfig
-    , _cfgPeers = [Peer (AuthorityIdentifier "EGSCC") (Password "0x12345678")]
+    , _cfgPeers     = defaultPeers
     , _cfgLocal     = AuthorityIdentifier "PARAGONTT"
     , _cfgAuthorize = AuthNone
     , _cfgVersion   = VersionNumber 3

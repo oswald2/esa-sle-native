@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell, DerivingVia #-}
 module SLE.Data.FCLTUOps
     ( CltuIdentification(..)
     , FcltuStartInvocation(..)
@@ -10,10 +10,14 @@ module SLE.Data.FCLTUOps
     , Duration(..)
     , FcltuThrowEventInvocation(..)
     , FcltuTransDataInvocation(..)
+    , FcltuTransferDataReturn(..)
+    , FcltuTransDiagnostic(..)
+    , FcltuTransResult(..)
     , parseFcltuStart
     , parseFcltuThrowEvent
     , parseFcltuTransDataInvocation
     , parseFcltuStartReturn
+    , parseFcltuTransferDataReturn
     , fcltuStartCredentials
     , fcltuStartInvokeID
     , fcluStartFirstCltuIdentification
@@ -33,9 +37,15 @@ module SLE.Data.FCLTUOps
     , fcltuDataDelayTime
     , fcltuDataRadiationNotification
     , fcltuData
+    , fcltuTransRetCredentials
+    , fcltuTransRetInvokeID
+    , fcltuTransRetIdentification
+    , fcltuTransRetBufferAvailable
+    , fcltuTransRetResult
     ) where
 
 import           RIO
+import qualified RIO.ByteString                as B
 import           RIO.State
 
 import           Control.Lens                   ( makeLenses )
@@ -50,7 +60,8 @@ import           SLE.Data.Common
 
 
 newtype CltuIdentification = CltuIdentification Word32
-    deriving (Show, Generic)
+    deriving stock (Eq, Ord, Show,Generic)
+    deriving Num via Word32
 
 cltuIdentification :: CltuIdentification -> ASN1
 cltuIdentification (CltuIdentification x) = IntVal (fromIntegral x)
@@ -389,3 +400,156 @@ parseFcltuTransDataInvocation = content
 
 instance EncodeASN1 FcltuTransDataInvocation where
     encode val = encodeASN1' DER (fcltuTransDataInvocation val)
+
+
+
+data FcltuTransferDataReturn = FcltuTransferDataReturn
+    { _fcltuTransRetCredentials     :: !Credentials
+    , _fcltuTransRetInvokeID        :: !Word16
+    , _fcltuTransRetIdentification  :: !CltuIdentification
+    , _fcltuTransRetBufferAvailable :: !Word32
+    , _fcltuTransRetResult          :: !(Maybe FcltuTransResult)
+    }
+    deriving (Show, Generic)
+
+fcltuTransferDataReturn :: FcltuTransferDataReturn -> [ASN1]
+fcltuTransferDataReturn FcltuTransferDataReturn {..} =
+    [ Start (Container Context 11)
+    , credentials _fcltuTransRetCredentials
+    , IntVal (fromIntegral _fcltuTransRetInvokeID)
+    , cltuIdentification _fcltuTransRetIdentification
+    , IntVal (fromIntegral _fcltuTransRetBufferAvailable)
+    , optionalDiagFcltuTrans _fcltuTransRetResult
+    , End (Container Context 11)
+    ]
+
+
+parseFcltuTransferDataReturn :: Parser FcltuTransferDataReturn
+parseFcltuTransferDataReturn = content
+  where
+    endContainer = parseBasicASN1 (== End (Container Context 11)) (const ())
+
+    content      = do
+        creds    <- parseCredentials
+        invokeID <- parseIntVal
+        cltuID   <- parseCltuIdentification
+        buffer   <- parseIntVal
+        diag     <- parseOptionalDiagFcltuTrans
+        void endContainer
+        return FcltuTransferDataReturn
+            { _fcltuTransRetCredentials     = creds
+            , _fcltuTransRetInvokeID        = fromIntegral invokeID
+            , _fcltuTransRetIdentification  = cltuID
+            , _fcltuTransRetBufferAvailable = fromIntegral buffer
+            , _fcltuTransRetResult          = diag
+            }
+
+instance EncodeASN1 FcltuTransferDataReturn where
+    encode val = encodeASN1' DER (fcltuTransferDataReturn val)
+
+
+
+data FcltuTransDiagnostic =
+    FCLTUUnableToProcess
+    | FCLTUUnableToStore
+    | FCLTUOutOfSequence
+    | FCLTUInconsistentTimeRange
+    | FCLTUInvalidTime
+    | FCLTULateSldu
+    | FCLTUInvalidDelayTime
+    | FCLTUCltuError
+    deriving (Show, Read, Generic)
+
+fcltuTransDiagnostic :: FcltuTransDiagnostic -> ASN1
+fcltuTransDiagnostic FCLTUUnableToProcess       = IntVal 0
+fcltuTransDiagnostic FCLTUUnableToStore         = IntVal 1
+fcltuTransDiagnostic FCLTUOutOfSequence         = IntVal 2
+fcltuTransDiagnostic FCLTUInconsistentTimeRange = IntVal 3
+fcltuTransDiagnostic FCLTUInvalidTime           = IntVal 4
+fcltuTransDiagnostic FCLTULateSldu              = IntVal 5
+fcltuTransDiagnostic FCLTUInvalidDelayTime      = IntVal 6
+fcltuTransDiagnostic FCLTUCltuError             = IntVal 7
+
+
+fcltuTransDiagnosticFromInt :: ASN1 -> FcltuTransDiagnostic
+fcltuTransDiagnosticFromInt (IntVal 0) = FCLTUUnableToProcess
+fcltuTransDiagnosticFromInt (IntVal 1) = FCLTUUnableToStore
+fcltuTransDiagnosticFromInt (IntVal 2) = FCLTUOutOfSequence
+fcltuTransDiagnosticFromInt (IntVal 3) = FCLTUInconsistentTimeRange
+fcltuTransDiagnosticFromInt (IntVal 4) = FCLTUInvalidTime
+fcltuTransDiagnosticFromInt (IntVal 5) = FCLTULateSldu
+fcltuTransDiagnosticFromInt (IntVal 6) = FCLTUInvalidDelayTime
+fcltuTransDiagnosticFromInt (IntVal 7) = FCLTUCltuError
+fcltuTransDiagnosticFromInt _          = FCLTUCltuError
+
+
+
+data FcltuTransResult = FcltuTransCommon Diagnostics | FcltuTransSpecific FcltuTransDiagnostic
+    deriving (Show, Generic)
+
+diagnosticFcltuTrans :: FcltuTransResult -> ASN1
+diagnosticFcltuTrans (FcltuTransCommon diag) =
+    Other Context 0 (encodeASN1' DER [diagnostics diag])
+diagnosticFcltuTrans (FcltuTransSpecific diag) =
+    Other Context 1 (encodeASN1' DER [fcltuTransDiagnostic diag])
+
+
+optionalDiagFcltuTrans :: Maybe FcltuTransResult -> ASN1
+optionalDiagFcltuTrans Nothing = Other Context 0 B.empty
+optionalDiagFcltuTrans (Just diag) =
+    Other Context 1 (encodeASN1' DER [diagnosticFcltuTrans diag])
+
+parseOptionalDiagFcltuTrans :: Parser (Maybe FcltuTransResult)
+parseOptionalDiagFcltuTrans = do
+    x <- get
+    case x of
+        ((Other Context 0 _) : rest) -> do
+            put rest
+            return Nothing
+        ((Other Context 1 bs) : rest) -> do
+            put rest
+            case decodeASN1' DER bs of
+                Left err ->
+                    throwError
+                        $ "Diagnostic FCLTU TRANSFER RETURN Parser: could not decode diagnostics: "
+                        <> fromString (show err)
+                Right v -> case parseASN1 parseDiagFcltuTrans v of
+                    Left err ->
+                        throwError
+                            $ "Diagnostic FCLTU TRANSFER RETURN Parser: could not decode diagnostics: "
+                            <> fromString (show err)
+                    Right diag -> return (Just diag)
+        (asn1 : _) -> do
+            throwError
+                $  "Diagnostic RAF Start Parser: unexpected ASN1 value: "
+                <> fromString (show asn1)
+        [] -> do
+            throwError "Diagnostic RAF Start Parser: no value found."
+
+parseDiagFcltuTrans :: Parser FcltuTransResult
+parseDiagFcltuTrans = do
+    x <- get
+    case x of
+        ((Other Context 0 bs) : rest) -> do
+            put rest
+            case getInteger bs of
+                Left err ->
+                    throwError
+                        $ "Diagnostic FCLTU TRANSFER RETURN Parser: could not decode common diagnostic: "
+                        <> fromString (show err)
+                Right v -> return (FcltuTransCommon (diagnosticsFromInt v))
+        ((Other Context 1 bs) : rest) -> do
+            put rest
+            case getInteger bs of
+                Left err ->
+                    throwError
+                        $ "Diagnostic FCLTU TRANSFER RETURN Parser: could not decode specific diagnostic"
+                        <> fromString (show err)
+                Right v ->
+                    return (FcltuTransSpecific (fcltuTransDiagnosticFromInt v))
+        _ ->
+            throwError
+                "FCLTU TRANSFER RETURN diagnostics parser: could not parse diagnostics"
+
+
+makeLenses ''FcltuTransferDataReturn
