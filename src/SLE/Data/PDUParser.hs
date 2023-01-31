@@ -7,9 +7,9 @@ import           RIO.State
 
 import           SLE.Data.Bind
 import           SLE.Data.Common
+import           SLE.Data.FCLTUOps
 import           SLE.Data.PDU
 import           SLE.Data.RAFOps
-import           SLE.Data.FCLTUOps
 
 import           Data.ASN1.Types
 
@@ -63,9 +63,11 @@ parsePDU _            2   = SlePduStop <$> parseStopInvocation
 parsePDU _            3   = SlePduAck <$> parseSleAcknowledgement
 parsePDU RtnAllFrames 8   = SlePduRafTransferBuffer <$> parseTransferBuffer
 parsePDU FwdCltu      8   = SlePduFcltuThrowEvent <$> parseFcltuThrowEvent
-parsePDU FwdCltu      0   = SlePduFcltuStart <$> parseFcltuStart 
+parsePDU FwdCltu      0   = SlePduFcltuStart <$> parseFcltuStart
 parsePDU FwdCltu      1   = SlePduFcltuStartReturn <$> parseFcltuStartReturn
-parsePDU FwdCltu      10  = SlePduFcltuTransferData <$> parseFcltuTransDataInvocation
+parsePDU FwdCltu      10 = SlePduFcltuTransferData <$> parseFcltuTransDataInvocation
+parsePDU FwdCltu      11 = SlePduFcltuTransReturn <$> parseFcltuTransferDataReturn
+parsePDU FwdCltu      12  = SlePduFcltuAsync <$> parseFcltuAsyncStatus
 parsePDU t x =
     throwError
         $  TB.run

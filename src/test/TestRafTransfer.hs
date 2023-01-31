@@ -9,6 +9,7 @@ import           Data.ASN1.Types
 import qualified Data.Text.IO                  as T
 import           RIO
 
+import           SLE.Data.Bind
 import           SLE.Data.Common
 import           SLE.Data.PDUParser
 import           SLE.Data.RAF
@@ -81,7 +82,7 @@ main = hspec $ do
         result `shouldSatisfy` isRight
         T.putStrLn $ "Result: " <> fromString (show result)
     it "Sle Transfer Buffer" $ do
-        let result = parseASN1 slePduParser transData
+        let result = parseASN1 (slePduParser RtnAllFrames) transData
         result `shouldSatisfy` isRight
       -- result `shouldBe` Right (ServiceInstanceAttribute SPACK "VST-PASS0001")
 

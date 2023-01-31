@@ -7,6 +7,7 @@ module SLE.Protocol.UserApi
     , stopRAF
     , startFCLTU
     , stopFCLTU
+    , sendFCLTUData
     ) where
 
 import           RIO
@@ -91,17 +92,12 @@ stopRAF _cfg hdl creds invokeID = do
 
 
 startFCLTU
-    :: (MonadIO m)
-    => CommonConfig
-    -> SleHandle
-    -> Credentials
-    -> Word16
-    -> m ()
+    :: (MonadIO m) => CommonConfig -> SleHandle -> Credentials -> Word16 -> m ()
 startFCLTU _cfg hdl creds invokeID = do
     let pdu = FcltuStartInvocation
             { _fcltuStartCredentials            = creds
             , _fcltuStartInvokeID               = invokeID
-            , _fcluStartFirstCltuIdentification = CltuIdentification 0
+            , _fcluStartFirstCltuIdentification = CltuIdentification 1
             }
     writeSLE hdl (SLEPdu (SlePduFcltuStart pdu))
 
@@ -113,3 +109,30 @@ stopFCLTU _cfg hdl creds invokeID = do
                                 }
     writeSLE hdl (SLEPdu (SlePduStop pdu))
 
+
+sendFCLTUData
+    :: MonadIO m
+    => CommonConfig
+    -> SleHandle
+    -> Credentials
+    -> Word16
+    -> CltuIdentification
+    -> ConditionalTime
+    -> ConditionalTime
+    -> Duration
+    -> SlduStatusNotification
+    -> ByteString
+    -> m ()
+sendFCLTUData _cfg hdl creds invokeID cltuID earliest latest delay notif frame
+    = do
+        let pdu = FcltuTransDataInvocation
+                { _fcltuDataCredentials           = creds
+                , _fcltuDataInvokeID              = invokeID
+                , _fcltuDataIdent                 = cltuID
+                , _fcltuDataEarliestTransmission  = earliest
+                , _fcltuDataLatestTransmission    = latest
+                , _fcltuDataDelayTime             = delay
+                , _fcltuDataRadiationNotification = notif
+                , _fcltuData                      = frame
+                }
+        writeSLE hdl (SLEPdu (SlePduFcltuTransferData pdu))

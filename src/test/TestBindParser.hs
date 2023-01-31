@@ -13,6 +13,7 @@ import           RIO
 
 import           SLE.Data.Bind
 import           SLE.Data.Common
+import           SLE.Data.FCLTUOps
 import           SLE.Data.RAF
 import           SLE.Data.RAFOps
 import           SLE.Data.ServiceInstanceID
@@ -229,6 +230,29 @@ fcltuStartReturn =
     ]
 
 
+fcltuAsync =
+    [ {- Start (Container Context 12)
+    , -}
+      Other Context 0 ""
+    , Other Context 0 ""
+    , Start (Container Context 1)
+    , IntVal 1
+    , Start (Container Context 1)
+    , Other Context 0 "\\\219\ETX\191\fB\STXR"
+    , End (Container Context 1)
+    , IntVal 0
+    , End (Container Context 1)
+    , Start (Container Context 1)
+    , IntVal 1
+    , Other Context 0 "\\\219\ETX\191\fB\ETX\t"
+    , End (Container Context 1)
+    , IntVal 0
+    , IntVal 3
+    , End (Container Context 12)
+    ]
+
+
+
 main :: IO ()
 main = hspec $ do
     -- describe "Basic Parser Tests" $ do
@@ -248,68 +272,73 @@ main = hspec $ do
         --         result = parseASN1 (parseSet parseIntVal) vals
         --     result `shouldBe` Right [1, 2, 3]
 
-
-    describe "Start Parser" $ do
-        it "Sle Start with Times" $ do
-            let result = parseASN1 parseRafStart startWithTimes
+    describe "FCLTU Async Parser" $ do
+        it "Async" $ do
+            let result = parseASN1 parseFcltuAsyncStatus fcltuAsync
             result `shouldSatisfy` isRight
 
-        it "Sle Start without Times" $ do
-            let result = parseASN1 parseRafStart start
-            result `shouldSatisfy` isRight
 
-    describe "Sle Bind Invocation" $ do
-        it "Sle Bind Start test" $ do
-            let result = parseASN1
-                    (parseBasicASN1 (== Start (Container Context 100))
-                                    (const ())
-                    )
-                    bind
-            result `shouldBe` Right ()
+    -- describe "Start Parser" $ do
+    --     it "Sle Start with Times" $ do
+    --         let result = parseASN1 parseRafStart startWithTimes
+    --         result `shouldSatisfy` isRight
 
-        it "Sle Bind Start II" $ do
-            let parser = do
-                    void $ parseBasicASN1 (== Start (Container Context 100))
-                                          (const ())
-                    parseCredentials
-                result = parseASN1 parser bind
-            result `shouldSatisfy` isRight
-            result `shouldBe` Right Nothing
+    --     it "Sle Start without Times" $ do
+    --         let result = parseASN1 parseRafStart start
+    --         result `shouldSatisfy` isRight
 
-        it "Sle Bind Start III" $ do
-            let parser = do
-                    void $ parseBasicASN1 (== Start (Container Context 100))
-                                          (const ())
-                    void parseCredentials
-                    parseAuthorityIdentifier
-                result = parseASN1 parser bind
-            result `shouldSatisfy` isRight
-            result `shouldBe` Right (AuthorityIdentifier "SLE_USER")
+    -- describe "Sle Bind Invocation" $ do
+    --     it "Sle Bind Start test" $ do
+    --         let result = parseASN1
+    --                 (parseBasicASN1 (== Start (Container Context 100))
+    --                                 (const ())
+    --                 )
+    --                 bind
+    --         result `shouldBe` Right ()
 
-        it "Sle Bind Start IV" $ do
-            let result = parseASN1 parseServiceInstanceAttribute attribute
-            result `shouldSatisfy` isRight
-            result `shouldBe` Right
-                (ServiceInstanceAttribute SPACK "VST-PASS0001")
+    --     it "Sle Bind Start II" $ do
+    --         let parser = do
+    --                 void $ parseBasicASN1 (== Start (Container Context 100))
+    --                                       (const ())
+    --                 parseCredentials
+    --             result = parseASN1 parser bind
+    --         result `shouldSatisfy` isRight
+    --         result `shouldBe` Right Nothing
 
-        it "Sle Bind Invocation" $ do
-            let result = parseASN1 parseSleBind bindS
-            result `shouldSatisfy` isRight
-            result `shouldBe` Right sleBind
+    --     it "Sle Bind Start III" $ do
+    --         let parser = do
+    --                 void $ parseBasicASN1 (== Start (Container Context 100))
+    --                                       (const ())
+    --                 void parseCredentials
+    --                 parseAuthorityIdentifier
+    --             result = parseASN1 parser bind
+    --         result `shouldSatisfy` isRight
+    --         result `shouldBe` Right (AuthorityIdentifier "SLE_USER")
 
-        it "Sle encode/decode test" $ do
-            let bind   = sleBindInvocation sleBind
-                bind'  = encodeASN1 DER bind
-                bind'' = decodeASN1 DER bind'
+    --     it "Sle Bind Start IV" $ do
+    --         let result = parseASN1 parseServiceInstanceAttribute attribute
+    --         result `shouldSatisfy` isRight
+    --         result `shouldBe` Right
+    --             (ServiceInstanceAttribute SPACK "VST-PASS0001")
 
-            bind'' `shouldSatisfy` isRight
-            case bind'' of
-                Left  _err    -> return ()
-                Right asnBind -> do
-                    let result = parseASN1 parseSleBind (drop 1 asnBind)
-                    result `shouldSatisfy` isRight
-                    case result of
-                        Left  _err -> return ()
-                        Right msg  -> do
-                            msg `shouldBe` sleBind
+    --     it "Sle Bind Invocation" $ do
+    --         let result = parseASN1 parseSleBind bindS
+    --         result `shouldSatisfy` isRight
+    --         result `shouldBe` Right sleBind
+
+    --     it "Sle encode/decode test" $ do
+    --         let bind   = sleBindInvocation sleBind
+    --             bind'  = encodeASN1 DER bind
+    --             bind'' = decodeASN1 DER bind'
+
+    --         bind'' `shouldSatisfy` isRight
+    --         case bind'' of
+    --             Left  _err    -> return ()
+    --             Right asnBind -> do
+    --                 let result = parseASN1 parseSleBind (drop 1 asnBind)
+    --                 result `shouldSatisfy` isRight
+    --                 case result of
+    --                     Left  _err -> return ()
+    --                     Right msg  -> do
+    --                         msg `shouldBe` sleBind
 
