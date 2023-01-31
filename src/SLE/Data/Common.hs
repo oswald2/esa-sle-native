@@ -64,6 +64,9 @@ module SLE.Data.Common
     , PeerAbortDiagnostic(..)
     , SlePeerAbort(..)
     , parseSlePeerAbort
+    , ForwardDuStatus(..)
+    , forwardDuStatus
+    , parseForwardDuStatus
     ) where
 
 import           RIO
@@ -676,3 +679,36 @@ parseSlePeerAbort = content
 
 
 
+
+data ForwardDuStatus =
+    FwDURadiated
+    | FwDUExpired
+    | FwDUInterrupted
+    | FwDUAcknowledged
+    | FwDUProductionStarted
+    | FwDUProductionNotStarted
+    | FwDUUnsupportedTransmissionMode
+    deriving (Show, Generic)
+
+forwardDuStatus :: ForwardDuStatus -> ASN1
+forwardDuStatus FwDURadiated                    = IntVal 0
+forwardDuStatus FwDUExpired                     = IntVal 1
+forwardDuStatus FwDUInterrupted                 = IntVal 2
+forwardDuStatus FwDUAcknowledged                = IntVal 3
+forwardDuStatus FwDUProductionStarted           = IntVal 4
+forwardDuStatus FwDUProductionNotStarted        = IntVal 5
+forwardDuStatus FwDUUnsupportedTransmissionMode = IntVal 6
+
+
+parseForwardDuStatus :: Parser ForwardDuStatus
+parseForwardDuStatus = do
+    x <- parseIntVal
+    case x of
+        0 -> return FwDURadiated
+        1 -> return FwDUExpired
+        2 -> return FwDUInterrupted
+        3 -> return FwDUAcknowledged
+        4 -> return FwDUProductionStarted
+        5 -> return FwDUProductionNotStarted
+        6 -> return FwDUUnsupportedTransmissionMode
+        _ -> return FwDUUnsupportedTransmissionMode

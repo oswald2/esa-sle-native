@@ -13,11 +13,18 @@ module SLE.Data.FCLTUOps
     , FcltuTransferDataReturn(..)
     , FcltuTransDiagnostic(..)
     , FcltuTransResult(..)
+    , CltuNotification(..)
+    , CltuLastProcessed(..)
+    , CltuLastOk(..)
+    , ProductionStatus(..)
+    , UplinkStatus(..)
+    , FcltuAsyncNotify(..)
     , parseFcltuStart
     , parseFcltuThrowEvent
     , parseFcltuTransDataInvocation
     , parseFcltuStartReturn
     , parseFcltuTransferDataReturn
+    , parseFcltuAsyncStatus
     , fcltuStartCredentials
     , fcltuStartInvokeID
     , fcluStartFirstCltuIdentification
@@ -42,6 +49,12 @@ module SLE.Data.FCLTUOps
     , fcltuTransRetIdentification
     , fcltuTransRetBufferAvailable
     , fcltuTransRetResult
+    , fcltuAsyncCredentials
+    , fcltuAsyncNotification
+    , fcltuAsyncLastProcessed
+    , fcltuAsyncLastOK
+    , fcltuAsyncProductionStatus
+    , fcltuAsyncUplinkStatus
     ) where
 
 import           RIO
@@ -553,3 +566,262 @@ parseDiagFcltuTrans = do
 
 
 makeLenses ''FcltuTransferDataReturn
+
+
+data CltuNotification =
+    CltuRadiated
+    | SlduExpired
+    | ProductionInterrupted
+    | ProductionHalted
+    | ProductionOperational
+    | BufferEmpty
+    | ActionListCompleted !EventInvocationID
+    | ActionListNotCompleted !EventInvocationID
+    | EventConditionEvFalst !EventInvocationID
+    deriving (Show, Generic)
+
+
+cltuNotification :: CltuNotification -> ASN1
+cltuNotification CltuRadiated          = Other Context 0 B.empty
+cltuNotification SlduExpired           = Other Context 1 B.empty
+cltuNotification ProductionInterrupted = Other Context 2 B.empty
+cltuNotification ProductionHalted      = Other Context 3 B.empty
+cltuNotification ProductionOperational = Other Context 4 B.empty
+cltuNotification BufferEmpty           = Other Context 5 B.empty
+cltuNotification (ActionListCompleted evID) =
+    Other Context 6 (encodeASN1' DER [eventInvocationID evID])
+cltuNotification (ActionListNotCompleted evID) =
+    Other Context 7 (encodeASN1' DER [eventInvocationID evID])
+cltuNotification (EventConditionEvFalst evID) =
+    Other Context 8 (encodeASN1' DER [eventInvocationID evID])
+
+
+parseCltuNotification :: Parser CltuNotification
+parseCltuNotification = do
+    x <- get
+    case x of
+        ((Other Context 0 _) : rest) -> do
+            put rest
+            return CltuRadiated
+        ((Other Context 1 _) : rest) -> do
+            put rest
+            return SlduExpired
+        ((Other Context 2 _) : rest) -> do
+            put rest
+            return ProductionInterrupted
+        ((Other Context 3 _) : rest) -> do
+            put rest
+            return ProductionHalted
+        ((Other Context 4 _) : rest) -> do
+            put rest
+            return ProductionOperational
+        ((Other Context 5 _) : rest) -> do
+            put rest
+            return BufferEmpty
+        ((Other Context 6 bs) : rest) -> do
+            put rest
+            case decodeASN1' DER bs of
+                Left err ->
+                    throwError $ "CltuNotification Parser error: " <> fromString
+                        (show err)
+                Right v -> case parseASN1 parseEventInvocationID v of
+                    Left err ->
+                        throwError
+                            $  "CltuNotification Parser error: "
+                            <> fromString (show err)
+                    Right evID -> return (ActionListCompleted evID)
+        ((Other Context 7 bs) : rest) -> do
+            put rest
+            case decodeASN1' DER bs of
+                Left err ->
+                    throwError $ "CltuNotification Parser error: " <> fromString
+                        (show err)
+                Right v -> case parseASN1 parseEventInvocationID v of
+                    Left err ->
+                        throwError
+                            $  "CltuNotification Parser error: "
+                            <> fromString (show err)
+                    Right evID -> return (ActionListNotCompleted evID)
+        ((Other Context 8 bs) : rest) -> do
+            put rest
+            case decodeASN1' DER bs of
+                Left err ->
+                    throwError $ "CltuNotification Parser error: " <> fromString
+                        (show err)
+                Right v -> case parseASN1 parseEventInvocationID v of
+                    Left err ->
+                        throwError
+                            $  "CltuNotification Parser error: "
+                            <> fromString (show err)
+                    Right evID -> return (EventConditionEvFalst evID)
+        asn1 ->
+            throwError $ "CltuNotification: unexpected ASN1: " <> fromString
+                (show asn1)
+
+data CltuLastProcessed = NoCltuProcessed
+    | CltuProcessed !CltuIdentification !ConditionalTime !ForwardDuStatus
+    deriving(Show, Generic)
+
+cltuLastProcessed :: CltuLastProcessed -> [ASN1]
+cltuLastProcessed NoCltuProcessed = [Other Context 0 B.empty]
+cltuLastProcessed (CltuProcessed cltuID radTime status) =
+    [ Start (Container Context 1)
+    , cltuIdentification cltuID
+    , conditionalTime radTime
+    , forwardDuStatus status
+    , End (Container Context 1)
+    ]
+
+parseCltuLastProcessed :: Parser CltuLastProcessed
+parseCltuLastProcessed = do
+    x <- get
+    case x of
+        ((Other Context 0 _) : rest) -> do
+            put rest
+            return NoCltuProcessed
+        ((Start (Container Context 1)) : rest) -> do
+            put rest
+            cltuID  <- parseCltuIdentification
+            radTime <- parseConditionalTime
+            status  <- parseForwardDuStatus
+            void endContainer
+            return (CltuProcessed cltuID radTime status)
+        asn1 -> do
+            throwError
+                $  "Could not parse CltuLastProcessed: unexpeted ASN1 values: "
+                <> fromString (show asn1)
+  where
+    endContainer = parseBasicASN1 (== End (Container Context 11)) (const ())
+
+
+data CltuLastOk = NoCltuOk | CltuOk !CltuIdentification !Time
+    deriving (Show, Generic)
+
+cltuLastOk :: CltuLastOk -> [ASN1]
+cltuLastOk NoCltuOk = [Other Context 0 B.empty]
+cltuLastOk (CltuOk cltuID stopRadiation) =
+    [ Start (Container Context 1)
+    , cltuIdentification cltuID
+    , time stopRadiation
+    , End (Container Context 1)
+    ]
+
+parseCltuLastOk :: Parser CltuLastOk
+parseCltuLastOk = do
+    x <- get
+    case x of
+        ((Other Context 0 _) : rest) -> do
+            put rest
+            return NoCltuOk
+        ((Start (Container Context 1)) : rest) -> do
+            put rest
+            cltuID      <- parseCltuIdentification
+            stopRadTime <- parseTime
+            void endContainer
+            return (CltuOk cltuID stopRadTime)
+        asn1 -> do
+            throwError
+                $  "Could not parse CltuLastProcessed: unexpeted ASN1 values: "
+                <> fromString (show asn1)
+  where
+    endContainer = parseBasicASN1 (== End (Container Context 11)) (const ())
+
+
+data ProductionStatus =
+    ProdOperational
+    | ProdConfigured
+    | ProdInterrupted
+    | ProdHalted
+    deriving (Show, Generic)
+
+productionStatus :: ProductionStatus -> ASN1
+productionStatus ProdOperational = IntVal 0
+productionStatus ProdConfigured  = IntVal 1
+productionStatus ProdInterrupted = IntVal 2
+productionStatus ProdHalted      = IntVal 3
+
+
+parseProductionStatus :: Parser ProductionStatus
+parseProductionStatus = do
+    x <- parseIntVal
+    case x of
+        0 -> return ProdOperational
+        1 -> return ProdConfigured
+        2 -> return ProdInterrupted
+        3 -> return ProdHalted
+        _ -> return ProdHalted
+
+data UplinkStatus =
+    UplinkStatusNotAvailable
+    | UplinkNoRFAvailable
+    | UplinkNoBitLock
+    | UplinkNominal
+    deriving (Show, Generic)
+
+uplinkStatus :: UplinkStatus -> ASN1
+uplinkStatus UplinkStatusNotAvailable = IntVal 0
+uplinkStatus UplinkNoRFAvailable      = IntVal 1
+uplinkStatus UplinkNoBitLock          = IntVal 2
+uplinkStatus UplinkNominal            = IntVal 3
+
+parseUplinkStatus :: Parser UplinkStatus
+parseUplinkStatus = do
+    x <- parseIntVal
+    case x of
+        0 -> return UplinkStatusNotAvailable
+        1 -> return UplinkNoRFAvailable
+        2 -> return UplinkNoBitLock
+        3 -> return UplinkNominal
+        _ -> return UplinkNominal
+
+
+data FcltuAsyncNotify = FcltuAsyncNotify
+    { _fcltuAsyncCredentials      :: !Credentials
+    , _fcltuAsyncNotification     :: !CltuNotification
+    , _fcltuAsyncLastProcessed    :: !CltuLastProcessed
+    , _fcltuAsyncLastOK           :: !CltuLastOk
+    , _fcltuAsyncProductionStatus :: !ProductionStatus
+    , _fcltuAsyncUplinkStatus     :: !UplinkStatus
+    }
+    deriving (Show, Generic)
+
+fcltuAsyncStatus :: FcltuAsyncNotify -> [ASN1]
+fcltuAsyncStatus FcltuAsyncNotify {..} =
+    [ Start (Container Context 12)
+        , credentials _fcltuAsyncCredentials
+        , cltuNotification _fcltuAsyncNotification
+        ]
+        ++ cltuLastProcessed _fcltuAsyncLastProcessed
+        ++ cltuLastOk _fcltuAsyncLastOK
+        ++ [ productionStatus _fcltuAsyncProductionStatus
+           , uplinkStatus _fcltuAsyncUplinkStatus
+           , End (Container Context 12)
+           ]
+
+parseFcltuAsyncStatus :: Parser FcltuAsyncNotify
+parseFcltuAsyncStatus = content
+  where
+    endContainer = parseBasicASN1 (== End (Container Context 12)) (const ())
+
+    content      = do
+        creds         <- parseCredentials
+        notif         <- parseCltuNotification
+        lastProcessed <- parseCltuLastProcessed
+        lastOK        <- parseCltuLastOk
+        prodStat      <- parseProductionStatus
+        uplink        <- parseUplinkStatus
+        void endContainer
+        return FcltuAsyncNotify { _fcltuAsyncCredentials      = creds
+                                , _fcltuAsyncNotification     = notif
+                                , _fcltuAsyncLastProcessed    = lastProcessed
+                                , _fcltuAsyncLastOK           = lastOK
+                                , _fcltuAsyncProductionStatus = prodStat
+                                , _fcltuAsyncUplinkStatus     = uplink
+                                }
+
+
+instance EncodeASN1 FcltuAsyncNotify where
+    encode val = encodeASN1' DER (fcltuAsyncStatus val)
+
+
+makeLenses ''FcltuAsyncNotify
