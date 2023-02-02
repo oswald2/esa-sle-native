@@ -11,6 +11,8 @@ import           Data.ASN1.Encoding
 import           Data.ASN1.Types
 import           RIO
 
+import qualified Data.Text.IO                  as T
+
 import           SLE.Data.Bind
 import           SLE.Data.Common
 import           SLE.Data.FCLTUOps
@@ -18,6 +20,7 @@ import           SLE.Data.RAF
 import           SLE.Data.RAFOps
 import           SLE.Data.ServiceInstanceID
 
+import qualified RIO.Text                      as T
 import           Test.Hspec
 
 
@@ -230,6 +233,7 @@ fcltuStartReturn =
     ]
 
 
+fcltuAsync :: [ASN1]
 fcltuAsync =
     [ {- Start (Container Context 12)
     , -}
@@ -251,7 +255,38 @@ fcltuAsync =
     , End (Container Context 12)
     ]
 
+cltuID :: [ASN1]
+cltuID = [IntVal 1]
 
+condTime :: [ASN1]
+condTime =
+    [ Start (Container Context 1)
+    , Other Context 0 "\\\219\ETX\191\fB\STXR"
+    , End (Container Context 1)
+    ]
+
+fwdDuStatus :: [ASN1]
+fwdDuStatus = [IntVal 0]
+
+
+cltuLastProcessed :: [ASN1]
+cltuLastProcessed =
+    [ Start (Container Context 1)
+    , IntVal 1
+    , Start (Container Context 1)
+    , Other Context 0 "\\\219\ETX\191\fB\STXR"
+    , End (Container Context 1)
+    , IntVal 0
+    , End (Container Context 1)
+    ]
+
+cltuLastOK :: [ASN1]
+cltuLastOK =
+    [ Start (Container Context 1)
+    , IntVal 1
+    , Other Context 0 "\\\219\ETX\191\fB\ETX\t"
+    , End (Container Context 1)
+    ]
 
 main :: IO ()
 main = hspec $ do
@@ -273,8 +308,41 @@ main = hspec $ do
         --     result `shouldBe` Right [1, 2, 3]
 
     describe "FCLTU Async Parser" $ do
+        it "CltuID Parser" $ do
+            let result = parseASN1 parseCltuIdentification cltuID
+            T.putStrLn $ "Result: " <> T.pack (show result)
+            result `shouldSatisfy` isRight
+
+    describe "FCLTU Async Parser" $ do
+        it "Conditional Time Parser" $ do
+            let result = parseASN1 parseConditionalTime condTime
+            T.putStrLn $ "Result: " <> T.pack (show result)
+            result `shouldSatisfy` isRight
+
+    describe "FCLTU Async Parser" $ do
+        it "Forward DU Status Parser" $ do
+            let result = parseASN1 parseForwardDuStatus fwdDuStatus
+            T.putStrLn $ "Result: " <> T.pack (show result)
+            result `shouldSatisfy` isRight
+
+    describe "FCLTU Async Parser" $ do
+        it "CltuLastProcessed Parser" $ do
+            let result = parseASN1 parseCltuLastProcessed cltuLastProcessed
+            T.putStrLn $ "Result: " <> T.pack (show result)
+            result `shouldSatisfy` isRight
+
+
+    describe "FCLTU Async Parser" $ do
+        it "CltuLastok Parser" $ do
+            let result = parseASN1 parseCltuLastOk cltuLastOK
+            T.putStrLn $ "Result: " <> T.pack (show result)
+            result `shouldSatisfy` isRight
+
+
+    describe "FCLTU Async Parser" $ do
         it "Async" $ do
             let result = parseASN1 parseFcltuAsyncStatus fcltuAsync
+            T.putStrLn $ "Result: " <> T.pack (show result)
             result `shouldSatisfy` isRight
 
 

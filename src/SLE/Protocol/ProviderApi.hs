@@ -1,15 +1,25 @@
 module SLE.Protocol.ProviderApi
     ( rafSendFrame
     , rafSendFrameIdx
-    , rcfSendFrame
+    -- , rcfSendFrame
+    , fcltuRadiationSuccess
+    , fcltuRadiationFailure
     ) where
 
-import           RIO
+import           RIO                     hiding ( (.~)
+                                                , (^.)
+                                                )
+
+import           Control.Lens
 
 import           SLE.Data.Common
+import           SLE.Data.FCLTUOps
 import           SLE.Data.Handle
+import           SLE.Data.PDU
 import           SLE.Data.ProviderConfig
 import           SLE.Data.RAFOps
+import           SLE.Data.WriteCmd
+import           SLE.State.FCLTUState
 import           SLE.State.RAFClasses
 import           SLE.State.RAFState
 
@@ -74,13 +84,83 @@ rafSendFrame var ert quality frame = do
 
 
 
-rcfSendFrame
-    :: (MonadIO m, MonadReader env m, HasRAF env)
-    => TimedBuffer FrameOrNotification
-    -> RAFIdx
+-- rcfSendFrame
+--     :: (MonadIO m, MonadReader env m, HasRAF env)
+--     => TimedBuffer FrameOrNotification
+--     -> RAFIdx
+--     -> Time
+--     -> FrameQuality
+--     -> Word8
+--     -> ByteString
+--     -> m ()
+-- rcfSendFrame _buffer _idx _ert _quality _vcid _frame = return ()
+
+
+
+fcltuRadiationSuccess
+    :: (MonadIO m)
+    => FCLTUVar
+    -> CltuIdentification
     -> Time
-    -> FrameQuality
-    -> Word8
-    -> ByteString
+    -> Time
+    -> UplinkStatus
     -> m ()
-rcfSendFrame _buffer _idx _ert _quality _vcid _frame = return ()
+fcltuRadiationSuccess var cltuID radStart radStop uplinkStatus = do
+    state <- modifyFCLTUState var update
+
+    case state ^. fcltuProdNotification of
+        ProduceNotification ->
+            fcltuSendAsync var state CltuRadiated uplinkStatus
+        DoNotProduceNotification -> return ()
+
+  where
+    update st =
+        st
+            &  fcltuLastProcessed
+            .~ CltuProcessed cltuID (Just radStart) FwDURadiated
+            &  fcltuLastOK
+            .~ CltuOk cltuID radStop
+            &  fcltuCltusProcessed
+            +~ 1
+            &  fcltuCltusRadiated
+            +~ 1
+
+fcltuRadiationFailure
+    :: (MonadIO m)
+    => FCLTUVar
+    -> CltuIdentification
+    -> ConditionalTime
+    -> CltuNotification
+    -> ForwardDuStatus
+    -> UplinkStatus
+    -> m ()
+fcltuRadiationFailure var cltuID tim notif duStatus uplinkStatus = do
+    state <- modifyFCLTUState var update
+    fcltuSendAsync var state notif uplinkStatus
+  where
+    update st =
+        st
+            &  fcltuLastProcessed
+            .~ CltuProcessed cltuID tim duStatus
+            &  fcltuCltusProcessed
+            +~ 1
+
+
+fcltuSendAsync
+    :: (MonadIO m)
+    => FCLTUVar
+    -> FCLTU
+    -> CltuNotification
+    -> UplinkStatus
+    -> m ()
+fcltuSendAsync var state notif uplinkStatus = do
+    let pdu = FcltuAsyncNotify
+            { _fcltuAsyncCredentials      = Nothing
+            , _fcltuAsyncNotification     = notif
+            , _fcltuAsyncLastProcessed    = state ^. fcltuLastProcessed
+            , _fcltuAsyncLastOK           = state ^. fcltuLastOK
+            , _fcltuAsyncProductionStatus = state ^. fcltuProdStatus
+            , _fcltuAsyncUplinkStatus     = uplinkStatus
+            }
+
+    sendSleFcltuPdu var (SLEPdu (SlePduFcltuAsync pdu))

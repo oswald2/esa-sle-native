@@ -7,8 +7,8 @@ import           RIO
 
 import           SLE.Data.Bind
 import           SLE.Data.Common
-import           SLE.Data.RAFOps
 import           SLE.Data.FCLTUOps
+import           SLE.Data.RAFOps
 
 
 data SleEvent =
@@ -39,7 +39,7 @@ data SleEvent =
   | SLEFcltuStopReceived !SleStopInvocation
   | SLEFcltuStopFailed !SII
   | SLEFcltuStopSucceed !SII
-  | SLEFcltuTransferData !SII !FCLTUIdx !FcltuTransDataInvocation 
+  | SLEFcltuTransferData !SII !FCLTUIdx !SlduStatusNotification !FcltuTransDataInvocation
   deriving (Show, Generic)
 
 type SleEventHandler = SleEvent -> IO ()

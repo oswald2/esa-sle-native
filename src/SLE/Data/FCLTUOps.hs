@@ -55,6 +55,9 @@ module SLE.Data.FCLTUOps
     , fcltuAsyncLastOK
     , fcltuAsyncProductionStatus
     , fcltuAsyncUplinkStatus
+    , parseCltuLastProcessed
+    , parseCltuIdentification
+    , parseCltuLastOk
     ) where
 
 import           RIO
@@ -691,7 +694,7 @@ parseCltuLastProcessed = do
                 $  "Could not parse CltuLastProcessed: unexpeted ASN1 values: "
                 <> fromString (show asn1)
   where
-    endContainer = parseBasicASN1 (== End (Container Context 11)) (const ())
+    endContainer = parseBasicASN1 (== End (Container Context 1)) (const ())
 
 
 data CltuLastOk = NoCltuOk | CltuOk !CltuIdentification !Time
@@ -724,7 +727,7 @@ parseCltuLastOk = do
                 $  "Could not parse CltuLastProcessed: unexpeted ASN1 values: "
                 <> fromString (show asn1)
   where
-    endContainer = parseBasicASN1 (== End (Container Context 11)) (const ())
+    endContainer = parseBasicASN1 (== End (Container Context 1)) (const ())
 
 
 data ProductionStatus =

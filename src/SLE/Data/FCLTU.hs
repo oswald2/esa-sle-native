@@ -211,7 +211,7 @@ processBoundState cfg var (SlePduFcltuStart pdu) = do
             }
         cltuID = pdu ^. fcluStartFirstCltuIdentification
 
-    setCltuID var cltuID
+    void $ setCltuID var cltuID
 
     -- send response 
     let ret = SLEPdu $ SlePduFcltuStartReturn $ FcltuStartReturn
@@ -274,7 +274,7 @@ processActiveState cfg var (SlePduFcltuTransferData pdu) = do
         !newCltuID = cltuID + 1
 
     -- set the CLTU ID in the state 
-    setCltuID var cltuID
+    notif <- setCltuID var cltuID
 
     -- send response 
     let ret = SLEPdu $ SlePduFcltuTransReturn $ FcltuTransferDataReturn
@@ -286,7 +286,7 @@ processActiveState cfg var (SlePduFcltuTransferData pdu) = do
             }
     sendSleFcltuPdu var ret
     sleRaiseEvent
-        (SLEFcltuTransferData (cfg ^. cfgFCLTUSII) (var ^. fcltuIdx) pdu)
+        (SLEFcltuTransferData (cfg ^. cfgFCLTUSII) (var ^. fcltuIdx) notif pdu)
     return ServiceActive
 
 

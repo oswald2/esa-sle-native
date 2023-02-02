@@ -9,6 +9,7 @@ module SLE.State.FCLTUState
     , writeFCLTUVar
     , getFCLTUState
     , setFCLTUState
+    , modifyFCLTUState
     , modifyFCLTU
     , sendSleFcltuCmd
     , sendSleFcltuPdu
@@ -24,11 +25,19 @@ module SLE.State.FCLTUState
     , fcltuIdx
     , fcltuPeers
     , fcltuCltuID
+    , fcltuLastProcessed
+    , fcltuLastOK
+    , fcltuProdStatus
+    , fcltuCltusReceived
+    , fcltuCltusProcessed
+    , fcltuCltusRadiated
     ) where
 
 import           RIO
 
-import           Control.Lens                   ( makeLenses )
+import           Control.Lens                   ( (+~)
+                                                , makeLenses
+                                                )
 
 import           SLE.Data.Bind
 import           SLE.Data.CCSDSTime
@@ -45,6 +54,12 @@ data FCLTU = FCLTU
     , _fcltuProdNotification   :: !SlduStatusNotification
     , _fcltuStartRadiationTime :: !CCSDSTime
     , _fcltuCltuID             :: !CltuIdentification
+    , _fcltuLastProcessed      :: !CltuLastProcessed
+    , _fcltuLastOK             :: !CltuLastOk
+    , _fcltuProdStatus         :: !ProductionStatus
+    , _fcltuCltusReceived      :: !Word64
+    , _fcltuCltusProcessed     :: !Word64
+    , _fcltuCltusRadiated      :: !Word64
     }
 makeLenses ''FCLTU
 
@@ -70,6 +85,12 @@ fcltuStartState cfg = FCLTU { _fcltuSII                = cfg ^. cfgFCLTUSII
                             , _fcltuProdNotification = DoNotProduceNotification
                             , _fcltuStartRadiationTime = ccsdsNullTime
                             , _fcltuCltuID             = CltuIdentification 0
+                            , _fcltuLastProcessed      = NoCltuProcessed
+                            , _fcltuLastOK             = NoCltuOk
+                            , _fcltuProdStatus         = ProdOperational
+                            , _fcltuCltusReceived      = 0
+                            , _fcltuCltusProcessed     = 0
+                            , _fcltuCltusRadiated      = 0
                             }
 
 
@@ -107,6 +128,14 @@ modifyFCLTU var f = atomically $ do
     let !newst = f fcltu
     writeTVar (_fcltuVar var) newst
 
+modifyFCLTUState :: (MonadIO m) => FCLTUVar -> (FCLTU -> FCLTU) -> m FCLTU
+modifyFCLTUState var f = atomically $ do
+    fcltu <- readTVar (_fcltuVar var)
+    let !newst = f fcltu
+    writeTVar (_fcltuVar var) newst
+    return newst
+
+
 sendSleFcltuCmd :: (MonadIO m) => FCLTUVar -> SleFcltuCmd -> m ()
 sendSleFcltuCmd var cmd = atomically $ writeTBQueue (_fcltuQueue var) cmd
 
@@ -114,5 +143,9 @@ sendSleFcltuPdu :: (MonadIO m) => FCLTUVar -> SleWrite -> m ()
 sendSleFcltuPdu var input = writeSLE (_fcltuSleHandle var) input
 
 
-setCltuID :: (MonadIO m) => FCLTUVar -> CltuIdentification -> m ()
-setCltuID var cltuID = modifyFCLTU var (\st -> st & fcltuCltuID .~ cltuID)
+setCltuID
+    :: (MonadIO m) => FCLTUVar -> CltuIdentification -> m SlduStatusNotification
+setCltuID var cltuID = _fcltuProdNotification <$> modifyFCLTUState var update
+    where update st = st & fcltuCltuID .~ cltuID & fcltuCltusReceived +~ 1
+
+
