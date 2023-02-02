@@ -105,6 +105,8 @@ processInitState
 processInitState cfg var (SlePduBind pdu) = do
     logDebug "processInitState: BIND"
 
+    rafResetState var 
+
     sleRaiseEvent (SLEBindReceived pdu)
 
     cmCfg <- RIO.view commonCfg
@@ -223,6 +225,7 @@ processBoundState cfg var (SlePduUnbind pdu) = do
             }
     sendSlePdu var ret
     sleRaiseEvent (SLEUnbindSucceed (cfg ^. cfgRAFSII))
+    rafResetState var 
     return ServiceInit
 
 processBoundState cfg var (SlePduRafStart pdu) = do

@@ -15,6 +15,7 @@ module SLE.State.RAFState
     , modifyRAF
     , getRAFState
     , setRAFState
+    , rafResetState
     , rafVar
     , rafQueue
     , rafSleHandle
@@ -118,3 +119,8 @@ sendSlePdu var input = writeSLE (_rafSleHandle var) input
 sendFrameOrNotification :: (MonadIO m) => RAFVar -> FrameOrNotification -> m ()
 sendFrameOrNotification var value =
     writeFrameOrNotification (var ^. rafSleHandle) value
+
+
+rafResetState :: (MonadIO m) => RAFVar -> m ()
+rafResetState var =
+    atomically $ writeRAFVar var (rafStartState (var ^. rafVarCfg))

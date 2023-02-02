@@ -2,6 +2,7 @@ module SLE.Protocol.ProviderApi
     ( rafSendFrame
     , rafSendFrameIdx
     -- , rcfSendFrame
+    , fcltuStartRadiation
     , fcltuRadiationSuccess
     , fcltuRadiationFailure
     ) where
@@ -97,6 +98,19 @@ rafSendFrame var ert quality frame = do
 
 
 
+fcltuStartRadiation
+    :: (MonadIO m) => FCLTUVar -> CltuIdentification -> Time -> m ()
+fcltuStartRadiation var cltuID radStart = do
+    void $ modifyFCLTUState var update
+  where
+    update st =
+        st
+            &  fcltuLastProcessed
+            .~ CltuProcessed cltuID (Just radStart) FwDUProductionStarted
+            &  fcltuCltusProcessed
+            +~ 1
+
+
 fcltuRadiationSuccess
     :: (MonadIO m)
     => FCLTUVar
@@ -120,8 +134,6 @@ fcltuRadiationSuccess var cltuID radStart radStop uplinkStatus = do
             .~ CltuProcessed cltuID (Just radStart) FwDURadiated
             &  fcltuLastOK
             .~ CltuOk cltuID radStop
-            &  fcltuCltusProcessed
-            +~ 1
             &  fcltuCltusRadiated
             +~ 1
 

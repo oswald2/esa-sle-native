@@ -65,8 +65,31 @@ initialState cfg logFunc eventHandler = do
 
     -- create the RAFs 
     let createFunc idx cfg' = newRAFVarIO (cfg ^. cfgCommon) cfg' (RAFIdx idx)
-        createFcltuFunc idx cfg' =
-            newFCLTUVarIO (cfg ^. cfgCommon) cfg' (FCLTUIdx idx)
+        createFcltuFunc idx cfg' = do
+            case
+                    findTmIdx (cfg ^. cfgRAFs)
+                              (cfg' ^. cfgFCLTUAssociatedTMPort)
+                of
+                    Nothing -> do
+                        let
+                            msg =
+                                utf8BuilderToText
+                                    $ "Could not find associated TM Port ID for FCLTU service "
+                                    <> display (cfg' ^. cfgFCLTUSII)
+                                    <> ", PortID "
+                                    <> display
+                                           (cfg' ^. cfgFCLTUAssociatedTMPort)
+                                    <> " not found."
+                        liftIO $ eventHandler (SLEWarning msg)
+                        newFCLTUVarIO (cfg ^. cfgCommon)
+                                      cfg'
+                                      (FCLTUIdx idx)
+                                      (TMFirst 0)
+                    Just tmIdx -> newFCLTUVarIO
+                        (cfg ^. cfgCommon)
+                        cfg'
+                        (FCLTUIdx idx)
+                        (TMRAF (RAFIdx tmIdx))
 
     rafs   <- V.imapM createFunc (cfg ^. cfgRAFs)
     fcltus <- V.imapM createFcltuFunc (cfg ^. cfgFCLTUs)
@@ -81,7 +104,8 @@ initialState cfg logFunc eventHandler = do
                             , _appRAFs             = rafs
                             , _appFCLTUs           = fcltus
                             }
-
+  where
+    findTmIdx rafs port = V.findIndex (\c -> c ^. cfgRAFPortID == port) rafs
 
 instance HasTimer ProviderState where
     getTimerHBT = lens _appTimerHBT (\c v -> c { _appTimerHBT = v })

@@ -18,6 +18,8 @@ data SleEvent =
   | TMLProtocolAbort
   | TMLParseError !Text
   | TMLError !Text
+  | SLEWarning !Text
+  | SLEError !Text
   | TMLPeerAbort
   | SLEBindReceived !SleBindInvocation
   | SLEBindSucceed !SII
@@ -39,7 +41,7 @@ data SleEvent =
   | SLEFcltuStopReceived !SleStopInvocation
   | SLEFcltuStopFailed !SII
   | SLEFcltuStopSucceed !SII
-  | SLEFcltuTransferData !SII !FCLTUIdx !SlduStatusNotification !FcltuTransDataInvocation
+  | SLEFcltuTransferData !SII !FCLTUIdx !TMIdx !FcltuTransDataInvocation
   deriving (Show, Generic)
 
 type SleEventHandler = SleEvent -> IO ()

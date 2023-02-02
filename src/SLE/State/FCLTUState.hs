@@ -14,6 +14,7 @@ module SLE.State.FCLTUState
     , sendSleFcltuCmd
     , sendSleFcltuPdu
     , setCltuID
+    , fcltuResetState
     , fcltuSII
     , fcltuState
     , fcltuProdNotification
@@ -23,6 +24,7 @@ module SLE.State.FCLTUState
     , fcltuQueue
     , fcltuVarCfg
     , fcltuIdx
+    , fcltuTMIdx
     , fcltuPeers
     , fcltuCltuID
     , fcltuLastProcessed
@@ -74,6 +76,7 @@ data FCLTUVar = FCLTUVar
     , _fcltuSleHandle :: !SleHandle
     , _fcltuVarCfg    :: !FCLTUConfig
     , _fcltuIdx       :: !FCLTUIdx
+    , _fcltuTMIdx     :: !TMIdx
     , _fcltuPeers     :: !(HashMap AuthorityIdentifier Peer)
     }
 makeLenses ''FCLTUVar
@@ -95,13 +98,13 @@ fcltuStartState cfg = FCLTU { _fcltuSII                = cfg ^. cfgFCLTUSII
 
 
 newFCLTUVarIO
-    :: (MonadIO m) => CommonConfig -> FCLTUConfig -> FCLTUIdx -> m FCLTUVar
-newFCLTUVarIO commonCfg cfg idx = do
+    :: (MonadIO m) => CommonConfig -> FCLTUConfig -> FCLTUIdx -> TMIdx -> m FCLTUVar
+newFCLTUVarIO commonCfg cfg idx tmIdx = do
     let fcltu = fcltuStartState cfg
     var <- newTVarIO fcltu
     q   <- newTBQueueIO 100
     hdl <- newSleHandle (TCFCLTU idx) 1 -- buffer size is 1 as we don't use a buffer
-    return $! FCLTUVar var q hdl cfg idx (mkPeerSet commonCfg)
+    return $! FCLTUVar var q hdl cfg idx tmIdx (mkPeerSet commonCfg)
 
 
 readFCLTUVarIO :: (MonadIO m) => FCLTUVar -> m FCLTU
@@ -111,7 +114,7 @@ readFCLTUVar :: FCLTUVar -> STM FCLTU
 readFCLTUVar var = readTVar (_fcltuVar var)
 
 writeFCLTUVar :: FCLTUVar -> FCLTU -> STM ()
-writeFCLTUVar var raf = writeTVar (_fcltuVar var) raf
+writeFCLTUVar var fcltu = writeTVar (_fcltuVar var) fcltu
 
 getFCLTUState :: (MonadIO m) => FCLTUVar -> m ServiceState
 getFCLTUState var = _fcltuState <$> readTVarIO (_fcltuVar var)
@@ -148,4 +151,6 @@ setCltuID
 setCltuID var cltuID = _fcltuProdNotification <$> modifyFCLTUState var update
     where update st = st & fcltuCltuID .~ cltuID & fcltuCltusReceived +~ 1
 
-
+fcltuResetState :: (MonadIO m) => FCLTUVar -> m ()
+fcltuResetState var =
+    atomically $ writeFCLTUVar var (fcltuStartState (var ^. fcltuVarCfg))
