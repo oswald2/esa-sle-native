@@ -25,6 +25,7 @@ module SLE.Data.ProviderConfig
     , cfgFCLTUSII
     , cfgFCLTUPort
     , cfgFCLTUPortID
+    , cfgFCLTUAssociatedTMPort
     ) where
 
 
@@ -65,18 +66,20 @@ defaultRAFConfig = RAFConfig
     }
 
 data FCLTUConfig = FCLTUConfig
-    { _cfgFCLTUSII    :: !SII
-    , _cfgFCLTUPort   :: !Word16
-    , _cfgFCLTUPortID :: !Text
+    { _cfgFCLTUSII              :: !SII
+    , _cfgFCLTUPort             :: !Word16
+    , _cfgFCLTUPortID           :: !Text
+    , _cfgFCLTUAssociatedTMPort :: !Text
     }
     deriving stock (Show, Read, Generic)
     deriving anyclass (FromJSON, ToJSON)
 
 defaultFCLTUConfig :: FCLTUConfig
 defaultFCLTUConfig = FCLTUConfig
-    { _cfgFCLTUSII    = SII "sagr=3.spack=facility-PASS1.fsl-fg=1.cltu=cltu1"
-    , _cfgFCLTUPort   = 5009
-    , _cfgFCLTUPortID = "TCPORT"
+    { _cfgFCLTUSII = SII "sagr=3.spack=facility-PASS1.fsl-fg=1.cltu=cltu1"
+    , _cfgFCLTUPort             = 5009
+    , _cfgFCLTUPortID           = "TCPORT"
+    , _cfgFCLTUAssociatedTMPort = "TMPORT"
     }
 
 

@@ -17,6 +17,7 @@ module SLE.Data.FCLTU
 import           RIO                     hiding ( (.~)
                                                 , (^.)
                                                 )
+import qualified RIO.ByteString                as B
 
 import           Control.Lens                   ( (.~)
                                                 , (^.)
@@ -52,14 +53,15 @@ fcltuStateMachine
        )
     => FCLTUConfig
     -> FCLTUVar
+    -> (Word64 -> IO ())
     -> SlePdu
     -> m ()
-fcltuStateMachine cfg var pdu = do
+fcltuStateMachine cfg var perfFunc pdu = do
     state    <- getFCLTUState var
     newState <- case state of
         ServiceInit   -> processInitState cfg var pdu
         ServiceBound  -> processBoundState cfg var pdu
-        ServiceActive -> processActiveState cfg var pdu
+        ServiceActive -> processActiveState cfg var perfFunc pdu
     setFCLTUState var newState
     sleRaiseEvent $ SLEFcltuStatus (var ^. fcltuIdx) newState
 
@@ -77,6 +79,7 @@ processInitState
 processInitState cfg var (SlePduBind pdu) = do
     logDebug "processInitState: BIND"
 
+    fcltuResetState var
     sleRaiseEvent (SLEBindReceived pdu)
 
     cmCfg <- RIO.view commonCfg
@@ -92,7 +95,7 @@ processInitState cfg var (SlePduBind pdu) = do
                     , AccessDenied
                     )
                 else Right ()
-                                    -- Check, if we are a FCLTU Bind Request
+                                                                    -- Check, if we are a FCLTU Bind Request
             if pdu ^. sleBindServiceType /= FwdCltu
                 then Left
                     ( "Requested Service is not FCLTU: "
@@ -100,7 +103,7 @@ processInitState cfg var (SlePduBind pdu) = do
                     , ServiceTypeNotSupported
                     )
                 else Right ()
-                                    -- check the requested SLE Version 
+                                                                    -- check the requested SLE Version 
             if (pdu ^. sleVersionNumber /= VersionNumber 3)
                     && (pdu ^. sleVersionNumber /= VersionNumber 4)
                 then Left
@@ -196,6 +199,7 @@ processBoundState cfg var (SlePduUnbind pdu) = do
             }
     sendSleFcltuPdu var ret
     sleRaiseEvent (SLEUnbindSucceed (cfg ^. cfgFCLTUSII))
+    fcltuResetState var
     return ServiceInit
 
 processBoundState cfg var (SlePduFcltuStart pdu) = do
@@ -231,7 +235,7 @@ processBoundState cfg var (SlePduFcltuStart pdu) = do
 
 processBoundState _cfg _var (SlePduBind _) = do
     logWarn "Received BIND when in FCLTU bound state, ignored"
-    return ServiceInit
+    return ServiceBound
 
 
 processBoundState _cfg _var pdu = do
@@ -245,9 +249,10 @@ processActiveState
     :: (MonadIO m, MonadReader env m, HasEventHandler env, HasLogFunc env)
     => FCLTUConfig
     -> FCLTUVar
+    -> (Word64 -> IO ())
     -> SlePdu
     -> m ServiceState
-processActiveState cfg var (SlePduStop pdu) = do
+processActiveState cfg var _ (SlePduStop pdu) = do
     logDebug "processActiveState: FCLTU STOP"
 
     sleRaiseEvent (SLEFcltuStopReceived pdu)
@@ -265,8 +270,11 @@ processActiveState cfg var (SlePduStop pdu) = do
     sleRaiseEvent (SLEFcltuStopSucceed (cfg ^. cfgFCLTUSII))
     return ServiceBound
 
-processActiveState cfg var (SlePduFcltuTransferData pdu) = do
+processActiveState cfg var perfFunc (SlePduFcltuTransferData pdu) = do
     logDebug "processActiveState: FCLTU TRANSFER DATA"
+
+    -- update the statistics
+    liftIO $ perfFunc (fromIntegral (B.length (pdu ^. fcltuData)))
 
     -- TODO check values
     let diag       = Nothing
@@ -274,7 +282,7 @@ processActiveState cfg var (SlePduFcltuTransferData pdu) = do
         !newCltuID = cltuID + 1
 
     -- set the CLTU ID in the state 
-    notif <- setCltuID var cltuID
+    void $ setCltuID var cltuID
 
     -- send response 
     let ret = SLEPdu $ SlePduFcltuTransReturn $ FcltuTransferDataReturn
@@ -286,11 +294,15 @@ processActiveState cfg var (SlePduFcltuTransferData pdu) = do
             }
     sendSleFcltuPdu var ret
     sleRaiseEvent
-        (SLEFcltuTransferData (cfg ^. cfgFCLTUSII) (var ^. fcltuIdx) notif pdu)
+        (SLEFcltuTransferData (cfg ^. cfgFCLTUSII)
+                              (var ^. fcltuIdx)
+                              (var ^. fcltuTMIdx)
+                              pdu
+        )
     return ServiceActive
 
 
-processActiveState _cfg _var pdu = do
+processActiveState _cfg _var _perfFunc pdu = do
     logWarn
         $  "Active State: Functionality for PDU not yet implemented: "
         <> fromString (ppShow pdu)

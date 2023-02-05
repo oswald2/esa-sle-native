@@ -424,9 +424,8 @@ listenFCLTU
     -> FCLTUConfig
     -> FCLTUIdx
     -> (SlePdu -> m ())
-    -> (Word64 -> IO ())
     -> m ()
-listenFCLTU hdl cfg idx process perfFunc = do
+listenFCLTU hdl cfg idx process = do
     void
         $ runGeneralTCPServer
               (serverSettings (fromIntegral (cfg ^. cfgFCLTUPort)) "*")
@@ -449,4 +448,4 @@ listenFCLTU hdl cfg idx process perfFunc = do
                   <> fromString (show res)
 
     -- loop over, we need to start again on disconnect
-    listenFCLTU hdl cfg idx process perfFunc
+    listenFCLTU hdl cfg idx process

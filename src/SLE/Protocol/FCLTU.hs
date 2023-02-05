@@ -35,8 +35,7 @@ runFCLTU perfFunc var = do
     listenFCLTU (var ^. fcltuSleHandle)
                 cfg
                 (var ^. fcltuIdx)
-                (fcltuStateMachine cfg var)
-                perfFunc
+                (fcltuStateMachine cfg var perfFunc)
     runFCLTU perfFunc var
 
 
