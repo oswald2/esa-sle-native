@@ -66,25 +66,27 @@ getCurrentTime :: (MonadIO m) => m CCSDSTime
 getCurrentTime = do
     t <- liftIO getPOSIXTime
     let micro :: Int64
-        micro     = floor (1e-6 * epochTime)
-        epochTime = nominalDiffTimeToSeconds t + (-378691200)
+        micro     = floor (subsecs * 1E6)
+        (_ :: Integer, subsecs) = properFraction epochTime 
+        epochTime = nominalDiffTimeToSeconds t + 378691200
         secs :: Integer
         secs        = floor epochTime
         (days, sec) = secs `quotRem` 86400
         msec        = fromIntegral $ (micro `rem` 1_000_000) `div` 1000
-    return $ CCSDSTime (fromIntegral days) (fromIntegral sec) msec
+    return $ CCSDSTime (fromIntegral days) (fromIntegral sec * 1000) msec
 
 getCurrentTimePico :: (MonadIO m) => m CCSDSTimePico
 getCurrentTimePico = do
     t <- liftIO getPOSIXTime
     let pico :: Integer
-        pico      = floor (1e-12 * epochTime)
-        epochTime = nominalDiffTimeToSeconds t + (-378691200)
+        pico      = floor (subsecs * 1E12)
+        (_ :: Integer, subsecs) = properFraction epochTime 
+        epochTime = nominalDiffTimeToSeconds t + 378691200
         secs :: Integer
         secs        = floor epochTime
         (days, sec) = secs `quotRem` 86400
         psec        = fromIntegral (pico `rem` 1_000_000_000_000)
-    return $ CCSDSTimePico (fromIntegral days) (fromIntegral sec) psec
+    return $ CCSDSTimePico (fromIntegral days) (fromIntegral sec * 1000) psec
 
 
 ccsdsTimeBuilder :: CCSDSTime -> B.Builder

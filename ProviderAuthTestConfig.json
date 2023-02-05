@@ -1,6 +1,7 @@
 {
     "_cfgCommon": {
-        "_cfgAuthorize": "AuthNone",
+        "_cfgAuthorize": "AuthBind",
+        "_cfgSHAType": "SHA1",
         "_cfgLocal": "PARAGONTT",
         "_cfgPassword": "000102030405060708090a0b0c0d0e0f",
         "_cfgPeers": [
@@ -39,7 +40,7 @@
             },
             "_cfgRAFBufferSize": 100,
             "_cfgRAFLatency": 1000000,
-            "_cfgRAFPort": 5008,
+            "_cfgRAFPort": 5100,
             "_cfgRAFPortID": "TMPORT",
             "_cfgRAFSII": "sagr=3.spack=facility-PASS1.rsl-fg=1.raf=onlc1"
         }

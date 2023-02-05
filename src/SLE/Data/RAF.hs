@@ -17,11 +17,13 @@ module SLE.Data.RAF
 import           RIO                     hiding ( (.~)
                                                 , (^.)
                                                 )
+import qualified RIO.HashMap                   as HM
 
 import           Control.Lens                   ( (.~)
                                                 , (^.)
                                                 )
 
+import           SLE.Data.AUL
 import           SLE.Data.Bind
 import           SLE.Data.Common                ( ServiceState(..)
                                                 , SleAcknowledgement
@@ -33,9 +35,7 @@ import           SLE.Data.Common                ( ServiceState(..)
                                                 , sleStopCredentials
                                                 , sleStopInvokeID
                                                 )
-import           SLE.Data.CommonConfig          ( cfgLocal
-                                                , isPeer
-                                                )
+import           SLE.Data.CommonConfig
 import           SLE.Data.PDU
 import           SLE.Data.ProviderConfig        ( RAFConfig
                                                 , cfgRAFPortID
@@ -111,16 +111,31 @@ processInitState cfg var (SlePduBind pdu) = do
 
     let authSet = var ^. rafPeers
         sii     = toSII (pdu ^. sleServiceInstanceID)
-        res     = do
--- first, when a bind comes in, perform some checks
-            if not (isPeer authSet (pdu ^. sleBindInitiatorID))
-                then Left
+
+        chkAuth = case cmCfg ^. cfgAuthorize of
+            AuthNone -> True
+            _        -> case HM.lookup (pdu ^. sleBindInitiatorID) authSet of
+                Nothing   -> False
+                Just peer -> case pdu ^. sleBindCredentials of
+                    Nothing   -> False
+                    Just isp1 -> checkCredentials
+                        isp1
+                        (pdu ^. sleBindInitiatorID)
+                        (passFromHex (cfgPeerPassword peer))
+
+        res = do
+            -- first, when a bind comes in, perform some checks
+            if (not (isPeer authSet (pdu ^. sleBindInitiatorID)))
+                || (not chkAuth)
+            then
+                Left
                     ( "Access Denied, initiator not allowed: "
                         <> display (pdu ^. sleBindInitiatorID)
                     , AccessDenied
                     )
-                else Right ()
-                                                                                            -- Check, if we are a RAF Bind Request
+            else
+                Right ()
+                                                                                                                                -- Check, if we are a RAF Bind Request
             if pdu ^. sleBindServiceType /= RtnAllFrames
                 then Left
                     ( "Requested Service is not RAF: "
@@ -128,7 +143,7 @@ processInitState cfg var (SlePduBind pdu) = do
                     , ServiceTypeNotSupported
                     )
                 else Right ()
-                                                                                            -- check the requested SLE Version 
+                                                                                                                                -- check the requested SLE Version 
             if (pdu ^. sleVersionNumber /= VersionNumber 3)
                     && (pdu ^. sleVersionNumber /= VersionNumber 4)
                 then Left

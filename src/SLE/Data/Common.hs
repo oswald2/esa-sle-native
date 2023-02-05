@@ -8,7 +8,10 @@ module SLE.Data.Common
     , intPosShort
     , Credentials
     , credentials
-    , getCredentials
+    , ISP1Credentials(..)
+    , isp1Credentials
+    , mkCredentials
+    , isp1CredentialsParser
     , Time(..)
     , time
     , ConditionalTime
@@ -80,18 +83,33 @@ import           Control.Monad.Except
 
 import           ByteString.StrictBuilder
 
-import           Data.ASN1.BinaryEncoding
-import           Data.ASN1.Encoding
+import           Data.ASN1.BinaryEncoding       ( DER(DER) )
+import           Data.ASN1.Encoding             ( ASN1Decoding(decodeASN1)
+                                                , ASN1Encoding(encodeASN1)
+                                                , decodeASN1'
+                                                , encodeASN1'
+                                                )
 import           Data.ASN1.Prim
 import           Data.ASN1.Types
 import           Data.Aeson
 import           Data.Attoparsec.ByteString     ( parseOnly )
 
-import           SLE.Data.CCSDSTime
+import           SLE.Data.CCSDSTime             ( CCSDSTime
+                                                , CCSDSTimePico
+                                                , ccsdsTimeBuilder
+                                                , ccsdsTimeParser
+                                                , ccsdsTimePicoBuilder
+                                                , ccsdsTimePicoParser
+                                                , toPicoTime
+                                                )
+import           SLE.Data.HexBytes
 
 import           Text.Builder                  as TB
+                                                ( decimal
+                                                , run
+                                                , text
+                                                )
 
--- import           Text.Show.Pretty        hiding ( Time )
 
 newtype SII = SII Text
     deriving stock (Eq, Ord, Show, Read, Generic)
@@ -116,6 +134,56 @@ class DecodeASN1 a where
   decode :: ByteString -> Maybe a
 
 
+data ISP1Credentials = ISP1Credentials
+    { _isp1Time         :: CCSDSTime
+    , _isp1RandomNumber :: Int32
+    , _isp1TheProtected :: HexBytes
+    }
+    deriving stock (Show, Generic)
+    deriving anyclass NFData
+
+mkCredentials :: CCSDSTime -> Int32 -> ByteString -> ISP1Credentials
+mkCredentials tim rand prot = ISP1Credentials
+    { _isp1Time         = tim
+    , _isp1RandomNumber = rand
+    , _isp1TheProtected = bsToHex prot
+    }
+
+isp1Credentials :: ISP1Credentials -> [ASN1]
+isp1Credentials ISP1Credentials {..} =
+    [ Start Sequence
+    , OctetString (builderBytes (ccsdsTimeBuilder _isp1Time))
+    , IntVal (fromIntegral _isp1RandomNumber)
+    , OctetString (hexToBS _isp1TheProtected)
+    , End Sequence
+    ]
+
+instance EncodeASN1 ISP1Credentials where
+    encode val = encodeASN1' DER (isp1Credentials val)
+
+
+
+isp1CredentialsParser :: Parser ISP1Credentials
+isp1CredentialsParser = do
+    parseSequence isp1Parser
+  where
+    isp1Parser = do
+        t    <- parseCredentialTime
+        r    <- parseIntVal
+        prot <- parseOctetString
+        case t of
+            Time cds -> return ISP1Credentials
+                { _isp1Time         = cds
+                , _isp1RandomNumber = fromIntegral r
+                , _isp1TheProtected = bsToHex prot
+                }
+            TimePico _ ->
+                throwError
+                    "isp1CredentialsParser: expected CCSDS Time, got CCSDS Pico Time"
+
+
+
+
 newtype IntPosShort = IntPosShort { getIntPosShort :: Word16 }
 
 intPosShort :: IntPosShort -> ASN1
@@ -137,23 +205,41 @@ parseIntVal = do
         _ -> throwError "parseIntVal: no IntVal"
 
 
-type Credentials = Maybe ByteString
+type Credentials = Maybe ISP1Credentials
 
 credentials :: Credentials -> ASN1
-credentials Nothing   = Other Context 0 ""
-credentials (Just bs) = Other Context 1 bs
+credentials Nothing = Other Context 0 ""
+credentials (Just creds) =
+    Other Context 1 (encodeASN1' DER (isp1Credentials creds))
 
-getCredentials :: ASN1 -> Maybe Credentials
-getCredentials (Other Context 0 bs) =
-    if B.null bs then Just Nothing else Just (Just bs)
-getCredentials _ = Nothing
+-- getCredentials :: ASN1 -> Maybe Credentials
+-- getCredentials (Other Context 0 bs) =
+--     if B.null bs then Just Nothing else Just (Just bs)
+-- getCredentials _ = Nothing
 
 parseCredentials :: Parser Credentials
 parseCredentials = do
-    parseChoice
-        (\bs -> if B.null bs then return Nothing else return (Just bs))
-        (const (return Nothing))
-        "parseCredentials: no credentials found"
+    x <- get
+    case x of
+        ((Other Context 0 _) : rest) -> do
+            put rest
+            return Nothing
+        ((Other Context 1 bs) : rest) -> do
+            put rest
+            case decodeASN1' DER bs of
+                Left err ->
+                    throwError $ "Could not parse Credentials: " <> fromString
+                        (show err)
+                Right v -> do
+                    case parseASN1 isp1CredentialsParser v of
+                        Left err ->
+                            throwError $ "Could not parse Credentials: " <> err
+                        Right isp -> return (Just isp)
+        asn1 ->
+            throwError
+                $  "Could not parse Credentials: unexpected ASN1: "
+                <> fromString (show asn1)
+
 
 parseChoice
     :: (MonadError Text m, MonadState [ASN1] m)
@@ -215,6 +301,20 @@ parseTime = do
                 Right t   -> return t
         _ -> throwError "parseTime: no time found"
 
+
+parseCredentialTime :: Parser Time
+parseCredentialTime = do
+    x <- get
+    case x of
+        (OctetString bs : rest) -> do
+            put rest
+            case timeFromBS bs of
+                Left  err -> throwError err
+                Right t   -> return t
+        asn1 ->
+            throwError
+                $  "Parsing ISP1 Credentials Time: unexpected ASN1: "
+                <> fromString (show asn1)
 
 timeFromBS :: ByteString -> Either Text Time
 timeFromBS bs
@@ -712,3 +812,5 @@ parseForwardDuStatus = do
         5 -> return FwDUProductionNotStarted
         6 -> return FwDUUnsupportedTransmissionMode
         _ -> return FwDUUnsupportedTransmissionMode
+
+

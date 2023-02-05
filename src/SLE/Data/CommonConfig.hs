@@ -5,11 +5,13 @@ module SLE.Data.CommonConfig
     ( SleAuthType(..)
     , CommonConfig(..)
     , Peer(..)
+    , HashToUse(..)
     , defaultCommonConfig
     , cfgTML
     , cfgPeers
     , cfgLocal
     , cfgAuthorize
+    , cfgSHAType
     , cfgPassword
     , cfgVersion
     , mkPeerSet
@@ -24,10 +26,18 @@ import           Control.Lens
 import           Data.Aeson
 
 import           SLE.Data.Bind
+import           SLE.Data.HexBytes
 import           SLE.Data.TMLConfig      hiding ( loadConfigJSON
                                                 , writeConfigJSON
                                                 )
 
+
+data HashToUse = SHA1 | SHA256
+    deriving (Eq, Ord, Enum, Show, Read, Generic)
+
+instance FromJSON HashToUse
+instance ToJSON HashToUse where
+    toEncoding = genericToEncoding defaultOptions
 
 
 data SleAuthType =
@@ -43,7 +53,7 @@ instance ToJSON SleAuthType where
 
 data Peer = Peer
     { cfgPeerAuthorityID :: !AuthorityIdentifier
-    , cfgPeerPassword    :: !Password
+    , cfgPeerPassword    :: !HexBytes
     }
     deriving (Eq, Ord, Show, Read, Generic)
 
@@ -57,8 +67,9 @@ data CommonConfig = CommonConfig
     , _cfgPeers     :: [Peer]
     , _cfgLocal     :: !AuthorityIdentifier
     , _cfgAuthorize :: !SleAuthType
+    , _cfgSHAType   :: !HashToUse
     , _cfgVersion   :: !VersionNumber
-    , _cfgPassword  :: !Text
+    , _cfgPassword  :: !HexBytes
     }
     deriving (Show, Read, Generic)
 
@@ -76,8 +87,10 @@ isPeer hm auid = HM.member auid hm
 
 
 defaultPeers :: [Peer]
-defaultPeers = [Peer (AuthorityIdentifier "EGSCC") (Password "12345678"), 
-    Peer (AuthorityIdentifier "SLETT") (Password "aabbccddaabbccdd")]
+defaultPeers =
+    [ Peer (AuthorityIdentifier "EGSCC") (bsToHex "12345678")
+    , Peer (AuthorityIdentifier "SLETT") (bsToHex "aabbccddaabbccdd")
+    ]
 
 defaultCommonConfig :: CommonConfig
 defaultCommonConfig = CommonConfig
@@ -85,8 +98,9 @@ defaultCommonConfig = CommonConfig
     , _cfgPeers     = defaultPeers
     , _cfgLocal     = AuthorityIdentifier "PARAGONTT"
     , _cfgAuthorize = AuthNone
+    , _cfgSHAType   = SHA1
     , _cfgVersion   = VersionNumber 3
-    , _cfgPassword  = "PASSWD"
+    , _cfgPassword  = bsToHex "PASSWD"
     }
 makeLenses ''CommonConfig
 

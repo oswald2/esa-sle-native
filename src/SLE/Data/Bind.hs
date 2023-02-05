@@ -4,6 +4,9 @@
 module SLE.Data.Bind
     ( Credentials
     , Password(..)
+    , passWordToHex
+    , passFromBS
+    , passFromHex
     , SleBindInvocation(..)
     , mkSleBindInvocation
     , mkSleUnbindBindInvocation
@@ -64,8 +67,8 @@ import           Data.ASN1.Prim                 ( getInteger )
 import           Data.ASN1.Types
 
 import           SLE.Data.Common
+import           SLE.Data.HexBytes
 import           SLE.Data.ServiceInstanceID
-
 
 
 
@@ -89,11 +92,17 @@ parseAuthorityIdentifier = do
     AuthorityIdentifier <$> parseVisibleString
 
 
-newtype Password = Password Text
+newtype Password = Password HexBytes
   deriving (Eq, Ord, Show, Read, Generic)
 
--- unPassword :: Password -> Text
--- unPassword (Password pw) = pw
+passWordToHex :: Password -> HexBytes
+passWordToHex (Password x) = x
+
+passFromBS :: ByteString -> Password
+passFromBS x = Password (bsToHex x)
+
+passFromHex :: HexBytes -> Password
+passFromHex x = Password x
 
 instance Display Password where
     textDisplay (Password _) = "***"
@@ -215,7 +224,7 @@ data SleBindInvocation = SleBindInvocation
     , _sleVersionNumber       :: !VersionNumber
     , _sleServiceInstanceID   :: !ServiceInstanceIdentifier
     }
-    deriving (Eq, Show, Generic)
+    deriving (Show, Generic)
 makeLenses ''SleBindInvocation
 
 mkSleBindInvocation
@@ -370,7 +379,7 @@ data SleBindReturn = SleBindReturn
     , _sleBindRetResponderID :: AuthorityIdentifier
     , _sleBindRetResult      :: BindResult
     }
-    deriving (Eq, Show, Generic)
+    deriving (Show, Generic)
 makeLenses ''SleBindReturn
 
 retResult :: BindResult -> ASN1

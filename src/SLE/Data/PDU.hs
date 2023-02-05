@@ -2,6 +2,7 @@ module SLE.Data.PDU
     ( SlePdu(..)
     , setCredentials
     , isBind
+    , isBindOrReturn
     , isTransfer
     ) where
 
@@ -38,11 +39,17 @@ isBind :: SlePdu -> Bool
 isBind (SlePduBind _) = True
 isBind _              = False
 
+isBindOrReturn :: SlePdu -> Bool
+isBindOrReturn (SlePduBind       _) = True
+isBindOrReturn (SlePduBindReturn _) = True
+isBindOrReturn _                    = False
+
+
 isTransfer :: SlePdu -> Bool
 isTransfer (SlePduRafTransferBuffer _) = True
 isTransfer _                           = False
 
-setCredentials :: SlePdu -> ByteString -> SlePdu
+setCredentials :: SlePdu -> ISP1Credentials -> SlePdu
 setCredentials (SlePduBind val) creds =
     SlePduBind $ val & sleBindCredentials ?~ creds
 setCredentials (SlePduBindReturn val) creds =

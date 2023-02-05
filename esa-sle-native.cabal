@@ -79,6 +79,7 @@ library
     SLE.Data.RAFOps
     SLE.Data.Ops 
     SLE.Data.FCLTUOps
+    SLE.Data.HexBytes
     SLE.Protocol.TMLProtocol
     SLE.Protocol.SLEProtocol
     SLE.Protocol.Provider 
@@ -119,6 +120,7 @@ library
     network,
     mtl,
     text-builder,
+    cryptohash-sha1,
     cryptohash-sha256,
     aeson-pretty,
     pretty-show,

@@ -14,6 +14,8 @@ import           SLE.Data.Bind
 import           SLE.Data.Common
 import           SLE.Data.CommonConfig
 import           SLE.Data.FCLTUOps
+import           SLE.Data.HexBytes
+import           SLE.Data.HexBytes
 import           SLE.Data.ServiceInstanceID
 import           SLE.Data.TMLConfig
 import           SLE.Data.UserConfig
@@ -32,7 +34,7 @@ sleConfig =
         .~ AuthorityIdentifier "SLETT"
         &  cfgCommon
         .  cfgPeers
-        .~ [Peer (AuthorityIdentifier "PARAGONTT") (Password T.empty)]
+        .~ [Peer (AuthorityIdentifier "PARAGONTT") (bsToHex "PASSWD")]
 
 
 main :: IO ()
