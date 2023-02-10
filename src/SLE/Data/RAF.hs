@@ -264,7 +264,7 @@ processBoundState cfg var state ppdu@(SlePduRafStart pdu) = do
 
             -- send response 
             let ret = SLEPdu $ SlePduRafStartReturn $ RafStartReturn
-                    { _rafStartRetCredentials = pdu ^. rafStartCredentials
+                    { _rafStartRetCredentials = Nothing
                     , _rafStartRetInvokeID    = pdu ^. rafStartInvokeID
                     , _rafStartRetResult      = diag
                     }
@@ -290,10 +290,10 @@ processBoundState cfg var state ppdu@(SlePduRafStart pdu) = do
         else do
             let
                 ret = SLEPdu $ SlePduRafStartReturn $ RafStartReturn
-                    { _rafStartRetCredentials = pdu ^. rafStartCredentials
+                    { _rafStartRetCredentials = Nothing
                     , _rafStartRetInvokeID    = pdu ^. rafStartInvokeID
                     , _rafStartRetResult      = Just
-                        (DiagRafStartSpecific RafStartInvalid)
+                        (DiagRafStartCommon DiagOtherReason)
                     }
             sendSlePdu var ret
             sleRaiseEvent (SLERafStartFailed (cfg ^. cfgRAFSII))
@@ -343,7 +343,7 @@ processActiveState cfg var state ppdu@(SlePduStop pdu) = do
         then do
             -- send response 
             let ret = SLEPdu $ SlePduAck $ SleAcknowledgement
-                    { _sleAckCredentials = pdu ^. sleStopCredentials
+                    { _sleAckCredentials = Nothing
                     , _sleAckInvokeID    = pdu ^. sleStopInvokeID
                     , _sleResult         = Nothing
                     }
@@ -352,7 +352,7 @@ processActiveState cfg var state ppdu@(SlePduStop pdu) = do
             return ServiceBound
         else do
             let ret = SLEPdu $ SlePduAck $ SleAcknowledgement
-                    { _sleAckCredentials = pdu ^. sleStopCredentials
+                    { _sleAckCredentials = Nothing
                     , _sleAckInvokeID    = pdu ^. sleStopInvokeID
                     , _sleResult         = Just DiagOtherReason
                     }

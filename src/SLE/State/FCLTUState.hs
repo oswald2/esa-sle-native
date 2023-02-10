@@ -33,9 +33,14 @@ module SLE.State.FCLTUState
     , fcltuCltusReceived
     , fcltuCltusProcessed
     , fcltuCltusRadiated
+    , fcltuInitiator
+    , fcltuSetInitiator
+    , fcltuGetInitiator
+    , fcltuGetPeer
     ) where
 
 import           RIO
+import qualified RIO.HashMap                   as HM
 
 import           Control.Lens                   ( (+~)
                                                 , makeLenses
@@ -62,6 +67,7 @@ data FCLTU = FCLTU
     , _fcltuCltusReceived      :: !Word64
     , _fcltuCltusProcessed     :: !Word64
     , _fcltuCltusRadiated      :: !Word64
+    , _fcltuInitiator          :: !(Maybe Peer)
     }
 makeLenses ''FCLTU
 
@@ -94,11 +100,17 @@ fcltuStartState cfg = FCLTU { _fcltuSII                = cfg ^. cfgFCLTUSII
                             , _fcltuCltusReceived      = 0
                             , _fcltuCltusProcessed     = 0
                             , _fcltuCltusRadiated      = 0
+                            , _fcltuInitiator          = Nothing
                             }
 
 
 newFCLTUVarIO
-    :: (MonadIO m) => CommonConfig -> FCLTUConfig -> FCLTUIdx -> TMIdx -> m FCLTUVar
+    :: (MonadIO m)
+    => CommonConfig
+    -> FCLTUConfig
+    -> FCLTUIdx
+    -> TMIdx
+    -> m FCLTUVar
 newFCLTUVarIO commonCfg cfg idx tmIdx = do
     let fcltu = fcltuStartState cfg
     var <- newTVarIO fcltu
@@ -154,3 +166,13 @@ setCltuID var cltuID = _fcltuProdNotification <$> modifyFCLTUState var update
 fcltuResetState :: (MonadIO m) => FCLTUVar -> m ()
 fcltuResetState var =
     atomically $ writeFCLTUVar var (fcltuStartState (var ^. fcltuVarCfg))
+
+fcltuSetInitiator :: (MonadIO m) => FCLTUVar -> Maybe Peer -> m ()
+fcltuSetInitiator var newAuthority = modifyFCLTU var f
+    where f state = state & fcltuInitiator .~ newAuthority
+
+fcltuGetInitiator :: (MonadIO m) => FCLTUVar -> m (Maybe Peer)
+fcltuGetInitiator var = _fcltuInitiator <$> readFCLTUVarIO var
+
+fcltuGetPeer :: FCLTUVar -> AuthorityIdentifier -> Maybe Peer
+fcltuGetPeer var authority = HM.lookup authority (_fcltuPeers var)

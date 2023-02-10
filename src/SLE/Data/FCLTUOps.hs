@@ -5,6 +5,8 @@ module SLE.Data.FCLTUOps
     , FcltuStartReturn(..)
     , FcltuStartTimes(..)
     , FcltuStartResult(..)
+    , DiagnosticFcltuStart(..)
+    , FcltuStartSpecific(..)
     , EventInvocationID(..)
     , SlduStatusNotification(..)
     , Duration(..)
