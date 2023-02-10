@@ -2,7 +2,7 @@
     "_cfgCommon": {
         "_cfgAuthorize": "AuthNone",
         "_cfgLocal": "PARAGONTT",
-        "_cfgPassword": "000102030405060708090a0b0c0d0e0f",
+        "_cfgPassword": "504153535744",
         "_cfgPeers": [
             {
                 "cfgPeerAuthorityID": "EGSCC",
@@ -10,9 +10,10 @@
             },
             {
                 "cfgPeerAuthorityID": "SLETT",
-                "cfgPeerPassword": "aabbccddaabbccdd"
+                "cfgPeerPassword": "61616262636364646161626263636464"
             }
         ],
+        "_cfgSHAType": "SHA1",
         "_cfgTML": {
             "cfgDeadFactor": 2,
             "cfgHeartbeat": 30,
@@ -26,6 +27,7 @@
     },
     "_cfgFCLTUs": [
         {
+            "_cfgFCLTUAssociatedTMPort": "TMPORT",
             "_cfgFCLTUPort": 5009,
             "_cfgFCLTUPortID": "TCPORT",
             "_cfgFCLTUSII": "sagr=3.spack=facility-PASS1.fsl-fg=1.cltu=cltu1"

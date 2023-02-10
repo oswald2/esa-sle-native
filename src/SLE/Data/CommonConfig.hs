@@ -85,7 +85,6 @@ mkPeerSet cfg =
 isPeer :: HashMap AuthorityIdentifier Peer -> AuthorityIdentifier -> Bool
 isPeer hm auid = HM.member auid hm
 
-
 defaultPeers :: [Peer]
 defaultPeers =
     [ Peer (AuthorityIdentifier "EGSCC") (bsToHex "12345678")

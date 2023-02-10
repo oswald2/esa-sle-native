@@ -10,7 +10,7 @@ module SLE.Data.DEL
 
 
 import           RIO
-import qualified RIO.Text                      as T
+--import qualified RIO.Text                      as T
 
 import           Data.Bits                      ( Bits((.&.)) )
 
@@ -55,13 +55,13 @@ encodePDUwithCreds cfg pdu = do
 
         newPdu = setCredentials pdu isp1
 
-    traceM
-        $  "encodePDU: new Credentials: "
-        <> T.pack (show isp1)
-        <> "\nTime: "
-        <> textDisplay t
-        <> "ASN1: "
-        <> T.pack (show (isp1Credentials isp1))
+    -- traceM
+    --     $  "encodePDU: new Credentials: "
+    --     <> T.pack (show isp1)
+    --     <> "\nTime: "
+    --     <> textDisplay t
+    --     <> "ASN1: "
+    --     <> T.pack (show (isp1Credentials isp1))
     return (encode newPdu)
 
 

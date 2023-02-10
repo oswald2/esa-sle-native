@@ -8,7 +8,6 @@ module SLE.Data.AUL
     ) where
 
 import           RIO
-import qualified RIO.Text                      as T
 
 import           ByteString.StrictBuilder       ( builderBytes )
 import           Crypto.Hash.SHA1              as SHA1
@@ -70,7 +69,7 @@ checkCredentials incoming userName pass =
         prot     = if hlength isp1Prot == 20
             then theProtected SHA1 hi
             else theProtected SHA256 hi
-    in  trace
+    in   {- trace
                 (  "HashInput: "
                 <> T.pack (show hi)
                 <> "\nTime: "
@@ -79,8 +78,6 @@ checkCredentials incoming userName pass =
                 <> T.pack (show (bsToHex prot))
                 <> " protected from ISP1: "
                 <> T.pack (show isp1Prot)
-                )
-                hexToBS
-                isp1Prot
-            == prot
+                ) -}
+        hexToBS isp1Prot == prot
 

@@ -8,6 +8,7 @@ module SLE.State.RAFState
     , rafStateStartTime
     , rafStateStopTime
     , rafStateRequestedQuality
+    , rafInitiator
     , newRAFVarIO
     , readRAFVarIO
     , readRAFVar
@@ -26,11 +27,15 @@ module SLE.State.RAFState
     , sendSleRafCmd
     , sendSlePdu
     , sendFrameOrNotification
+    , rafSetInitiator
+    , rafGetInitiator
+    , rafGetPeer
     ) where
 
 import           RIO                     hiding ( (.~)
                                                 , (^.)
                                                 )
+import qualified RIO.HashMap                   as HM
 
 import           Control.Lens
 
@@ -49,6 +54,7 @@ data RAF = RAF
     , _rafStateStartTime        :: !ConditionalTime
     , _rafStateStopTime         :: !ConditionalTime
     , _rafStateRequestedQuality :: !ReqFrameQuality
+    , _rafInitiator             :: !(Maybe Peer)
     }
 makeLenses ''RAF
 
@@ -72,6 +78,7 @@ rafStartState cfg = RAF { _rafSII                   = cfg ^. cfgRAFSII
                         , _rafStateStartTime        = Nothing
                         , _rafStateStopTime         = Nothing
                         , _rafStateRequestedQuality = AllFrames
+                        , _rafInitiator             = Nothing
                         }
 
 
@@ -124,3 +131,13 @@ sendFrameOrNotification var value =
 rafResetState :: (MonadIO m) => RAFVar -> m ()
 rafResetState var =
     atomically $ writeRAFVar var (rafStartState (var ^. rafVarCfg))
+
+rafSetInitiator :: (MonadIO m) => RAFVar -> Maybe Peer -> m ()
+rafSetInitiator var newAuthority = modifyRAF var f
+    where f state = state & rafInitiator .~ newAuthority
+
+rafGetInitiator :: (MonadIO m) => RAFVar -> m (Maybe Peer)
+rafGetInitiator var = _rafInitiator <$> readRAFVarIO var
+
+rafGetPeer :: RAFVar -> AuthorityIdentifier -> Maybe Peer
+rafGetPeer var authority = HM.lookup authority (_rafPeers var)

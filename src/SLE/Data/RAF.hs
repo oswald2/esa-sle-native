@@ -17,24 +17,13 @@ module SLE.Data.RAF
 import           RIO                     hiding ( (.~)
                                                 , (^.)
                                                 )
-import qualified RIO.HashMap                   as HM
 
 import           Control.Lens                   ( (.~)
                                                 , (^.)
                                                 )
 
-import           SLE.Data.AUL
 import           SLE.Data.Bind
-import           SLE.Data.Common                ( ServiceState(..)
-                                                , SleAcknowledgement
-                                                    ( SleAcknowledgement
-                                                    , _sleAckCredentials
-                                                    , _sleAckInvokeID
-                                                    , _sleResult
-                                                    )
-                                                , sleStopCredentials
-                                                , sleStopInvokeID
-                                                )
+import           SLE.Data.Common
 import           SLE.Data.CommonConfig
 import           SLE.Data.PDU
 import           SLE.Data.ProviderConfig        ( RAFConfig
@@ -48,19 +37,7 @@ import           SLE.State.Classes              ( HasCommonConfig(..)
                                                 , HasEventHandler
                                                 , sleRaiseEvent
                                                 )
-import           SLE.State.Events               ( SleEvent
-                                                    ( SLEBindFailed
-                                                    , SLEBindReceived
-                                                    , SLEBindSucceed
-                                                    , SLERafStartReceived
-                                                    , SLERafStartSucceed
-                                                    , SLERafStatus
-                                                    , SLERafStopReceived
-                                                    , SLERafStopSucceed
-                                                    , SLEUnbindReceived
-                                                    , SLEUnbindSucceed
-                                                    )
-                                                )
+import           SLE.State.Events
 import           SLE.State.RAFState
 
 import           Text.Show.Pretty
@@ -83,11 +60,12 @@ rafStateMachine
     -> SlePdu
     -> m ()
 rafStateMachine cfg var pdu = do
-    state    <- getRAFState var
-    newState <- case state of
-        ServiceInit   -> processInitState cfg var pdu
-        ServiceBound  -> processBoundState cfg var pdu
-        ServiceActive -> processActiveState cfg var pdu
+    state    <- readRAFVarIO var
+
+    newState <- case state ^. rafState of
+        ServiceInit   -> processInitState cfg var state pdu
+        ServiceBound  -> processBoundState cfg var state pdu
+        ServiceActive -> processActiveState cfg var state pdu
     setRAFState var newState
     sleRaiseEvent $ SLERafStatus (var ^. rafIdx) newState
 
@@ -100,44 +78,36 @@ processInitState
        )
     => RAFConfig
     -> RAFVar
+    -> RAF
     -> SlePdu
     -> m ServiceState
-processInitState cfg var (SlePduBind pdu) = do
+processInitState cfg var _state ppdu@(SlePduBind pdu) = do
     logDebug "processInitState: BIND"
 
-    rafResetState var 
+    rafResetState var
 
     sleRaiseEvent (SLEBindReceived pdu)
 
     cmCfg <- RIO.view commonCfg
 
-    let authSet = var ^. rafPeers
-        sii     = toSII (pdu ^. sleServiceInstanceID)
+    let peer = rafGetPeer var (pdu ^. sleBindInitiatorID)
+        sii  = toSII (pdu ^. sleServiceInstanceID)
 
-        chkAuth = case cmCfg ^. cfgAuthorize of
-            AuthNone -> True
-            _        -> case HM.lookup (pdu ^. sleBindInitiatorID) authSet of
-                Nothing   -> False
-                Just peer -> case pdu ^. sleBindCredentials of
-                    Nothing   -> False
-                    Just isp1 -> checkCredentials
-                        isp1
-                        (pdu ^. sleBindInitiatorID)
-                        (passFromHex (cfgPeerPassword peer))
-
-        res = do
+        res  = do
             -- first, when a bind comes in, perform some checks
-            if (not (isPeer authSet (pdu ^. sleBindInitiatorID)))
-                || (not chkAuth)
+            if checkPermission (cmCfg ^. cfgAuthorize)
+                               peer
+                               (var ^. rafPeers)
+                               ppdu
             then
+                Right ()
+            else
                 Left
-                    ( "Access Denied, initiator not allowed: "
+                    ( "Access Denied, credential check failed for inititator: "
                         <> display (pdu ^. sleBindInitiatorID)
                     , AccessDenied
                     )
-            else
-                Right ()
-                                                                                                                                -- Check, if we are a RAF Bind Request
+                                                                                                                                                                                    -- Check, if we are a RAF Bind Request
             if pdu ^. sleBindServiceType /= RtnAllFrames
                 then Left
                     ( "Requested Service is not RAF: "
@@ -145,7 +115,7 @@ processInitState cfg var (SlePduBind pdu) = do
                     , ServiceTypeNotSupported
                     )
                 else Right ()
-                                                                                                                                -- check the requested SLE Version 
+                                                                                                                                                                                    -- check the requested SLE Version 
             if (pdu ^. sleVersionNumber /= VersionNumber 3)
                     && (pdu ^. sleVersionNumber /= VersionNumber 4)
                 then Left
@@ -171,7 +141,12 @@ processInitState cfg var (SlePduBind pdu) = do
                                                    (pdu ^. sleVersionNumber)
                     }
             logDebug $ "ASN1: " <> displayShow (sleBindReturn retPdu)
+
+            -- Bind is accepted, set new initiator for later authentications
+            rafSetInitiator var peer
+            -- send the bind response 
             sendSlePdu var ret
+            -- notify the rest of the application, that the bind succeeded
             sleRaiseEvent (SLEBindSucceed sii)
             return ServiceBound
         Left (errmsg, diag) -> do
@@ -186,35 +161,35 @@ processInitState cfg var (SlePduBind pdu) = do
             sleRaiseEvent (SLEBindFailed sii diag)
             return ServiceInit
 
-processInitState _ _ (SlePduUnbind _) = do
+processInitState _ _ _ (SlePduUnbind _) = do
     logDebug "Received UNBIND when in init state, ignored"
     return ServiceInit
-processInitState _ _ (SlePduBindReturn _) = do
+processInitState _ _ _ (SlePduBindReturn _) = do
     logDebug "Received BIND RETURN when in init state, ignored"
     return ServiceInit
-processInitState _ _ (SlePduUnbindReturn _) = do
+processInitState _ _ _ (SlePduUnbindReturn _) = do
     logDebug "Received UNBIND RETURN when in init state, ignored"
     return ServiceInit
-processInitState _ _ (SlePduRafStart _) = do
+processInitState _ _ _ (SlePduRafStart _) = do
     logDebug "Received START when in init state, ignored"
     return ServiceInit
-processInitState _ _ (SlePduRafStartReturn _) = do
+processInitState _ _ _ (SlePduRafStartReturn _) = do
     logDebug "Received START RETURN when in init state, ignored"
     return ServiceInit
-processInitState _ _ (SlePduStop _) = do
+processInitState _ _ _ (SlePduStop _) = do
     logDebug "Received STOP when in init state, ignored"
     return ServiceInit
-processInitState _ _ (SlePduAck _) = do
+processInitState _ _ _ (SlePduAck _) = do
     logDebug "Received ACK when in init state, ignored"
     return ServiceInit
-processInitState _ _ (SlePduRafTransferBuffer _) = do
+processInitState _ _ _ (SlePduRafTransferBuffer _) = do
     logDebug "Received TRANSFER BUFFER when in init state, ignored"
     return ServiceInit
-processInitState _ _ (SlePduPeerAbort _) = do
+processInitState _ _ _ (SlePduPeerAbort _) = do
     logDebug "Received PEER ABORT when in init state, ignored"
     return ServiceInit
 
-processInitState _cfg _var pdu = do
+processInitState _cfg _var _state pdu = do
     logWarn
         $  "Init State: Functionality for PDU not yet implemented: "
         <> fromString (ppShow pdu)
@@ -222,71 +197,120 @@ processInitState _cfg _var pdu = do
 
 
 processBoundState
-    :: (MonadIO m, MonadReader env m, HasEventHandler env, HasLogFunc env)
+    :: ( MonadIO m
+       , MonadReader env m
+       , HasEventHandler env
+       , HasLogFunc env
+       , HasCommonConfig env
+       )
     => RAFConfig
     -> RAFVar
+    -> RAF
     -> SlePdu
     -> m ServiceState
-processBoundState cfg var (SlePduUnbind pdu) = do
+processBoundState cfg var state ppdu@(SlePduUnbind pdu) = do
     logDebug "processBoundState: UNBIND"
 
     sleRaiseEvent (SLEUnbindReceived pdu)
 
-    logWarn $ "SLE Unbind received, unbind reason: " <> display
-        (pdu ^. sleUnbindReason)
-    let ret = SLEPdu $ SlePduUnbindReturn SleUnbindReturn
-            { _sleUnbindRetCredentials = Nothing
-            , _sleUnbindRetResult      = Positive
-            }
-    sendSlePdu var ret
-    sleRaiseEvent (SLEUnbindSucceed (cfg ^. cfgRAFSII))
-    rafResetState var 
-    return ServiceInit
+    cmCfg <- RIO.view commonCfg
 
-processBoundState cfg var (SlePduRafStart pdu) = do
+    if checkPermission (cmCfg ^. cfgAuthorize)
+                       (state ^. rafInitiator)
+                       (var ^. rafPeers)
+                       ppdu
+        then do
+            logWarn $ "SLE Unbind received, unbind reason: " <> display
+                (pdu ^. sleUnbindReason)
+            let ret = SLEPdu $ SlePduUnbindReturn SleUnbindReturn
+                    { _sleUnbindRetCredentials = Nothing
+                    , _sleUnbindRetResult      = Positive
+                    }
+            -- reply to the unbind operation
+            sendSlePdu var ret
+            -- notify the application
+            sleRaiseEvent (SLEUnbindSucceed (cfg ^. cfgRAFSII))
+
+            -- reset the state back to the initial values
+            rafResetState var
+            return ServiceInit
+        else do
+            logError $ "SLE Unbind failed credentials check"
+            let ret = SLEPdu $ SlePduUnbindReturn SleUnbindReturn
+                    { _sleUnbindRetCredentials = Nothing
+                    , _sleUnbindRetResult      = Negative
+                    }
+            -- reply to the unbind operation
+            sendSlePdu var ret
+            -- notify the application
+            sleRaiseEvent (SLEUnbindFailed (cfg ^. cfgRAFSII))
+            return ServiceBound
+
+
+processBoundState cfg var state ppdu@(SlePduRafStart pdu) = do
     logDebug "processBoundState: RAF START"
 
     sleRaiseEvent (SLERafStartReceived pdu)
 
-    let diag = checkTimeRange (pdu ^. rafStartTime) (pdu ^. rafStopTime)
+    cmCfg <- RIO.view commonCfg
 
-    -- send response 
-    let ret = SLEPdu $ SlePduRafStartReturn $ RafStartReturn
-            { _rafStartRetCredentials = pdu ^. rafStartCredentials
-            , _rafStartRetInvokeID    = pdu ^. rafStartInvokeID
-            , _rafStartRetResult      = diag
-            }
-    case diag of
-        Just _  -> return ()
-        Nothing -> modifyRAF
-            var
-            (\raf ->
-                raf
-                    &  rafStateStartTime
-                    .~ pdu
-                    ^. rafStartTime
-                    &  rafStateStopTime
-                    .~ pdu
-                    ^. rafStopTime
-                    &  rafStateRequestedQuality
-                    .~ pdu
-                    ^. rafStartRequestedTimeQual
-            )
-    sendSlePdu var ret
-    sleRaiseEvent (SLERafStartSucceed (cfg ^. cfgRAFSII))
-    return ServiceActive
+    if checkPermission (cmCfg ^. cfgAuthorize)
+                       (state ^. rafInitiator)
+                       (var ^. rafPeers)
+                       ppdu
+        then do
+            let diag =
+                    checkTimeRange (pdu ^. rafStartTime) (pdu ^. rafStopTime)
+
+            -- send response 
+            let ret = SLEPdu $ SlePduRafStartReturn $ RafStartReturn
+                    { _rafStartRetCredentials = pdu ^. rafStartCredentials
+                    , _rafStartRetInvokeID    = pdu ^. rafStartInvokeID
+                    , _rafStartRetResult      = diag
+                    }
+            case diag of
+                Just _  -> return ()
+                Nothing -> modifyRAF
+                    var
+                    (\raf ->
+                        raf
+                            &  rafStateStartTime
+                            .~ pdu
+                            ^. rafStartTime
+                            &  rafStateStopTime
+                            .~ pdu
+                            ^. rafStopTime
+                            &  rafStateRequestedQuality
+                            .~ pdu
+                            ^. rafStartRequestedTimeQual
+                    )
+            sendSlePdu var ret
+            sleRaiseEvent (SLERafStartSucceed (cfg ^. cfgRAFSII))
+            return ServiceActive
+        else do
+            let
+                ret = SLEPdu $ SlePduRafStartReturn $ RafStartReturn
+                    { _rafStartRetCredentials = pdu ^. rafStartCredentials
+                    , _rafStartRetInvokeID    = pdu ^. rafStartInvokeID
+                    , _rafStartRetResult      = Just
+                        (DiagRafStartSpecific RafStartInvalid)
+                    }
+            sendSlePdu var ret
+            sleRaiseEvent (SLERafStartFailed (cfg ^. cfgRAFSII))
+            return ServiceBound
+
   where
     checkTimeRange (Just t1) (Just t2) = if t1 <= t2
         then Nothing
         else Just (DiagRafStartSpecific RafStartInvalidStopTime)
     checkTimeRange _ _ = Nothing
 
-processBoundState _cfg _var (SlePduBind _) = do
+processBoundState _cfg _var _state (SlePduBind _) = do
     logWarn "Received BIND when in bound state, ignored"
     return ServiceInit
 
 
-processBoundState _cfg _var pdu = do
+processBoundState _cfg _var _state pdu = do
     logWarn
         $  "Bound State: Functionality for PDU not yet implemented: "
         <> fromString (ppShow pdu)
@@ -294,30 +318,50 @@ processBoundState _cfg _var pdu = do
 
 
 processActiveState
-    :: (MonadIO m, MonadReader env m, HasEventHandler env, HasLogFunc env)
+    :: ( MonadIO m
+       , MonadReader env m
+       , HasEventHandler env
+       , HasLogFunc env
+       , HasCommonConfig env
+       )
     => RAFConfig
     -> RAFVar
+    -> RAF
     -> SlePdu
     -> m ServiceState
-processActiveState cfg var (SlePduStop pdu) = do
+processActiveState cfg var state ppdu@(SlePduStop pdu) = do
     logDebug "processActiveState: RAF STOP"
 
     sleRaiseEvent (SLERafStopReceived pdu)
 
-    -- TODO check values
-    let diag = Nothing
+    cmCfg <- RIO.view commonCfg
 
-    -- send response 
-    let ret = SLEPdu $ SlePduAck $ SleAcknowledgement
-            { _sleAckCredentials = pdu ^. sleStopCredentials
-            , _sleAckInvokeID    = pdu ^. sleStopInvokeID
-            , _sleResult         = diag
-            }
-    sendSlePdu var ret
-    sleRaiseEvent (SLERafStopSucceed (cfg ^. cfgRAFSII))
-    return ServiceBound
+    if checkPermission (cmCfg ^. cfgAuthorize)
+                       (state ^. rafInitiator)
+                       (var ^. rafPeers)
+                       ppdu
+        then do
+            -- send response 
+            let ret = SLEPdu $ SlePduAck $ SleAcknowledgement
+                    { _sleAckCredentials = pdu ^. sleStopCredentials
+                    , _sleAckInvokeID    = pdu ^. sleStopInvokeID
+                    , _sleResult         = Nothing
+                    }
+            sendSlePdu var ret
+            sleRaiseEvent (SLERafStopSucceed (cfg ^. cfgRAFSII))
+            return ServiceBound
+        else do
+            let ret = SLEPdu $ SlePduAck $ SleAcknowledgement
+                    { _sleAckCredentials = pdu ^. sleStopCredentials
+                    , _sleAckInvokeID    = pdu ^. sleStopInvokeID
+                    , _sleResult         = Just DiagOtherReason
+                    }
+            sendSlePdu var ret
+            sleRaiseEvent (SLERafStopFailed (cfg ^. cfgRAFSII))
+            return ServiceActive
 
-processActiveState _cfg _var pdu = do
+
+processActiveState _cfg _var _state pdu = do
     logWarn
         $  "Active State: Functionality for PDU not yet implemented: "
         <> fromString (ppShow pdu)

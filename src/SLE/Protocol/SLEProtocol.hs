@@ -150,7 +150,7 @@ processSLEMsg appId = do
 
 
 processServerSLEMsg
-    :: (MonadUnliftIO m, MonadReader env m, HasLogFunc env)
+    :: (MonadUnliftIO m, MonadReader env m, HasLogFunc env, HasCommonConfig env)
     => ApplicationIdentifier
     -> (SlePdu -> m ())
     -> ConduitT TMLMessage Void m ()

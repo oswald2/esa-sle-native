@@ -55,3 +55,5 @@ setRAFServiceState idx state = do
     case getRAFVar' env idx of 
         Nothing -> return () 
         Just var -> setRAFState var state
+
+    

@@ -18,6 +18,7 @@ module SLE.Data.RAFOps
     , rafStartRetResult
     , RafTransferBuffer
     , RafTransferDataInvocation(..)
+    , RafSyncNotifyInvocation(..)
     , FrameOrNotification(..)
     , LockStatus(..)
     , LockStatusReport(..)
