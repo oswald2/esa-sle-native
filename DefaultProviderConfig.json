@@ -45,5 +45,43 @@
             "_cfgRAFPortID": "TMPORT",
             "_cfgRAFSII": "sagr=3.spack=facility-PASS1.rsl-fg=1.raf=onlc1"
         }
+    ],
+    "_cfgRCFs": [
+        {
+            "_cfgRCFAntennaID": {
+                "contents": "PARAGONTT",
+                "tag": "LocalForm"
+            },
+            "_cfgRCFBufferSize": 100,
+            "_cfgRCFGVCIDs": [
+                {
+                    "contents": {
+                        "vcSCID": 3,
+                        "vcVC": 0,
+                        "vcVersion": 0
+                    },
+                    "tag": "PusRcfVC"
+                },
+                {
+                    "contents": {
+                        "vcSCID": 3,
+                        "vcVC": 2,
+                        "vcVersion": 0
+                    },
+                    "tag": "PusRcfVC"
+                },
+                {
+                    "contents": {
+                        "mcSCID": 4,
+                        "mcVersion": 0
+                    },
+                    "tag": "PusRcfMC"
+                }
+            ],
+            "_cfgRCFLatency": 1000000,
+            "_cfgRCFPort": 5008,
+            "_cfgRCFPortID": "TMPORT1",
+            "_cfgRCFSII": "sagr=3.spack=facility-PASS1.rsl-fg=1.rcf=onlc1"
+        }
     ]
 }
