@@ -342,10 +342,12 @@ timeFromBS bs
 
 type ConditionalTime = Maybe Time
 
-conditionalTime :: ConditionalTime -> ASN1
-conditionalTime Nothing = Other Context 0 B.empty
+conditionalTime :: ConditionalTime -> [ASN1]
+conditionalTime Nothing = [Other Context 0 B.empty]
+-- conditionalTime (Just t) =
+--     Other Context 1 (BL.toStrict (encodeASN1 DER [time t]))
 conditionalTime (Just t) =
-    Other Context 1 (BL.toStrict (encodeASN1 DER [time t]))
+    [Start (Container Context 1), time t, End (Container Context 1)]
 
 
 parseConditionalTime :: Parser ConditionalTime

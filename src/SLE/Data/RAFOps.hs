@@ -121,13 +121,14 @@ makeLenses ''RafStartInvocation
 rafStartInvocation :: RafStartInvocation -> [ASN1]
 rafStartInvocation RafStartInvocation {..} =
     [ Start (Container Context 0)
-    , credentials _rafStartCredentials
-    , IntVal (fromIntegral _rafStartInvokeID)
-    , conditionalTime _rafStartTime
-    , conditionalTime _rafStopTime
-    , reqFrameQuality _rafStartRequestedTimeQual
-    , End (Container Context 0)
-    ]
+        , credentials _rafStartCredentials
+        , IntVal (fromIntegral _rafStartInvokeID)
+        ]
+        ++ conditionalTime _rafStartTime
+        ++ conditionalTime _rafStopTime
+        ++ [ reqFrameQuality _rafStartRequestedTimeQual
+           , End (Container Context 0)
+           ]
 
 parseRafStart :: Parser RafStartInvocation
 parseRafStart = content
@@ -473,7 +474,7 @@ rafTransferDataInvocation RafTransferDataInvocation {..} =
             , privateAnnotation _rafTransPrivateAnnotation
             , OctetString _rafTransData
             ]
-    in       {- trace ("TransferData: " <> fromString (ppShow dat))-}
+    in        {- trace ("TransferData: " <> fromString (ppShow dat))-}
         dat
 
 parseRafTransferDataInvocation :: Parser RafTransferDataInvocation
@@ -536,7 +537,7 @@ rafTransferBuffer buf =
             Start (Container Context 8)
                 :  concatMap frameOrNotification buf
                 ++ [End (Container Context 8)]
-    in       {- trace ("TransferBuffer: " <> fromString (ppShow dat)) -}
+    in        {- trace ("TransferBuffer: " <> fromString (ppShow dat)) -}
         dat
 
 

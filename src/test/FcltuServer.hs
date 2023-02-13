@@ -16,21 +16,23 @@ import qualified RIO.Text                      as T
 
 import qualified Data.Text.IO                  as T
 
--- import           SLE.Data.CCSDSTime
--- import           SLE.Data.Common
+import           SLE.Data.CCSDSTime
+import           SLE.Data.Common
+import           SLE.Data.FCLTUOps
 import           SLE.Data.ProviderConfig
--- import           SLE.Data.FCLTUOps
 import           SLE.Protocol.FCLTU
+import           SLE.Protocol.ProviderApi
 import           SLE.State.Events
+import           SLE.State.FCLTUClasses
+import           SLE.State.FCLTUState
 import           SLE.State.ProviderState
--- import           SLE.State.FCLTUState
 
 import           System.Directory               ( doesFileExist )
 
 import           Options.Generic
 
 -- import           SLE.State.FCLTUClasses
-import           Text.Show.Pretty
+import           Text.Show.Pretty        hiding ( Time )
 
 
 data Options w = Options
@@ -83,29 +85,54 @@ main = do
                     exitFailure
                 Right c -> pure c
 
-    let handler msg = T.putStrLn $ "SLE HANDLER: " <> T.pack (ppShow msg)
         -- port = 55529
     T.putStrLn $ "Running Server using config:\n" <> T.pack (ppShow cfg)
-    startServer cfg handler
+    startServer cfg
     return ()
 
 perfFunc :: Word64 -> IO ()
 perfFunc len = T.putStrLn $ "Sent " <> fromString (show len) <> " bytes"
 
 
-startServer :: ProviderConfig -> SleEventHandler -> IO ()
-startServer cfg eventHandler = do
+handler :: TVar (Maybe FCLTUVar) -> SleEvent -> IO () 
+handler var (SLEFcltuTransferData _sii _fcltuIdx _tmIdx inv) = do
+    now   <- getCurrentTime
+    fcltu <- readTVarIO var
+    forM_ fcltu $ \v -> do
+        fcltuStartRadiation v (inv ^. fcltuDataIdent) (Time now)
+
+        stop <- getCurrentTime
+        fcltuRadiationSuccess v
+                              (inv ^. fcltuDataIdent)
+                              (Time now)
+                              (Time stop)
+                              UplinkNominal
+    return ()
+handler _ event = do
+    T.putStrLn $ "SLE HANDLER: " <> T.pack (ppShow event)
+
+
+
+startServer :: ProviderConfig -> IO ()
+startServer cfg = do
     defLogOptions <- logOptionsHandle stdout True
     let logOptions = setLogMinLevel LevelDebug defLogOptions
+
+    var <- newTVarIO Nothing
+
     withLogFunc logOptions $ \logFunc -> do
-        state <- initialState cfg logFunc eventHandler
+        state <- initialState cfg logFunc (handler var)
 
         runRIO state $ do
             logDebug "Starting listening on SLE..."
+
+            v <- getFCLTUVar (FCLTUIdx 0)
+            atomically $ writeTVar var v
+
             race_ (runFCLTUs perfFunc) action
 
 action :: RIO ProviderState ()
-action = do 
+action = do
     -- perform transfer data test
     liftIO $ T.putStr " > "
     line <- liftIO T.getLine

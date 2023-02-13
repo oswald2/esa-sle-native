@@ -174,5 +174,4 @@ fcltuSendAsync var state notif uplinkStatus = do
             , _fcltuAsyncProductionStatus = state ^. fcltuProdStatus
             , _fcltuAsyncUplinkStatus     = uplinkStatus
             }
-
     sendSleFcltuPdu var (SLEPdu (SlePduFcltuAsync pdu))

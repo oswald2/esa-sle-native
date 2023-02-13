@@ -222,11 +222,9 @@ data FcltuStartResult = FcltuStartNegative DiagnosticFcltuStart | FcltuStartPosi
 
 fcltuStartResult :: FcltuStartResult -> [ASN1]
 fcltuStartResult (FcltuStartPositive startTimes) =
-    [ Start (Container Context 0)
-    , time (_fcltuStartRadiationTime startTimes)
-    , conditionalTime (_fcltuStopRadiationTime startTimes)
-    , End (Container Context 0)
-    ]
+    [Start (Container Context 0), time (_fcltuStartRadiationTime startTimes)]
+        ++ conditionalTime (_fcltuStopRadiationTime startTimes)
+        ++ [End (Container Context 0)]
 fcltuStartResult (FcltuStartNegative diag) =
     [Other Context 1 (encodeASN1' DER [diagnosticFcltuStart diag])]
 
@@ -382,16 +380,17 @@ makeLenses ''FcltuTransDataInvocation
 fcltuTransDataInvocation :: FcltuTransDataInvocation -> [ASN1]
 fcltuTransDataInvocation FcltuTransDataInvocation {..} =
     [ Start (Container Context 10)
-    , credentials _fcltuDataCredentials
-    , IntVal (fromIntegral _fcltuDataInvokeID)
-    , cltuIdentification _fcltuDataIdent
-    , conditionalTime _fcltuDataEarliestTransmission
-    , conditionalTime _fcltuDataLatestTransmission
-    , duration _fcltuDataDelayTime
-    , slduStatusNotification _fcltuDataRadiationNotification
-    , OctetString (hexToBS _fcltuData)
-    , End (Container Context 10)
-    ]
+        , credentials _fcltuDataCredentials
+        , IntVal (fromIntegral _fcltuDataInvokeID)
+        , cltuIdentification _fcltuDataIdent
+        ]
+        ++ conditionalTime _fcltuDataEarliestTransmission
+        ++ conditionalTime _fcltuDataLatestTransmission
+        ++ [ duration _fcltuDataDelayTime
+           , slduStatusNotification _fcltuDataRadiationNotification
+           , OctetString (hexToBS _fcltuData)
+           , End (Container Context 10)
+           ]
 
 parseFcltuTransDataInvocation :: Parser FcltuTransDataInvocation
 parseFcltuTransDataInvocation = content
@@ -673,12 +672,9 @@ data CltuLastProcessed = NoCltuProcessed
 cltuLastProcessed :: CltuLastProcessed -> [ASN1]
 cltuLastProcessed NoCltuProcessed = [Other Context 0 B.empty]
 cltuLastProcessed (CltuProcessed cltuID radTime status) =
-    [ Start (Container Context 1)
-    , cltuIdentification cltuID
-    , conditionalTime radTime
-    , forwardDuStatus status
-    , End (Container Context 1)
-    ]
+    [Start (Container Context 1), cltuIdentification cltuID]
+        ++ conditionalTime radTime
+        ++ [forwardDuStatus status, End (Container Context 1)]
 
 parseCltuLastProcessed :: Parser CltuLastProcessed
 parseCltuLastProcessed = do
@@ -829,11 +825,6 @@ parseFcltuAsyncStatus = content
 
 
 instance EncodeASN1 FcltuAsyncNotify where
-    -- encode val = encodeASN1' DER (fcltuAsyncStatus val)
-    encode val =
-        let !asn1 = fcltuAsyncStatus val
-        in  encodeASN1'
-                DER
-                (trace ("FcltuAsync: " <> fromString (ppShow asn1)) asn1)
+    encode val = encodeASN1' DER (fcltuAsyncStatus val)
 
 makeLenses ''FcltuAsyncNotify
