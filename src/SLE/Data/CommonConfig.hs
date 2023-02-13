@@ -19,6 +19,7 @@ module SLE.Data.CommonConfig
     ) where
 
 import           RIO
+import qualified RIO.ByteString                as B
 import qualified RIO.HashMap                   as HM
 
 import           Control.Lens
@@ -88,7 +89,9 @@ isPeer hm auid = HM.member auid hm
 defaultPeers :: [Peer]
 defaultPeers =
     [ Peer (AuthorityIdentifier "EGSCC") (bsToHex "12345678")
-    , Peer (AuthorityIdentifier "SLETT") (bsToHex "aabbccddaabbccdd")
+    , Peer
+        (AuthorityIdentifier "SLETT")
+        (bsToHex (B.pack [0xaa, 0xbb, 0xcc, 0xdd, 0xaa, 0xbb, 0xcc, 0xdd]))
     ]
 
 defaultCommonConfig :: CommonConfig
@@ -99,7 +102,26 @@ defaultCommonConfig = CommonConfig
     , _cfgAuthorize = AuthNone
     , _cfgSHAType   = SHA1
     , _cfgVersion   = VersionNumber 3
-    , _cfgPassword  = bsToHex "PASSWD"
+    , _cfgPassword  = bsToHex
+                          (B.pack
+                              [ 0x00
+                              , 0x01
+                              , 0x02
+                              , 0x03
+                              , 0x04
+                              , 0x05
+                              , 0x06
+                              , 0x07
+                              , 0x08
+                              , 0x09
+                              , 0x0a
+                              , 0x0b
+                              , 0x0c
+                              , 0x0d
+                              , 0x0e
+                              , 0x0f
+                              ]
+                          )
     }
 makeLenses ''CommonConfig
 

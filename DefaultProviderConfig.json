@@ -2,7 +2,7 @@
     "_cfgCommon": {
         "_cfgAuthorize": "AuthNone",
         "_cfgLocal": "PARAGONTT",
-        "_cfgPassword": "504153535744",
+        "_cfgPassword": "000102030405060708090a0b0c0d0e0f",
         "_cfgPeers": [
             {
                 "cfgPeerAuthorityID": "EGSCC",
@@ -10,7 +10,7 @@
             },
             {
                 "cfgPeerAuthorityID": "SLETT",
-                "cfgPeerPassword": "61616262636364646161626263636464"
+                "cfgPeerPassword": "aabbccddaabbccdd"
             }
         ],
         "_cfgSHAType": "SHA1",

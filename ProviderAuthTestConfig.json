@@ -29,6 +29,7 @@
         {
             "_cfgFCLTUPort": 5009,
             "_cfgFCLTUPortID": "TCPORT",
+            "_cfgFCLTUAssociatedTMPort": "TMPORT",
             "_cfgFCLTUSII": "sagr=3.spack=facility-PASS1.fsl-fg=1.cltu=cltu1"
         }
     ],
