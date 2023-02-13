@@ -5,9 +5,14 @@ module SLE.Data.ProviderConfig
     ( ProviderConfig(..)
     , RAFConfig(..)
     , RAFIdx(..)
+    , RCFConfig(..)
+    , RCFIdx(..)
     , FCLTUConfig(..)
     , FCLTUIdx(..)
     , SleAuthType(..)
+    , PusMasterChannel(..)
+    , PusVirtualChannel(..)
+    , RCFGvcid(..)
     , configPretty
     , defaultProviderConfigFileName
     , defaultProviderConfig
@@ -15,6 +20,7 @@ module SLE.Data.ProviderConfig
     , loadConfigJSON
     , cfgCommon
     , cfgRAFs
+    , cfgRCFs
     , cfgFCLTUs
     , cfgRAFSII
     , cfgRAFPort
@@ -28,6 +34,7 @@ module SLE.Data.ProviderConfig
     , cfgRCFAntennaID
     , cfgRCFBufferSize
     , cfgRCFLatency
+    , cfgRCFGVCIDs
     , cfgFCLTUSII
     , cfgFCLTUPort
     , cfgFCLTUPortID
@@ -44,8 +51,8 @@ import           Control.Lens
 
 import           Data.Aeson
 import           Data.Aeson.Encode.Pretty       ( encodePretty )
+import qualified Data.List.NonEmpty            as N
 
--- import           SLE.Data.Bind
 import           SLE.Data.Common
 import           SLE.Data.CommonConfig
 
@@ -71,6 +78,39 @@ defaultRAFConfig = RAFConfig
     , _cfgRAFLatency    = 1_000_000
     }
 
+data PusMasterChannel = PusMasterChannel
+    { mcSCID    :: !Word64
+    , mcVersion :: !Word64
+    }
+    deriving (Eq, Show, Read, Generic)
+
+instance FromJSON PusMasterChannel
+instance ToJSON PusMasterChannel where
+    toEncoding = genericToEncoding defaultOptions
+
+
+data PusVirtualChannel = PusVirtualChannel
+    { vcSCID    :: !Word64
+    , vcVersion :: !Word64
+    , vcVC      :: !Word64
+    }
+    deriving (Eq, Show, Read, Generic)
+
+instance FromJSON PusVirtualChannel
+instance ToJSON PusVirtualChannel where
+    toEncoding = genericToEncoding defaultOptions
+
+
+data RCFGvcid =
+    PusRcfMC !PusMasterChannel
+    | PusRcfVC !PusVirtualChannel
+    deriving (Eq, Show, Read, Generic)
+
+instance FromJSON RCFGvcid
+instance ToJSON RCFGvcid where
+    toEncoding = genericToEncoding defaultOptions
+
+
 data RCFConfig = RCFConfig
     { _cfgRCFSII        :: !SII
     , _cfgRCFPort       :: !Word16
@@ -78,6 +118,7 @@ data RCFConfig = RCFConfig
     , _cfgRCFAntennaID  :: !AntennaID
     , _cfgRCFBufferSize :: !Word32
     , _cfgRCFLatency    :: !Int
+    , _cfgRCFGVCIDs     :: NonEmpty RCFGvcid
     }
     deriving stock (Show, Read, Generic)
     deriving anyclass (FromJSON, ToJSON)
@@ -90,6 +131,11 @@ defaultRCFConfig = RCFConfig
     , _cfgRCFAntennaID  = LocalForm "PARAGONTT"
     , _cfgRCFBufferSize = 100
     , _cfgRCFLatency    = 1_000_000
+    , _cfgRCFGVCIDs     = N.fromList
+                              [ PusRcfVC (PusVirtualChannel 3 0 0)
+                              , PusRcfVC (PusVirtualChannel 3 0 2)
+                              , PusRcfMC (PusMasterChannel 4 0)
+                              ]
     }
 
 
@@ -129,7 +175,7 @@ defaultProviderConfig :: ProviderConfig
 defaultProviderConfig = ProviderConfig
     { _cfgCommon = defaultCommonConfig
     , _cfgRAFs   = V.singleton defaultRAFConfig
-    , _cfgRCFs   = V.empty 
+    , _cfgRCFs   = V.singleton defaultRCFConfig
     , _cfgFCLTUs = V.singleton defaultFCLTUConfig
     }
 
