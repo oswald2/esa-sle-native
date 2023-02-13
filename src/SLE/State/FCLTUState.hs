@@ -91,7 +91,7 @@ makeLenses ''FCLTUVar
 fcltuStartState :: FCLTUConfig -> FCLTU
 fcltuStartState cfg = FCLTU { _fcltuSII                = cfg ^. cfgFCLTUSII
                             , _fcltuState              = ServiceInit
-                            , _fcltuProdNotification = DoNotProduceNotification
+                            , _fcltuProdNotification   = ProduceNotification
                             , _fcltuStartRadiationTime = ccsdsNullTime
                             , _fcltuCltuID             = CltuIdentification 0
                             , _fcltuLastProcessed      = NoCltuProcessed

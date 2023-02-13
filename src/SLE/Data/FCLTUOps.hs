@@ -65,6 +65,7 @@ module SLE.Data.FCLTUOps
 import           RIO
 import qualified RIO.ByteString                as B
 import           RIO.State
+import qualified RIO.Text                      as T
 
 import           Control.Lens                   ( makeLenses )
 import           Control.Monad.Except
@@ -76,6 +77,8 @@ import           Data.ASN1.Types
 
 import           SLE.Data.Common
 import           SLE.Data.HexBytes
+
+import           Text.Show.Pretty
 
 newtype CltuIdentification = CltuIdentification Word32
     deriving stock (Eq, Ord, Show,Generic)
@@ -826,7 +829,11 @@ parseFcltuAsyncStatus = content
 
 
 instance EncodeASN1 FcltuAsyncNotify where
-    encode val = encodeASN1' DER (fcltuAsyncStatus val)
-
+    -- encode val = encodeASN1' DER (fcltuAsyncStatus val)
+    encode val =
+        let !asn1 = fcltuAsyncStatus val
+        in  encodeASN1'
+                DER
+                (trace ("FcltuAsync: " <> fromString (ppShow asn1)) asn1)
 
 makeLenses ''FcltuAsyncNotify
