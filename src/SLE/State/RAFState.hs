@@ -72,6 +72,14 @@ data RAFVar = RAFVar
     }
 makeLenses ''RAFVar
 
+instance Show RAFVar where
+    show x =
+        "RAFVar { _rafIdx="
+            ++ show (_rafIdx x)
+            ++ ", _rafVarCfg="
+            ++ show (_rafVarCfg x)
+            ++ "}"
+
 rafStartState :: RAFConfig -> RAF
 rafStartState cfg = RAF { _rafSII                   = cfg ^. cfgRAFSII
                         , _rafState                 = ServiceInit
