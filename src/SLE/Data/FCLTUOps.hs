@@ -65,7 +65,6 @@ module SLE.Data.FCLTUOps
 import           RIO
 import qualified RIO.ByteString                as B
 import           RIO.State
-import qualified RIO.Text                      as T
 
 import           Control.Lens                   ( makeLenses )
 import           Control.Monad.Except
@@ -78,7 +77,7 @@ import           Data.ASN1.Types
 import           SLE.Data.Common
 import           SLE.Data.HexBytes
 
-import           Text.Show.Pretty
+--import           Text.Show.Pretty
 
 newtype CltuIdentification = CltuIdentification Word32
     deriving stock (Eq, Ord, Show,Generic)

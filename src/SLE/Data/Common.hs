@@ -85,7 +85,6 @@ import           ByteString.StrictBuilder
 
 import           Data.ASN1.BinaryEncoding       ( DER(DER) )
 import           Data.ASN1.Encoding             ( ASN1Decoding(decodeASN1)
-                                                , ASN1Encoding(encodeASN1)
                                                 , decodeASN1'
                                                 , encodeASN1'
                                                 )
