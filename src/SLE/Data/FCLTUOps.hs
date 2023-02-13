@@ -75,7 +75,7 @@ import           Data.ASN1.Prim
 import           Data.ASN1.Types
 
 import           SLE.Data.Common
-
+import           SLE.Data.HexBytes
 
 newtype CltuIdentification = CltuIdentification Word32
     deriving stock (Eq, Ord, Show,Generic)
@@ -371,7 +371,7 @@ data FcltuTransDataInvocation = FcltuTransDataInvocation
     , _fcltuDataLatestTransmission    :: !ConditionalTime
     , _fcltuDataDelayTime             :: !Duration
     , _fcltuDataRadiationNotification :: !SlduStatusNotification
-    , _fcltuData                      :: !ByteString
+    , _fcltuData                      :: !HexBytes
     }
     deriving (Show, Generic)
 makeLenses ''FcltuTransDataInvocation
@@ -386,7 +386,7 @@ fcltuTransDataInvocation FcltuTransDataInvocation {..} =
     , conditionalTime _fcltuDataLatestTransmission
     , duration _fcltuDataDelayTime
     , slduStatusNotification _fcltuDataRadiationNotification
-    , OctetString _fcltuData
+    , OctetString (hexToBS _fcltuData)
     , End (Container Context 10)
     ]
 
@@ -413,7 +413,7 @@ parseFcltuTransDataInvocation = content
             , _fcltuDataLatestTransmission    = latest
             , _fcltuDataDelayTime             = dur
             , _fcltuDataRadiationNotification = notif
-            , _fcltuData                      = dat
+            , _fcltuData                      = bsToHex dat
             }
 
 instance EncodeASN1 FcltuTransDataInvocation where

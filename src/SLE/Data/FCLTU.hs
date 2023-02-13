@@ -17,7 +17,6 @@ module SLE.Data.FCLTU
 import           RIO                     hiding ( (.~)
                                                 , (^.)
                                                 )
-import qualified RIO.ByteString                as B
 
 import           Control.Lens                   ( (.~)
                                                 , (^.)
@@ -28,6 +27,7 @@ import           SLE.Data.CCSDSTime
 import           SLE.Data.Common
 import           SLE.Data.CommonConfig
 import           SLE.Data.FCLTUOps
+import           SLE.Data.HexBytes
 import           SLE.Data.PDU
 import           SLE.Data.ProviderConfig
 import           SLE.Data.ServiceInstanceID
@@ -103,7 +103,7 @@ processInitState cfg var _state ppdu@(SlePduBind pdu) = do
                         <> display (pdu ^. sleBindInitiatorID)
                     , AccessDenied
                     )
-                                                                                                -- Check, if we are a FCLTU Bind Request
+                                                                                                    -- Check, if we are a FCLTU Bind Request
             if pdu ^. sleBindServiceType /= FwdCltu
                 then Left
                     ( "Requested Service is not FCLTU: "
@@ -111,7 +111,7 @@ processInitState cfg var _state ppdu@(SlePduBind pdu) = do
                     , ServiceTypeNotSupported
                     )
                 else Right ()
-                                                                                                -- check the requested SLE Version 
+                                                                                                    -- check the requested SLE Version 
             if (pdu ^. sleVersionNumber /= VersionNumber 3)
                     && (pdu ^. sleVersionNumber /= VersionNumber 4)
                 then Left
@@ -355,7 +355,7 @@ processActiveState cfg var state perfFunc ppdu@(SlePduFcltuTransferData pdu) =
         logDebug "processActiveState: FCLTU TRANSFER DATA"
 
         -- update the statistics
-        liftIO $ perfFunc (fromIntegral (B.length (pdu ^. fcltuData)))
+        liftIO $ perfFunc (fromIntegral (hlength (pdu ^. fcltuData)))
 
         cmCfg <- RIO.view commonCfg
 

@@ -17,6 +17,7 @@ import           SLE.Data.Common
 import           SLE.Data.CommonConfig
 import           SLE.Data.FCLTUOps
 import           SLE.Data.Handle
+import           SLE.Data.HexBytes
 import           SLE.Data.PDU
 import           SLE.Data.RAFOps
 import           SLE.Data.ServiceInstanceID
@@ -133,6 +134,6 @@ sendFCLTUData _cfg hdl creds invokeID cltuID earliest latest delay notif frame
                 , _fcltuDataLatestTransmission    = latest
                 , _fcltuDataDelayTime             = delay
                 , _fcltuDataRadiationNotification = notif
-                , _fcltuData                      = frame
+                , _fcltuData                      = bsToHex frame
                 }
         writeSLE hdl (SLEPdu (SlePduFcltuTransferData pdu))
