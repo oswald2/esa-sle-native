@@ -22,6 +22,12 @@ module SLE.Data.ProviderConfig
     , cfgRAFAntennaID
     , cfgRAFBufferSize
     , cfgRAFLatency
+    , cfgRCFSII
+    , cfgRCFPort
+    , cfgRCFPortID
+    , cfgRCFAntennaID
+    , cfgRCFBufferSize
+    , cfgRCFLatency
     , cfgFCLTUSII
     , cfgFCLTUPort
     , cfgFCLTUPortID
@@ -65,6 +71,28 @@ defaultRAFConfig = RAFConfig
     , _cfgRAFLatency    = 1_000_000
     }
 
+data RCFConfig = RCFConfig
+    { _cfgRCFSII        :: !SII
+    , _cfgRCFPort       :: !Word16
+    , _cfgRCFPortID     :: !Text
+    , _cfgRCFAntennaID  :: !AntennaID
+    , _cfgRCFBufferSize :: !Word32
+    , _cfgRCFLatency    :: !Int
+    }
+    deriving stock (Show, Read, Generic)
+    deriving anyclass (FromJSON, ToJSON)
+
+defaultRCFConfig :: RCFConfig
+defaultRCFConfig = RCFConfig
+    { _cfgRCFSII        = SII "sagr=3.spack=facility-PASS1.rsl-fg=1.rcf=onlc1"
+    , _cfgRCFPort       = 5008
+    , _cfgRCFPortID     = "TMPORT1"
+    , _cfgRCFAntennaID  = LocalForm "PARAGONTT"
+    , _cfgRCFBufferSize = 100
+    , _cfgRCFLatency    = 1_000_000
+    }
+
+
 data FCLTUConfig = FCLTUConfig
     { _cfgFCLTUSII              :: !SII
     , _cfgFCLTUPort             :: !Word16
@@ -86,6 +114,7 @@ defaultFCLTUConfig = FCLTUConfig
 data ProviderConfig = ProviderConfig
     { _cfgCommon :: !CommonConfig
     , _cfgRAFs   :: !(Vector RAFConfig)
+    , _cfgRCFs   :: !(Vector RCFConfig)
     , _cfgFCLTUs :: !(Vector FCLTUConfig)
     }
     deriving (Show, Read, Generic)
@@ -100,12 +129,14 @@ defaultProviderConfig :: ProviderConfig
 defaultProviderConfig = ProviderConfig
     { _cfgCommon = defaultCommonConfig
     , _cfgRAFs   = V.singleton defaultRAFConfig
+    , _cfgRCFs   = V.empty 
     , _cfgFCLTUs = V.singleton defaultFCLTUConfig
     }
 
 
 makeLenses ''ProviderConfig
 makeLenses ''RAFConfig
+makeLenses ''RCFConfig
 makeLenses ''FCLTUConfig
 
 configPretty :: ProviderConfig -> Text
