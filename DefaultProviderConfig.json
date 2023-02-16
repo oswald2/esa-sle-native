@@ -41,7 +41,7 @@
             },
             "_cfgRAFBufferSize": 100,
             "_cfgRAFLatency": 1000000,
-            "_cfgRAFPort": 5008,
+            "_cfgRAFPort": 5100,
             "_cfgRAFPortID": "TMPORT",
             "_cfgRAFSII": "sagr=3.spack=facility-PASS1.rsl-fg=1.raf=onlc1"
         }

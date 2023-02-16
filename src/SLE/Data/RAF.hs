@@ -26,10 +26,7 @@ import           SLE.Data.Bind
 import           SLE.Data.Common
 import           SLE.Data.CommonConfig
 import           SLE.Data.PDU
-import           SLE.Data.ProviderConfig        ( RAFConfig
-                                                , cfgRAFPortID
-                                                , cfgRAFSII
-                                                )
+import           SLE.Data.ProviderConfig
 import           SLE.Data.RAFOps
 import           SLE.Data.ServiceInstanceID     ( toSII )
 import           SLE.Data.WriteCmd              ( SleWrite(SLEPdu) )
@@ -94,7 +91,7 @@ processInitState cfg var _state ppdu@(SlePduBind pdu) = do
         sii  = toSII (pdu ^. sleServiceInstanceID)
 
         res  = do
-            -- first, when a bind comes in, perform some checks
+-- first, when a bind comes in, perform some checks
             if checkPermission (cmCfg ^. cfgAuthorize)
                                peer
                                (var ^. rafPeers)
@@ -107,7 +104,7 @@ processInitState cfg var _state ppdu@(SlePduBind pdu) = do
                         <> display (pdu ^. sleBindInitiatorID)
                     , AccessDenied
                     )
-                                                                                                                                                                                    -- Check, if we are a RAF Bind Request
+                                                                                                                                                                                                                        -- Check, if we are a RAF Bind Request
             if pdu ^. sleBindServiceType /= RtnAllFrames
                 then Left
                     ( "Requested Service is not RAF: "
@@ -115,7 +112,7 @@ processInitState cfg var _state ppdu@(SlePduBind pdu) = do
                     , ServiceTypeNotSupported
                     )
                 else Right ()
-                                                                                                                                                                                    -- check the requested SLE Version 
+                                                                                                                                                                                                                        -- check the requested SLE Version 
             if (pdu ^. sleVersionNumber /= VersionNumber 3)
                     && (pdu ^. sleVersionNumber /= VersionNumber 4)
                 then Left
@@ -187,6 +184,9 @@ processInitState _ _ _ (SlePduRafTransferBuffer _) = do
     return ServiceInit
 processInitState _ _ _ (SlePduPeerAbort _) = do
     logDebug "Received PEER ABORT when in init state, ignored"
+    return ServiceInit
+processInitState _ _ _ (SlePduGetParameter _) = do
+    logDebug "Received GET PARAMETER when in init state, ignored"
     return ServiceInit
 
 processInitState _cfg _var _state pdu = do
@@ -309,6 +309,11 @@ processBoundState _cfg _var _state (SlePduBind _) = do
     logWarn "Received BIND when in bound state, ignored"
     return ServiceInit
 
+processBoundState cfg var state (SlePduGetParameter pdu) = do
+    logDebug "processBoundState: GET PARAMETER"
+    sleRaiseEvent (SLEGetParameterReceived pdu)
+    processGetParameter cfg var state pdu
+    return ServiceBound
 
 processBoundState _cfg _var _state pdu = do
     logWarn
@@ -368,3 +373,37 @@ processActiveState _cfg _var _state pdu = do
     return ServiceBound
 
 
+
+processGetParameter
+    :: (MonadIO m)
+    => RAFConfig
+    -> RAFVar
+    -> RAF
+    -> GetParameterInvocation
+    -> m ()
+processGetParameter cfg var state pdu = do
+    -- get the parameter 
+    res <- getParameter cfg var state (_gpParameter pdu)
+    -- create the response 
+    let response = SLEPdu $ SlePduRafParameterReturn $ RafGetParameterReturn
+            { _rgpCredentials = Nothing
+            , _rgpInvokeID    = pdu ^. gpInvokeID
+            , _rgpResult      = res
+            }
+    -- send the response
+    sendSlePdu var response
+    return ()
+
+getParameter
+    :: (MonadIO m)
+    => RAFConfig
+    -> RAFVar
+    -> RAF
+    -> ParameterName
+    -> m (Either DiagnosticRafGet RafGetParameter)
+getParameter cfg _var _state ParBufferSize = do
+    let bufsize = cfg ^. cfgRAFBufferSize
+    return (Right (RafParBufferSize ParBufferSize bufsize))
+
+getParameter _ _ _ _ = do
+    return (Left (DiagRafGetSpecific RafUnknownParameter))

@@ -39,6 +39,14 @@ module SLE.Data.RAFOps
     , rafTransFrameQuality
     , rafTransPrivateAnnotation
     , rafTransData
+    , RafGetParameter(..)
+    , RafGetParameterReturn(..)
+    , rgpCredentials
+    , rgpInvokeID
+    , rgpResult
+    , DiagnosticRafGet(..)
+    , RafDiagRafGetSpecific(..)
+    , parseRafGetParameterReturn
     ) where
 
 import           RIO
@@ -474,7 +482,7 @@ rafTransferDataInvocation RafTransferDataInvocation {..} =
             , privateAnnotation _rafTransPrivateAnnotation
             , OctetString _rafTransData
             ]
-    in        {- trace ("TransferData: " <> fromString (ppShow dat))-}
+    in                        {- trace ("TransferData: " <> fromString (ppShow dat))-}
         dat
 
 parseRafTransferDataInvocation :: Parser RafTransferDataInvocation
@@ -537,7 +545,7 @@ rafTransferBuffer buf =
             Start (Container Context 8)
                 :  concatMap frameOrNotification buf
                 ++ [End (Container Context 8)]
-    in        {- trace ("TransferBuffer: " <> fromString (ppShow dat)) -}
+    in                        {- trace ("TransferBuffer: " <> fromString (ppShow dat)) -}
         dat
 
 
@@ -552,4 +560,115 @@ parseTransferBuffer = do
   where
     endContainer = parseBasicASN1 (== End (Container Context 8)) (const ())
 
+
+
+
+data RafGetParameter =
+    RafParBufferSize !ParameterName !Word16
+    | RafParLatencyLimit !ParameterName (Maybe Word16)
+    deriving (Show, Generic)
+
+
+rafGetParameter :: RafGetParameter -> [ASN1]
+rafGetParameter (RafParBufferSize nm size) =
+    [ Start (Container Context 0)
+    , parameterName nm
+    , IntVal (fromIntegral size)
+    , End (Container Context 0)
+    ]
+rafGetParameter (RafParLatencyLimit nm (Just limit)) =
+    [ Start (Container Context 2)
+    , parameterName nm
+    , Other Context 0 (encodeASN1' DER [IntVal (fromIntegral limit)])
+    , End (Container Context 2)
+    ]
+rafGetParameter (RafParLatencyLimit nm Nothing) =
+    [ Start (Container Context 2)
+    , parameterName nm
+    , Other Context 1 B.empty
+    , End (Container Context 2)
+    ]
+
+parseRafGetParameter :: Parser RafGetParameter
+parseRafGetParameter = undefined
+
+instance EncodeASN1 RafGetParameter where
+    encode val = encodeASN1' DER (rafGetParameter val)
+
+
+data RafDiagRafGetSpecific = RafUnknownParameter | RafDiagInvalid
+    deriving(Eq, Ord, Enum, Show, Generic)
+
+rafDiagRafGetSpecific :: RafDiagRafGetSpecific -> ASN1
+rafDiagRafGetSpecific RafUnknownParameter = IntVal 0
+rafDiagRafGetSpecific RafDiagInvalid      = IntVal 0
+
+parseRafDiagRafGetSpecific :: Parser RafDiagRafGetSpecific
+parseRafDiagRafGetSpecific = do
+    x <- parseIntVal
+    case x of
+        0 -> return RafUnknownParameter
+        _ -> return RafDiagInvalid
+
+data DiagnosticRafGet = DiagRafGetCommon Diagnostics | DiagRafGetSpecific RafDiagRafGetSpecific
+    deriving(Show, Generic)
+
+diagnosticRafGet :: DiagnosticRafGet -> ASN1
+diagnosticRafGet (DiagRafGetCommon diag) =
+    Other Context 0 (encodeASN1' DER [diagnostics diag])
+diagnosticRafGet (DiagRafGetSpecific diag) =
+    Other Context 1 (encodeASN1' DER [rafDiagRafGetSpecific diag])
+
+
+parseDiagnosticRafGet :: Parser DiagnosticRafGet
+parseDiagnosticRafGet = do
+    res <- parseEitherASN1 parseDiagnostics parseRafDiagRafGetSpecific
+    case res of
+        Left  diag -> return $ DiagRafGetCommon diag
+        Right diag -> return $ DiagRafGetSpecific diag
+
+eitherRafGetResult :: Either DiagnosticRafGet RafGetParameter -> ASN1
+eitherRafGetResult (Left diag) =
+    Other Context 1 (encodeASN1' DER [diagnosticRafGet diag])
+eitherRafGetResult (Right param) =
+    Other Context 0 (encodeASN1' DER (rafGetParameter param))
+
+parseEitherRafGetResult :: Parser (Either DiagnosticRafGet RafGetParameter)
+parseEitherRafGetResult = do
+    parseEitherASN1 parseDiagnosticRafGet parseRafGetParameter
+
+data RafGetParameterReturn = RafGetParameterReturn
+    { _rgpCredentials :: !Credentials
+    , _rgpInvokeID    :: !Word16
+    , _rgpResult      :: !(Either DiagnosticRafGet RafGetParameter)
+    }
+    deriving (Show, Generic)
+makeLenses ''RafGetParameterReturn
+
+rafGetParameterReturn :: RafGetParameterReturn -> [ASN1]
+rafGetParameterReturn RafGetParameterReturn {..} =
+    [ Start (Container Context 7)
+    , credentials _rgpCredentials
+    , IntVal (fromIntegral _rgpInvokeID)
+    , eitherRafGetResult _rgpResult
+    , End (Container Context 7)
+    ]
+
+instance EncodeASN1 RafGetParameterReturn where
+    encode val = encodeASN1' DER (rafGetParameterReturn val)
+
+parseRafGetParameterReturn :: Parser RafGetParameterReturn
+parseRafGetParameterReturn = content
+  where
+    endContainer = parseBasicASN1 (== End (Container Context 7)) (const ())
+
+    content      = do
+        creds    <- parseCredentials
+        invokeID <- parseIntVal
+        result   <- parseEitherRafGetResult
+        void endContainer
+        return RafGetParameterReturn { _rgpCredentials = creds
+                                     , _rgpInvokeID    = fromIntegral invokeID
+                                     , _rgpResult      = result
+                                     }
 

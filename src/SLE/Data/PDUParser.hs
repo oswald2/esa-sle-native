@@ -45,7 +45,7 @@ slePduParser app = do
 -- 3   : RAF Stop Returng 
 -- 4   : RAF Schedule Status Report Invocation 
 -- 5   : RAF Schedule Status Report Return 
--- 6   : RAF Get Parameter Invocation 
+-- 6   : Get Parameter Invocation 
 -- 7   : RAF Get Parameter Return 
 -- 8   : RAF Transfer Buffer / FCLTU Throw Event
 -- 9   : RAF Status Report Invocation 
@@ -65,9 +65,10 @@ parsePDU RtnAllFrames 8   = SlePduRafTransferBuffer <$> parseTransferBuffer
 parsePDU FwdCltu      8   = SlePduFcltuThrowEvent <$> parseFcltuThrowEvent
 parsePDU FwdCltu      0   = SlePduFcltuStart <$> parseFcltuStart
 parsePDU FwdCltu      1   = SlePduFcltuStartReturn <$> parseFcltuStartReturn
-parsePDU FwdCltu      10 = SlePduFcltuTransferData <$> parseFcltuTransDataInvocation
-parsePDU FwdCltu      11 = SlePduFcltuTransReturn <$> parseFcltuTransferDataReturn
+parsePDU FwdCltu 10 = SlePduFcltuTransferData <$> parseFcltuTransDataInvocation
+parsePDU FwdCltu 11 = SlePduFcltuTransReturn <$> parseFcltuTransferDataReturn
 parsePDU FwdCltu      12  = SlePduFcltuAsync <$> parseFcltuAsyncStatus
+parsePDU _            6   = SlePduGetParameter <$> parseGetParameterInvocation
 parsePDU t x =
     throwError
         $  TB.run

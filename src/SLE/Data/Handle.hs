@@ -46,10 +46,10 @@ queueSize = 5000
 
 
 -- | Creates a new SLE Handle 
-newSleHandle :: (MonadIO m) => TMIdx -> Word32 -> m SleHandle
+newSleHandle :: (MonadIO m) => TMIdx -> Word16 -> m SleHandle
 newSleHandle idx bufSize = do
     inp <- newTBQueueIO queueSize
-    buf <- liftIO $ newTimedBufferIO bufSize
+    buf <- liftIO $ newTimedBufferIO (fromIntegral bufSize)
     return $ SleHandle { _sleInput = inp, _sleBuffer = buf, _sleIdx = idx }
 
 newSleHandleBuf
@@ -60,7 +60,7 @@ newSleHandleBuf idx buf = do
 
 
 withSleHandle
-    :: (MonadUnliftIO m) => TMIdx -> Word32 -> (SleHandle -> m a) -> m a
+    :: (MonadUnliftIO m) => TMIdx -> Word16 -> (SleHandle -> m a) -> m a
 withSleHandle idx bufferSize process = do
     bracket (newSleHandle idx bufferSize) (\_hdl -> return ()) process
 

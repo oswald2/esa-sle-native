@@ -70,6 +70,14 @@ module SLE.Data.Common
     , ForwardDuStatus(..)
     , forwardDuStatus
     , parseForwardDuStatus
+    , ParameterName(..)
+    , parameterName
+    , parseParameterName
+    , GetParameterInvocation(..)
+    , gpCredentials
+    , gpInvokeID
+    , gpParameter
+    , parseGetParameterInvocation
     ) where
 
 import           RIO
@@ -813,5 +821,234 @@ parseForwardDuStatus = do
         5 -> return FwDUProductionNotStarted
         6 -> return FwDUUnsupportedTransmissionMode
         _ -> return FwDUUnsupportedTransmissionMode
+
+
+
+data ParameterName =
+    ParAcquisitionSequenceLength
+    | ParApidList
+    | ParBitLockRequired
+    | ParBlockingTimeoutPeriod
+    | ParBlockingUsage
+    | ParBufferSize
+    | ParClcwGlobalVCID
+    | ParClcwPhysicalChannel
+    | ParCopCntrFramesRepetition
+    | ParDeliveryMode
+    | ParDirectiveInvocation
+    | ParDirectiveInvocationOnline
+    | ParExpectedDirectiveIdentification
+    | ParExpectedEventInvocationIdentification
+    | ParExpectedSludIdentification
+    | ParFopSlidingWindow
+    | ParFopState
+    | ParLatencyLimit
+    | ParMapList
+    | ParMuxControl
+    | ParMuxScheme
+    | ParMaximumFrameLength
+    | ParMaximumPacketLength
+    | ParMaximumSlduLength
+    | ParMinimumDelayTime
+    | ParMinReportingCycle
+    | ParModulationFrequency
+    | ParModulationIndex
+    | ParNotificationMode
+    | ParPermittedControlWordTypeSet
+    | ParPermittedFrameQuality
+    | ParPermittedGvcidSet
+    | ParPermittedTcVcidSet
+    | ParPermittedTransmissionMode
+    | ParPermittedUpdateModeSet
+    | ParPlop1IdleSequenceLength
+    | ParPlopInEffect
+    | ParProtocolAbortMode
+    | ParReportingCycle
+    | ParRequestedControlWordType
+    | ParRequestedFrameQuality
+    | ParRequestedGvcid
+    | ParRequestedTcVcid
+    | ParRequestedUpdateMode
+    | ParReturnTimeoutPeriod
+    | ParRfAvailable
+    | ParRfAvailableRequired
+    | ParSegmentHeader
+    | ParSequCntrFramesRepetition
+    | ParSubcarrierToBitRateRatio
+    | ParThrowEventOperation
+    | ParTimeoutType
+    | ParTimerInitial
+    | ParTransmissionLimit
+    | ParTransmitterFrameSequenceNumber
+    | ParVcMuxControl
+    | ParVcMuxScheme
+    | ParVirtualChannel
+    deriving(Read, Show, Eq, Ord, Enum, Generic)
+
+
+parameterName :: ParameterName -> ASN1
+parameterName ParAcquisitionSequenceLength             = IntVal 201
+parameterName ParApidList                              = IntVal 2
+parameterName ParBitLockRequired                       = IntVal 3
+parameterName ParBlockingTimeoutPeriod                 = IntVal 0
+parameterName ParBlockingUsage                         = IntVal 1
+parameterName ParBufferSize                            = IntVal 4
+parameterName ParClcwGlobalVCID                        = IntVal 202
+parameterName ParClcwPhysicalChannel                   = IntVal 203
+parameterName ParCopCntrFramesRepetition               = IntVal 300
+parameterName ParDeliveryMode                          = IntVal 6
+parameterName ParDirectiveInvocation                   = IntVal 7
+parameterName ParDirectiveInvocationOnline             = IntVal 108
+parameterName ParExpectedDirectiveIdentification       = IntVal 8
+parameterName ParExpectedEventInvocationIdentification = IntVal 9
+parameterName ParExpectedSludIdentification            = IntVal 10
+parameterName ParFopSlidingWindow                      = IntVal 11
+parameterName ParFopState                              = IntVal 12
+parameterName ParLatencyLimit                          = IntVal 15
+parameterName ParMapList                               = IntVal 16
+parameterName ParMuxControl                            = IntVal 17
+parameterName ParMuxScheme                             = IntVal 18
+parameterName ParMaximumFrameLength                    = IntVal 19
+parameterName ParMaximumPacketLength                   = IntVal 20
+parameterName ParMaximumSlduLength                     = IntVal 21
+parameterName ParMinimumDelayTime                      = IntVal 204
+parameterName ParMinReportingCycle                     = IntVal 301
+parameterName ParModulationFrequency                   = IntVal 22
+parameterName ParModulationIndex                       = IntVal 23
+parameterName ParNotificationMode                      = IntVal 205
+parameterName ParPermittedControlWordTypeSet           = IntVal 101
+parameterName ParPermittedFrameQuality                 = IntVal 302
+parameterName ParPermittedGvcidSet                     = IntVal 24
+parameterName ParPermittedTcVcidSet                    = IntVal 102
+parameterName ParPermittedTransmissionMode             = IntVal 107
+parameterName ParPermittedUpdateModeSet                = IntVal 103
+parameterName ParPlop1IdleSequenceLength               = IntVal 206
+parameterName ParPlopInEffect                          = IntVal 25
+parameterName ParProtocolAbortMode                     = IntVal 207
+parameterName ParReportingCycle                        = IntVal 26
+parameterName ParRequestedControlWordType              = IntVal 104
+parameterName ParRequestedFrameQuality                 = IntVal 27
+parameterName ParRequestedGvcid                        = IntVal 28
+parameterName ParRequestedTcVcid                       = IntVal 105
+parameterName ParRequestedUpdateMode                   = IntVal 106
+parameterName ParReturnTimeoutPeriod                   = IntVal 29
+parameterName ParRfAvailable                           = IntVal 30
+parameterName ParRfAvailableRequired                   = IntVal 31
+parameterName ParSegmentHeader                         = IntVal 32
+parameterName ParSequCntrFramesRepetition              = IntVal 303
+parameterName ParSubcarrierToBitRateRatio              = IntVal 34
+parameterName ParThrowEventOperation                   = IntVal 304
+parameterName ParTimeoutType                           = IntVal 35
+parameterName ParTimerInitial                          = IntVal 36
+parameterName ParTransmissionLimit                     = IntVal 37
+parameterName ParTransmitterFrameSequenceNumber        = IntVal 38
+parameterName ParVcMuxControl                          = IntVal 39
+parameterName ParVcMuxScheme                           = IntVal 40
+parameterName ParVirtualChannel                        = IntVal 41
+
+
+parseParameterName :: Parser ParameterName
+parseParameterName = do
+    x <- parseIntVal
+    case x of
+        201 -> return ParAcquisitionSequenceLength
+        2   -> return ParApidList
+        3   -> return ParBitLockRequired
+        0   -> return ParBlockingTimeoutPeriod
+        1   -> return ParBlockingUsage
+        4   -> return ParBufferSize
+        202 -> return ParClcwGlobalVCID
+        203 -> return ParClcwPhysicalChannel
+        300 -> return ParCopCntrFramesRepetition
+        6   -> return ParDeliveryMode
+        7   -> return ParDirectiveInvocation
+        108 -> return ParDirectiveInvocationOnline
+        8   -> return ParExpectedDirectiveIdentification
+        9   -> return ParExpectedEventInvocationIdentification
+        10  -> return ParExpectedSludIdentification
+        11  -> return ParFopSlidingWindow
+        12  -> return ParFopState
+        15  -> return ParLatencyLimit
+        16  -> return ParMapList
+        17  -> return ParMuxControl
+        18  -> return ParMuxScheme
+        19  -> return ParMaximumFrameLength
+        20  -> return ParMaximumPacketLength
+        21  -> return ParMaximumSlduLength
+        204 -> return ParMinimumDelayTime
+        301 -> return ParMinReportingCycle
+        22  -> return ParModulationFrequency
+        23  -> return ParModulationIndex
+        205 -> return ParNotificationMode
+        101 -> return ParPermittedControlWordTypeSet
+        302 -> return ParPermittedFrameQuality
+        24  -> return ParPermittedGvcidSet
+        102 -> return ParPermittedTcVcidSet
+        107 -> return ParPermittedTransmissionMode
+        103 -> return ParPermittedUpdateModeSet
+        206 -> return ParPlop1IdleSequenceLength
+        25  -> return ParPlopInEffect
+        207 -> return ParProtocolAbortMode
+        26  -> return ParReportingCycle
+        104 -> return ParRequestedControlWordType
+        27  -> return ParRequestedFrameQuality
+        28  -> return ParRequestedGvcid
+        105 -> return ParRequestedTcVcid
+        106 -> return ParRequestedUpdateMode
+        29  -> return ParReturnTimeoutPeriod
+        30  -> return ParRfAvailable
+        31  -> return ParRfAvailableRequired
+        32  -> return ParSegmentHeader
+        303 -> return ParSequCntrFramesRepetition
+        34  -> return ParSubcarrierToBitRateRatio
+        304 -> return ParThrowEventOperation
+        35  -> return ParTimeoutType
+        36  -> return ParTimerInitial
+        37  -> return ParTransmissionLimit
+        38  -> return ParTransmitterFrameSequenceNumber
+        39  -> return ParVcMuxControl
+        40  -> return ParVcMuxScheme
+        41  -> return ParVirtualChannel
+        v ->
+            throwError $ "Invalid ParameterName value: " <> fromString (show v)
+
+
+
+data GetParameterInvocation = GetParameterInvocation
+    { _gpCredentials :: !Credentials
+    , _gpInvokeID    :: !Word16
+    , _gpParameter   :: !ParameterName
+    }
+    deriving (Show, Generic)
+makeLenses ''GetParameterInvocation
+
+
+getParameterInvocation :: GetParameterInvocation -> [ASN1]
+getParameterInvocation GetParameterInvocation {..} =
+    [ Start (Container Context 6)
+    , credentials _gpCredentials
+    , IntVal (fromIntegral _gpInvokeID)
+    , parameterName _gpParameter
+    , End (Container Context 6)
+    ]
+
+parseGetParameterInvocation :: Parser GetParameterInvocation
+parseGetParameterInvocation = content
+  where
+    endContainer = parseBasicASN1 (== End (Container Context 6)) (const ())
+
+    content      = do
+        creds     <- parseCredentials
+        invokeID  <- parseIntVal
+        parameter <- parseParameterName
+        void endContainer
+        return GetParameterInvocation { _gpCredentials = creds
+                                      , _gpInvokeID    = fromIntegral invokeID
+                                      , _gpParameter   = parameter
+                                      }
+
+instance EncodeASN1 GetParameterInvocation where 
+    encode val = encodeASN1' DER (getParameterInvocation val)
+
 
 
