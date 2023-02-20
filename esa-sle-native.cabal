@@ -206,61 +206,61 @@ library
 
 
 
-executable SleClient
-    main-is: SleClient.hs
-    default-language: Haskell2010
-    hs-source-dirs: src/test
-    ghc-options: -Wall -O -threaded -rtsopts
-    build-depends:
-        esa-sle-native -any,
-        base ==4.*,
-        bytestring,
-        rio,
-        text
+-- executable SleClient
+--     main-is: SleClient.hs
+--     default-language: Haskell2010
+--     hs-source-dirs: src/test
+--     ghc-options: -Wall -O -threaded -rtsopts
+--     build-depends:
+--         esa-sle-native -any,
+--         base ==4.*,
+--         bytestring,
+--         rio,
+--         text
 
 
-executable FcltuClient
-    main-is: FcltuClient.hs
-    default-language: Haskell2010
-    hs-source-dirs: src/test
-    ghc-options: -Wall -O -threaded -rtsopts
-    build-depends:
-        esa-sle-native -any,
-        base ==4.*,
-        bytestring,
-        rio,
-        text,
-        pretty-show
+-- executable FcltuClient
+--     main-is: FcltuClient.hs
+--     default-language: Haskell2010
+--     hs-source-dirs: src/test
+--     ghc-options: -Wall -O -threaded -rtsopts
+--     build-depends:
+--         esa-sle-native -any,
+--         base ==4.*,
+--         bytestring,
+--         rio,
+--         text,
+--         pretty-show
 
-executable SleServer
-    main-is: SleServer.hs
-    default-language: Haskell2010
-    hs-source-dirs: src/test
-    ghc-options: -Wall -O -threaded -rtsopts
-    build-depends:
-        esa-sle-native -any,
-        base ==4.*,
-        bytestring,
-        rio,
-        text,
-        optparse-generic,
-        directory,
-        pretty-show
+-- executable SleServer
+--     main-is: SleServer.hs
+--     default-language: Haskell2010
+--     hs-source-dirs: src/test
+--     ghc-options: -Wall -O -threaded -rtsopts
+--     build-depends:
+--         esa-sle-native -any,
+--         base ==4.*,
+--         bytestring,
+--         rio,
+--         text,
+--         optparse-generic,
+--         directory,
+--         pretty-show
 
-executable FcltuServer
-    main-is: FcltuServer.hs
-    default-language: Haskell2010
-    hs-source-dirs: src/test
-    ghc-options: -Wall -O -threaded -rtsopts
-    build-depends:
-        esa-sle-native -any,
-        base ==4.*,
-        bytestring,
-        rio,
-        text,
-        optparse-generic,
-        directory,
-        pretty-show
+-- executable FcltuServer
+--     main-is: FcltuServer.hs
+--     default-language: Haskell2010
+--     hs-source-dirs: src/test
+--     ghc-options: -Wall -O -threaded -rtsopts
+--     build-depends:
+--         esa-sle-native -any,
+--         base ==4.*,
+--         bytestring,
+--         rio,
+--         text,
+--         optparse-generic,
+--         directory,
+--         pretty-show
 
 
 test-suite TestBindParser 
@@ -279,20 +279,20 @@ test-suite TestBindParser
         asn1-types,
         hspec
 
--- test-suite TestRafTransfer 
---     type: exitcode-stdio-1.0
---     main-is: TestRafTransfer.hs
---     default-language: Haskell2010
---     hs-source-dirs: src/test
---     ghc-options: -Wall -O -threaded -rtsopts
---     build-depends:
---         esa-sle-native -any,
---         base ==4.*,
---         bytestring,
---         rio,
---         text,
---         asn1-encoding,
---         asn1-types,
---         hspec
+test-suite TestRafTransfer 
+    type: exitcode-stdio-1.0
+    main-is: TestRafTransfer.hs
+    default-language: Haskell2010
+    hs-source-dirs: src/test
+    ghc-options: -Wall -O -threaded -rtsopts
+    build-depends:
+        esa-sle-native -any,
+        base ==4.*,
+        bytestring,
+        rio,
+        text,
+        asn1-encoding,
+        asn1-types,
+        hspec
 
 
