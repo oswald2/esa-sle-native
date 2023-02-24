@@ -357,8 +357,11 @@ processBoundState cfg var state ppdu@(SlePduScheduleStatusReport pdu) = do
 
 processBoundState _cfg _var _state (SlePduBind _) = do
     logWarn "Received BIND when in bound state, ignored"
-    return ServiceInit
+    return ServiceBound
 
+processBoundState _cfg _var _state (SlePduStop _) = do
+    logWarn "Received STOP when in bound state, ignored"
+    return ServiceBound
 
 processBoundState _cfg _var _state pdu = do
     logWarn
@@ -368,7 +371,7 @@ processBoundState _cfg _var _state pdu = do
 
 
 processActiveState
-    :: ( MonadIO m
+    :: ( MonadUnliftIO m
        , MonadReader env m
        , HasEventHandler env
        , HasLogFunc env
@@ -408,6 +411,56 @@ processActiveState cfg var state ppdu@(SlePduStop pdu) = do
                     }
             sendSlePdu var ret
             sleRaiseEvent (SLERafStopFailed (cfg ^. cfgRAFSII))
+            return ServiceActive
+
+processActiveState cfg var state ppdu@(SlePduScheduleStatusReport pdu) = do
+    logDebug "processActiveState: RAF SCHEDULE STATUS REPORT"
+
+    sleRaiseEvent (SLERafScheduleStatusReceived (cfg ^. cfgRAFSII) pdu)
+
+    cmCfg <- RIO.view commonCfg
+
+    if checkPermission (cmCfg ^. cfgAuthorize)
+                       (state ^. rafInitiator)
+                       (var ^. rafPeers)
+                       ppdu
+        then do
+            (ok, ret) <- case pdu ^. sleSchedRequestType of
+                ReportImmediately -> do
+                    processImmediateReport var pdu
+                ReportPeriodically secs -> do
+                    processPeriodicalReport var secs pdu
+                ReportStop -> do
+                    processReportStop var pdu
+
+            sendSlePdu var (SLEPdu (SlePduScheduleStatusReturn ret))
+            if ok
+                then do
+                    let msg = "Error scheduling report: "
+                            <> fromString (show (ret ^. sleSchedRetResult))
+                    sleRaiseEvent
+                        (SLERafScheduleStatusFailed (cfg ^. cfgRAFSII) msg)
+                else do
+                    sleRaiseEvent
+                        (SLERafScheduleStatusSuccess (cfg ^. cfgRAFSII))
+
+            return ServiceActive
+        else do
+            let
+                ret =
+                    SLEPdu
+                        $ SlePduScheduleStatusReturn
+                        $ SleScheduleStatusReportReturn
+                              { _sleSchedRetCredentials = Nothing
+                              , _sleSchedRetInvokeID = pdu ^. sleSchedInvokeID
+                              , _sleSchedRetResult = DiagScheduleStatusNegative
+                                  (DiagScheduleCommon DiagOtherReason)
+                              }
+            sendSlePdu var ret
+            sleRaiseEvent
+                (SLERafScheduleStatusFailed (cfg ^. cfgRAFSII)
+                                            "Authentication Failed!"
+                )
             return ServiceActive
 
 

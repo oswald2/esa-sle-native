@@ -3,6 +3,7 @@ module SLE.Protocol.UserApi
     , withSleHandle
     , bind
     , unbind
+    , scheduleReport
     , startRAF
     , stopRAF
     , startFCLTU
@@ -90,6 +91,21 @@ stopRAF _cfg hdl creds invokeID = do
                                 }
     writeSLE hdl (SLEPdu (SlePduStop pdu))
 
+
+scheduleReport
+    :: (MonadIO m)
+    => CommonConfig
+    -> SleHandle
+    -> Credentials
+    -> Word16
+    -> ReportRequestType
+    -> m ()
+scheduleReport _cfg hdl creds invokeID typ = do
+    let pdu = SleScheduleStatusReport { _sleSchedCredentials = creds
+                                      , _sleSchedInvokeID    = invokeID
+                                      , _sleSchedRequestType = typ
+                                      }
+    writeSLE hdl (SLEPdu (SlePduScheduleStatusReport pdu))
 
 
 startFCLTU

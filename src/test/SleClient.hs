@@ -22,7 +22,7 @@ import           SLE.Protocol.UserApi
 
 sleConfig :: UserConfig
 sleConfig =
-    defaultUserConfig & cfgCommon . cfgLocal .~ AuthorityIdentifier "EGSCC"
+    defaultUserConfig & cfgCommon . cfgLocal .~ AuthorityIdentifier "SLETT"
 
 
 main :: IO ()
@@ -41,9 +41,13 @@ sleProcedure :: UserConfig -> SleHandle -> IO ()
 sleProcedure cfg hdl = do
     sendBind cfg hdl
     sendStart cfg hdl
+    threadDelay 1000000
+
+    sendSchedule cfg hdl 1    
+
     threadDelay 200000000
     T.putStrLn "Terminating..."
-    sendStop cfg hdl
+    sendStop cfg hdl 2 
     sendUnbind cfg hdl
 
 
@@ -67,10 +71,22 @@ sendStart cfg hdl = do
     startRAF (cfg ^. cfgCommon) hdl Nothing 1 Nothing Nothing AllFrames
 
 
-sendStop :: UserConfig -> SleHandle -> IO ()
-sendStop cfg hdl = do
-    stopRAF (cfg ^. cfgCommon) hdl Nothing 2
+sendStop :: UserConfig -> SleHandle -> Word16 -> IO ()
+sendStop cfg hdl invokeID = do
+    stopRAF (cfg ^. cfgCommon) hdl Nothing invokeID
 
 sendUnbind :: UserConfig -> SleHandle -> IO ()
 sendUnbind cfg hdl = do
     unbind (cfg ^. cfgCommon) hdl Nothing UnbindEnd
+
+sendScheduleImmediately :: UserConfig -> SleHandle -> Word16 -> IO() 
+sendScheduleImmediately cfg hdl invokeID = do 
+    scheduleReport (cfg ^. cfgCommon) hdl Nothing invokeID ReportImmediately
+
+sendSchedule :: UserConfig -> SleHandle -> Word16 -> IO() 
+sendSchedule cfg hdl invokeID = do 
+    scheduleReport (cfg ^. cfgCommon) hdl Nothing invokeID (ReportPeriodically 10)
+
+sendScheduleStop :: UserConfig -> SleHandle -> Word16 -> IO() 
+sendScheduleStop cfg hdl invokeID = do 
+    scheduleReport (cfg ^. cfgCommon) hdl Nothing invokeID ReportStop

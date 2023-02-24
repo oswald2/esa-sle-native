@@ -107,6 +107,7 @@ import           Data.ASN1.Prim
 import           Data.ASN1.Types
 import           Data.Aeson
 import           Data.Attoparsec.ByteString     ( parseOnly )
+import           Data.Bits
 
 import           SLE.Data.CCSDSTime             ( CCSDSTime
                                                 , CCSDSTimePico
@@ -870,9 +871,12 @@ data ReportRequestType =
     deriving (Show, Generic)
 
 reportRequestType :: ReportRequestType -> ASN1
-reportRequestType ReportImmediately = Other Context 0 B.empty
-reportRequestType (ReportPeriodically tim) =
-    Other Context 1 (encodeASN1' DER [IntVal (fromIntegral tim)])
+reportRequestType ReportImmediately        = Other Context 0 B.empty
+reportRequestType (ReportPeriodically tim) = Other Context 1 val
+  where
+    byte0 = fromIntegral $ (tim .&. 0xFF00) `shiftR` 8
+    byte1 = fromIntegral $ tim .&. 0xFF
+    val   = if byte0 == 0 then B.singleton byte1 else B.pack [byte0, byte1]
 reportRequestType ReportStop = Other Context 2 B.empty
 
 parseReportRequestType :: Parser ReportRequestType
@@ -950,23 +954,6 @@ data DiagScheduleSpecificVal = DiagSchedNotSupportedInThisDeliveryMode
     | InvalidReportingCycle
     deriving (Show, Generic)
 
-diagScheduleSpecificVal :: DiagScheduleSpecificVal -> ASN1
-diagScheduleSpecificVal DiagSchedNotSupportedInThisDeliveryMode = IntVal 0
-diagScheduleSpecificVal AlreadyStopped                          = IntVal 1
-diagScheduleSpecificVal InvalidReportingCycle                   = IntVal 2
-
-parseDiagScheduleSpecificVal :: Parser DiagScheduleSpecificVal
-parseDiagScheduleSpecificVal = do
-    x <- parseIntVal
-    case x of
-        0 -> return DiagSchedNotSupportedInThisDeliveryMode
-        1 -> return AlreadyStopped
-        2 -> return InvalidReportingCycle
-        v ->
-            throwError
-                $  "Invalid value for DiagScheduleSpecificVal: "
-                <> fromString (show v)
-
 
 data DiagScheduleStatus = DiagScheduleCommon !Diagnostics | DiagScheduleSpecific !DiagScheduleSpecificVal
     deriving (Show, Generic)
@@ -974,30 +961,87 @@ data DiagScheduleStatus = DiagScheduleCommon !Diagnostics | DiagScheduleSpecific
 diagScheduleStatus :: DiagScheduleStatus -> ASN1
 diagScheduleStatus (DiagScheduleCommon diag) =
     Other Context 0 (encodeASN1' DER [diagnostics diag])
-diagScheduleStatus (DiagScheduleSpecific diag) =
-    Other Context 1 (encodeASN1' DER [diagScheduleSpecificVal diag])
+diagScheduleStatus (DiagScheduleSpecific DiagSchedNotSupportedInThisDeliveryMode)
+    = Other Context 1 (B.singleton 0)
+diagScheduleStatus (DiagScheduleSpecific AlreadyStopped) =
+    Other Context 1 (B.singleton 1)
+diagScheduleStatus (DiagScheduleSpecific InvalidReportingCycle) =
+    Other Context 1 (B.singleton 2)
 
-parseDiagScheduleStatus :: Parser DiagScheduleStatus
-parseDiagScheduleStatus = parseChoiceASN1
-    (DiagScheduleCommon <$> parseDiagnostics)
-    (DiagScheduleSpecific <$> parseDiagScheduleSpecificVal)
-    "Error parsing DiagScheduleStatus"
+
 
 data DiagScheduleResult = DiagScheduleStatusPositive | DiagScheduleStatusNegative DiagScheduleStatus
     deriving (Show, Generic)
 
-diagScheduleResult :: DiagScheduleResult -> ASN1
-diagScheduleResult DiagScheduleStatusPositive = Other Context 0 B.empty
+diagScheduleResult :: DiagScheduleResult -> [ASN1]
+diagScheduleResult DiagScheduleStatusPositive = [Other Context 0 B.empty]
 diagScheduleResult (DiagScheduleStatusNegative diag) =
-    Other Context 1 (encodeASN1' DER [diagScheduleStatus diag])
+    [ Start (Container Context 1)
+    , diagScheduleStatus diag
+    , End (Container Context 1)
+    ]
 
 parseDiagScheduleResult :: Parser DiagScheduleResult
-parseDiagScheduleResult = parseChoiceASN1
-    (return DiagScheduleStatusPositive)
-    (DiagScheduleStatusNegative <$> parseDiagScheduleStatus)
-    "Error parsing DiagScheduleStatus"
-
-
+parseDiagScheduleResult = do
+    x <- get
+    case x of
+        Other Context 0 _ : rest -> do
+            put rest
+            return DiagScheduleStatusPositive
+        Start (Container Context 1) : Other Context 0 bs : End (Container Context 1) : rest
+            -> do
+                put rest
+                case decodeASN1' DER bs of
+                    Left err ->
+                        throwError
+                            $ "Error decoding ScheduleStatusReturn diagnostics: "
+                            <> fromString (show err)
+                    Right v -> case parseASN1 parseDiagnostics v of
+                        Left err ->
+                            throwError
+                                $ "Error decoding ScheduleStatusReturn diagnostics: "
+                                <> fromString (show err)
+                        Right diag ->
+                            return
+                                (DiagScheduleStatusNegative
+                                    (DiagScheduleCommon diag)
+                                )
+        Start (Container Context 1) : Other Context 1 bs : End (Container Context 1) : rest
+            -> do
+                put rest
+                if B.length bs >= 1
+                    then do
+                        case B.index bs 0 of
+                            0 -> return
+                                (DiagScheduleStatusNegative
+                                    (DiagScheduleSpecific
+                                        DiagSchedNotSupportedInThisDeliveryMode
+                                    )
+                                )
+                            1 ->
+                                return
+                                    (DiagScheduleStatusNegative
+                                        (DiagScheduleSpecific AlreadyStopped)
+                                    )
+                            2 -> return
+                                (DiagScheduleStatusNegative
+                                    (DiagScheduleSpecific InvalidReportingCycle)
+                                )
+                            y ->
+                                throwError
+                                    $ "Error decoding ScheduleStatusReturn specific diagnostics, invalid value: "
+                                    <> fromString (show y)
+                    else do
+                        throwError
+                            $ "Error decoding ScheduleStatusReturn specific diagnostics: bytestring too short"
+        asn1 : _rest ->
+            throwError
+                $ "Error decoding ScheduleStatusReturn specific diagnostics: unexpected ASN1: "
+                <> fromString (show asn1)
+        asn1 ->
+            throwError
+                $ "Error decoding ScheduleStatusReturn specific diagnostics: unexpected ASN1: "
+                <> fromString (show asn1)
 
 
 data SleScheduleStatusReportReturn = SleScheduleStatusReportReturn
@@ -1011,11 +1055,12 @@ makeLenses ''SleScheduleStatusReportReturn
 sleScheduleStatusReportReturn :: SleScheduleStatusReportReturn -> [ASN1]
 sleScheduleStatusReportReturn SleScheduleStatusReportReturn {..} =
     [ Start (Container Context 5)
-    , credentials _sleSchedRetCredentials
-    , IntVal (fromIntegral _sleSchedRetInvokeID)
-    , diagScheduleResult _sleSchedRetResult
-    , End (Container Context 5)
-    ]
+        , credentials _sleSchedRetCredentials
+        , IntVal (fromIntegral _sleSchedRetInvokeID)
+        ]
+        ++ diagScheduleResult _sleSchedRetResult
+        ++ [End (Container Context 5)]
+
 
 instance EncodeASN1 SleScheduleStatusReportReturn where
     encode val = encodeASN1' DER (sleScheduleStatusReportReturn val)
