@@ -15,7 +15,6 @@ import           Control.Lens
 
 import           SLE.Data.Common
 import           SLE.Data.FCLTUOps
-import           SLE.Data.Handle
 import           SLE.Data.PDU
 import           SLE.Data.ProviderConfig
 import           SLE.Data.RAFOps
@@ -24,7 +23,6 @@ import           SLE.State.FCLTUState
 import           SLE.State.RAFClasses
 import           SLE.State.RAFState
 
-import           Data.STM.TimedBuffer
 
 
 rafSendFrameIdx
@@ -81,7 +79,7 @@ rafSendFrame var ert quality frame = do
             , _rafTransData              = frame
             }
 
-    writeTimedBuffer (var ^. rafSleHandle . sleBuffer) pdu
+    sendFrameOrNotification var pdu
 
 
 

@@ -20,6 +20,8 @@ module SLE.Data.RAFOps
     , RafTransferDataInvocation(..)
     , RafSyncNotifyInvocation(..)
     , FrameOrNotification(..)
+    , BadType(..)
+    , isFrameBad
     , LockStatus(..)
     , LockStatusReport(..)
     , lockStatRepTime
@@ -39,6 +41,16 @@ module SLE.Data.RAFOps
     , rafTransFrameQuality
     , rafTransPrivateAnnotation
     , rafTransData
+    , RafStatusReport(..)
+    , parseRafStatusReport
+    , rstrCredentials
+    , rstrErrorFreeFrameNumber
+    , rstrDeliveredFrameNumber
+    , rstrFrameSyncLockStatus
+    , rstrSymbolSyncLockStatus
+    , rstrSubcarrierLockStatus
+    , rstrCarrierLockStatus
+    , rstrProductionStatus
     ) where
 
 import           RIO
@@ -284,6 +296,7 @@ instance EncodeASN1 RafStartReturn where
 
 
 type CarrierLockStatus = LockStatus
+type FrameSyncLockStatus = LockStatus
 
 data LockStatus = InLock | OutOfLock | NotInUse | LockStatusUnknown
     deriving stock (Show, Generic)
@@ -325,6 +338,18 @@ intToRafProductionStatus 0 = Just ProdRunning
 intToRafProductionStatus 1 = Just ProdInterrupted
 intToRafProductionStatus 2 = Just ProdHalted
 intToRafProductionStatus _ = Nothing
+
+parseRafProductionStatus :: Parser RafProductionStatus
+parseRafProductionStatus = do
+    x <- parseIntVal
+    case x of
+        0 -> return ProdRunning
+        1 -> return ProdInterrupted
+        2 -> return ProdHalted
+        v ->
+            throwError
+                $  "Illegal value for RAF production status: "
+                <> fromString (show v)
 
 
 data LockStatusReport = LockStatusReport
@@ -474,7 +499,7 @@ rafTransferDataInvocation RafTransferDataInvocation {..} =
             , privateAnnotation _rafTransPrivateAnnotation
             , OctetString _rafTransData
             ]
-    in        {- trace ("TransferData: " <> fromString (ppShow dat))-}
+    in                 {- trace ("TransferData: " <> fromString (ppShow dat))-}
         dat
 
 parseRafTransferDataInvocation :: Parser RafTransferDataInvocation
@@ -499,6 +524,14 @@ parseRafTransferDataInvocation = do
 data FrameOrNotification = TransFrame !RafTransferDataInvocation | TransNotification !RafSyncNotifyInvocation
     deriving stock (Show, Generic)
     deriving anyclass (NFData)
+
+data BadType = NoFrame | BadFrame | GoodFrame 
+
+isFrameBad :: FrameOrNotification -> BadType
+isFrameBad (TransFrame frame) =
+    if frame ^. rafTransFrameQuality /= FrameGood then BadFrame else GoodFrame
+isFrameBad (TransNotification _) = NoFrame
+
 
 frameOrNotification :: FrameOrNotification -> [ASN1]
 frameOrNotification (TransFrame fr) =
@@ -537,7 +570,7 @@ rafTransferBuffer buf =
             Start (Container Context 8)
                 :  concatMap frameOrNotification buf
                 ++ [End (Container Context 8)]
-    in        {- trace ("TransferBuffer: " <> fromString (ppShow dat)) -}
+    in                 {- trace ("TransferBuffer: " <> fromString (ppShow dat)) -}
         dat
 
 
@@ -551,5 +584,64 @@ parseTransferBuffer = do
     return buf
   where
     endContainer = parseBasicASN1 (== End (Container Context 8)) (const ())
+
+
+
+data RafStatusReport = RafStatusReport
+    { _rstrCredentials          :: !Credentials
+    , _rstrErrorFreeFrameNumber :: !Word32
+    , _rstrDeliveredFrameNumber :: !Word32
+    , _rstrFrameSyncLockStatus  :: !FrameSyncLockStatus
+    , _rstrSymbolSyncLockStatus :: !SymbolLockStatus
+    , _rstrSubcarrierLockStatus :: !LockStatus
+    , _rstrCarrierLockStatus    :: !CarrierLockStatus
+    , _rstrProductionStatus     :: !RafProductionStatus
+    }
+    deriving (Show, Generic)
+makeLenses ''RafStatusReport
+
+rafStatusReport :: RafStatusReport -> [ASN1]
+rafStatusReport RafStatusReport {..} =
+    [ Start (Container Context 9)
+    , credentials _rstrCredentials
+    , IntVal (fromIntegral _rstrErrorFreeFrameNumber)
+    , IntVal (fromIntegral _rstrDeliveredFrameNumber)
+    , lockStatus _rstrFrameSyncLockStatus
+    , lockStatus _rstrSymbolSyncLockStatus
+    , lockStatus _rstrSubcarrierLockStatus
+    , lockStatus _rstrCarrierLockStatus
+    , rafProductionStatus _rstrProductionStatus
+    , End (Container Context 9)
+    ]
+
+instance EncodeASN1 RafStatusReport where
+    encode val = encodeASN1' DER (rafStatusReport val)
+
+
+parseRafStatusReport :: Parser RafStatusReport
+parseRafStatusReport = content
+  where
+    endContainer = parseBasicASN1 (== End (Container Context 9)) (const ())
+
+    content      = do
+        creds           <- parseCredentials
+        errorFrames     <- parseIntVal
+        deliveredFrames <- parseIntVal
+        frameSync       <- parseLockStatus
+        symbolSync      <- parseLockStatus
+        subcarrierLock  <- parseLockStatus
+        carrierLock     <- parseLockStatus
+        prod            <- parseRafProductionStatus
+        void endContainer
+        return RafStatusReport
+            { _rstrCredentials          = creds
+            , _rstrErrorFreeFrameNumber = fromIntegral errorFrames
+            , _rstrDeliveredFrameNumber = fromIntegral deliveredFrames
+            , _rstrFrameSyncLockStatus  = frameSync
+            , _rstrSymbolSyncLockStatus = symbolSync
+            , _rstrSubcarrierLockStatus = subcarrierLock
+            , _rstrCarrierLockStatus    = carrierLock
+            , _rstrProductionStatus     = prod
+            }
 
 

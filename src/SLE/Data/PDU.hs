@@ -30,6 +30,9 @@ data SlePdu =
   | SlePduStop !SleStopInvocation
   | SlePduAck !SleAcknowledgement
   | SlePduRafTransferBuffer !RafTransferBuffer
+  | SlePduRafStatusReport !RafStatusReport
+  | SlePduScheduleStatusReport !SleScheduleStatusReport
+  | SlePduScheduleStatusReturn !SleScheduleStatusReportReturn
   | SlePduPeerAbort !SlePeerAbort
   | SlePduFcltuStart !FcltuStartInvocation
   | SlePduFcltuStartReturn !FcltuStartReturn
@@ -78,7 +81,6 @@ setCredentials (SlePduRafTransferBuffer val) creds = SlePduRafTransferBuffer
     setCreds (TransNotification v) =
         TransNotification (v & rafSyncNCredentials ?~ creds)
 
-
 setCredentials v@(SlePduPeerAbort _) _ = v
 setCredentials (SlePduFcltuStart val) creds =
     SlePduFcltuStart $ val & fcltuStartCredentials ?~ creds
@@ -92,25 +94,37 @@ setCredentials (SlePduFcltuTransReturn val) creds =
     SlePduFcltuTransReturn $ val & fcltuTransRetCredentials ?~ creds
 setCredentials (SlePduFcltuAsync val) creds =
     SlePduFcltuAsync $ val & fcltuAsyncCredentials ?~ creds
+setCredentials (SlePduRafStatusReport val) creds =
+    SlePduRafStatusReport $ val & rstrCredentials ?~ creds
+setCredentials (SlePduScheduleStatusReport val) creds =
+    SlePduScheduleStatusReport $ val & sleSchedCredentials ?~ creds
+setCredentials (SlePduScheduleStatusReturn val) creds =
+    SlePduScheduleStatusReturn $ val & sleSchedRetCredentials ?~ creds
+
+
 
 
 getCredentials :: SlePdu -> Credentials
-getCredentials (SlePduBind              pdu ) = pdu ^. sleBindCredentials
-getCredentials (SlePduBindReturn        pdu ) = pdu ^. sleBindRetCredentials
-getCredentials (SlePduUnbind            pdu ) = pdu ^. sleUnbindCredentials
-getCredentials (SlePduUnbindReturn      pdu ) = pdu ^. sleUnbindRetCredentials
-getCredentials (SlePduRafStart          pdu ) = pdu ^. rafStartCredentials
-getCredentials (SlePduRafStartReturn    pdu ) = pdu ^. rafStartRetCredentials
-getCredentials (SlePduStop              pdu ) = pdu ^. sleStopCredentials
-getCredentials (SlePduAck               pdu ) = pdu ^. sleAckCredentials
-getCredentials (SlePduRafTransferBuffer _pdu) = Nothing
-getCredentials (SlePduPeerAbort         _pdu) = Nothing
-getCredentials (SlePduFcltuStart        pdu ) = pdu ^. fcltuStartCredentials
-getCredentials (SlePduFcltuStartReturn  pdu ) = pdu ^. fcltuStartRetCredentials
-getCredentials (SlePduFcltuThrowEvent   pdu ) = pdu ^. fcltuThrowCredentials
-getCredentials (SlePduFcltuTransferData pdu ) = pdu ^. fcltuDataCredentials
-getCredentials (SlePduFcltuTransReturn  pdu ) = pdu ^. fcltuTransRetCredentials
-getCredentials (SlePduFcltuAsync        pdu ) = pdu ^. fcltuAsyncCredentials
+getCredentials (SlePduBind                 pdu ) = pdu ^. sleBindCredentials
+getCredentials (SlePduBindReturn           pdu ) = pdu ^. sleBindRetCredentials
+getCredentials (SlePduUnbind               pdu ) = pdu ^. sleUnbindCredentials
+getCredentials (SlePduUnbindReturn pdu) = pdu ^. sleUnbindRetCredentials
+getCredentials (SlePduRafStart             pdu ) = pdu ^. rafStartCredentials
+getCredentials (SlePduRafStartReturn       pdu ) = pdu ^. rafStartRetCredentials
+getCredentials (SlePduStop                 pdu ) = pdu ^. sleStopCredentials
+getCredentials (SlePduAck                  pdu ) = pdu ^. sleAckCredentials
+getCredentials (SlePduRafTransferBuffer    _pdu) = Nothing
+getCredentials (SlePduPeerAbort            _pdu) = Nothing
+getCredentials (SlePduFcltuStart           pdu ) = pdu ^. fcltuStartCredentials
+getCredentials (SlePduFcltuStartReturn pdu) = pdu ^. fcltuStartRetCredentials
+getCredentials (SlePduFcltuThrowEvent      pdu ) = pdu ^. fcltuThrowCredentials
+getCredentials (SlePduFcltuTransferData    pdu ) = pdu ^. fcltuDataCredentials
+getCredentials (SlePduFcltuTransReturn pdu) = pdu ^. fcltuTransRetCredentials
+getCredentials (SlePduFcltuAsync           pdu ) = pdu ^. fcltuAsyncCredentials
+getCredentials (SlePduRafStatusReport      pdu ) = pdu ^. rstrCredentials
+getCredentials (SlePduScheduleStatusReport pdu ) = pdu ^. sleSchedCredentials
+getCredentials (SlePduScheduleStatusReturn pdu ) = pdu ^. sleSchedRetCredentials
+
 
 
 
@@ -183,19 +197,24 @@ notifChk (Just authority) notif = case notif ^. rafSyncNCredentials of
 
 
 instance EncodeASN1 SlePdu where
-    encode (SlePduBind              val) = encode val
-    encode (SlePduBindReturn        val) = encode val
-    encode (SlePduUnbind            val) = encode val
-    encode (SlePduUnbindReturn      val) = encode val
-    encode (SlePduRafStart          val) = encode val
-    encode (SlePduRafStartReturn    val) = encode val
-    encode (SlePduStop              val) = encode val
-    encode (SlePduAck               val) = encode val
-    encode (SlePduRafTransferBuffer val) = encode val
-    encode (SlePduPeerAbort         val) = encode val
-    encode (SlePduFcltuStart        val) = encode val
-    encode (SlePduFcltuStartReturn  val) = encode val
-    encode (SlePduFcltuThrowEvent   val) = encode val
-    encode (SlePduFcltuTransferData val) = encode val
-    encode (SlePduFcltuTransReturn  val) = encode val
-    encode (SlePduFcltuAsync        val) = encode val
+    encode (SlePduBind                 val) = encode val
+    encode (SlePduBindReturn           val) = encode val
+    encode (SlePduUnbind               val) = encode val
+    encode (SlePduUnbindReturn         val) = encode val
+    encode (SlePduRafStart             val) = encode val
+    encode (SlePduRafStartReturn       val) = encode val
+    encode (SlePduStop                 val) = encode val
+    encode (SlePduAck                  val) = encode val
+    encode (SlePduRafTransferBuffer    val) = encode val
+    encode (SlePduPeerAbort            val) = encode val
+    encode (SlePduFcltuStart           val) = encode val
+    encode (SlePduFcltuStartReturn     val) = encode val
+    encode (SlePduFcltuThrowEvent      val) = encode val
+    encode (SlePduFcltuTransferData    val) = encode val
+    encode (SlePduFcltuTransReturn     val) = encode val
+    encode (SlePduFcltuAsync           val) = encode val
+    encode (SlePduRafStatusReport      val) = encode val
+    encode (SlePduScheduleStatusReport val) = encode val
+    encode (SlePduScheduleStatusReturn val) = encode val
+
+

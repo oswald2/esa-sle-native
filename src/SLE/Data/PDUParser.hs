@@ -61,13 +61,17 @@ parsePDU RtnAllFrames 0   = SlePduRafStart <$> parseRafStart
 parsePDU RtnAllFrames 1   = SlePduRafStartReturn <$> parseRafStartReturn
 parsePDU _            2   = SlePduStop <$> parseStopInvocation
 parsePDU _            3   = SlePduAck <$> parseSleAcknowledgement
-parsePDU RtnAllFrames 8   = SlePduRafTransferBuffer <$> parseTransferBuffer
-parsePDU FwdCltu      8   = SlePduFcltuThrowEvent <$> parseFcltuThrowEvent
-parsePDU FwdCltu      0   = SlePduFcltuStart <$> parseFcltuStart
-parsePDU FwdCltu      1   = SlePduFcltuStartReturn <$> parseFcltuStartReturn
-parsePDU FwdCltu      10 = SlePduFcltuTransferData <$> parseFcltuTransDataInvocation
-parsePDU FwdCltu      11 = SlePduFcltuTransReturn <$> parseFcltuTransferDataReturn
-parsePDU FwdCltu      12  = SlePduFcltuAsync <$> parseFcltuAsyncStatus
+parsePDU _ 4 = SlePduScheduleStatusReport <$> parseScheduleStatusReport
+parsePDU _ 5 =
+    SlePduScheduleStatusReturn <$> parseSleScheduleStatusReportReturn
+parsePDU RtnAllFrames 8  = SlePduRafTransferBuffer <$> parseTransferBuffer
+parsePDU RtnAllFrames 9  = SlePduRafStatusReport <$> parseRafStatusReport
+parsePDU FwdCltu      8  = SlePduFcltuThrowEvent <$> parseFcltuThrowEvent
+parsePDU FwdCltu      0  = SlePduFcltuStart <$> parseFcltuStart
+parsePDU FwdCltu      1  = SlePduFcltuStartReturn <$> parseFcltuStartReturn
+parsePDU FwdCltu 10 = SlePduFcltuTransferData <$> parseFcltuTransDataInvocation
+parsePDU FwdCltu 11 = SlePduFcltuTransReturn <$> parseFcltuTransferDataReturn
+parsePDU FwdCltu      12 = SlePduFcltuAsync <$> parseFcltuAsyncStatus
 parsePDU t x =
     throwError
         $  TB.run

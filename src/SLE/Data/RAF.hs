@@ -49,7 +49,7 @@ bindRAF raf = raf & rafState .~ ServiceBound
 
 
 rafStateMachine
-    :: ( MonadIO m
+    :: ( MonadUnliftIO m
        , MonadReader env m
        , HasCommonConfig env
        , HasEventHandler env
@@ -94,7 +94,7 @@ processInitState cfg var _state ppdu@(SlePduBind pdu) = do
         sii  = toSII (pdu ^. sleServiceInstanceID)
 
         res  = do
-            -- first, when a bind comes in, perform some checks
+-- first, when a bind comes in, perform some checks
             if checkPermission (cmCfg ^. cfgAuthorize)
                                peer
                                (var ^. rafPeers)
@@ -107,7 +107,7 @@ processInitState cfg var _state ppdu@(SlePduBind pdu) = do
                         <> display (pdu ^. sleBindInitiatorID)
                     , AccessDenied
                     )
-                                                                                                                                                                                    -- Check, if we are a RAF Bind Request
+                                                                                                                                                                                                                                                                                -- Check, if we are a RAF Bind Request
             if pdu ^. sleBindServiceType /= RtnAllFrames
                 then Left
                     ( "Requested Service is not RAF: "
@@ -115,7 +115,7 @@ processInitState cfg var _state ppdu@(SlePduBind pdu) = do
                     , ServiceTypeNotSupported
                     )
                 else Right ()
-                                                                                                                                                                                    -- check the requested SLE Version 
+                                                                                                                                                                                                                                                                                -- check the requested SLE Version 
             if (pdu ^. sleVersionNumber /= VersionNumber 3)
                     && (pdu ^. sleVersionNumber /= VersionNumber 4)
                 then Left
@@ -197,7 +197,7 @@ processInitState _cfg _var _state pdu = do
 
 
 processBoundState
-    :: ( MonadIO m
+    :: ( MonadUnliftIO m
        , MonadReader env m
        , HasEventHandler env
        , HasLogFunc env
@@ -305,6 +305,56 @@ processBoundState cfg var state ppdu@(SlePduRafStart pdu) = do
         else Just (DiagRafStartSpecific RafStartInvalidStopTime)
     checkTimeRange _ _ = Nothing
 
+processBoundState cfg var state ppdu@(SlePduScheduleStatusReport pdu) = do
+    logDebug "processBoundState: RAF SCHEDULE STATUS REPORT"
+
+    sleRaiseEvent (SLERafScheduleStatusReceived (cfg ^. cfgRAFSII) pdu)
+
+    cmCfg <- RIO.view commonCfg
+
+    if checkPermission (cmCfg ^. cfgAuthorize)
+                       (state ^. rafInitiator)
+                       (var ^. rafPeers)
+                       ppdu
+        then do
+            (ok, ret) <- case pdu ^. sleSchedRequestType of
+                ReportImmediately -> do
+                    processImmediateReport var pdu
+                ReportPeriodically secs -> do
+                    processPeriodicalReport var secs pdu
+                ReportStop -> do
+                    processReportStop var pdu
+
+            sendSlePdu var (SLEPdu (SlePduScheduleStatusReturn ret))
+            if ok
+                then do
+                    let msg = "Error scheduling report: "
+                            <> fromString (show (ret ^. sleSchedRetResult))
+                    sleRaiseEvent
+                        (SLERafScheduleStatusFailed (cfg ^. cfgRAFSII) msg)
+                else do
+                    sleRaiseEvent
+                        (SLERafScheduleStatusSuccess (cfg ^. cfgRAFSII))
+
+            return ServiceBound
+        else do
+            let
+                ret =
+                    SLEPdu
+                        $ SlePduScheduleStatusReturn
+                        $ SleScheduleStatusReportReturn
+                              { _sleSchedRetCredentials = Nothing
+                              , _sleSchedRetInvokeID = pdu ^. sleSchedInvokeID
+                              , _sleSchedRetResult = DiagScheduleStatusNegative
+                                  (DiagScheduleCommon DiagOtherReason)
+                              }
+            sendSlePdu var ret
+            sleRaiseEvent
+                (SLERafScheduleStatusFailed (cfg ^. cfgRAFSII)
+                                            "Authentication Failed!"
+                )
+            return ServiceBound
+
 processBoundState _cfg _var _state (SlePduBind _) = do
     logWarn "Received BIND when in bound state, ignored"
     return ServiceInit
@@ -365,6 +415,75 @@ processActiveState _cfg _var _state pdu = do
     logWarn
         $  "Active State: Functionality for PDU not yet implemented: "
         <> fromString (ppShow pdu)
-    return ServiceBound
+    return ServiceActive
 
+
+
+processImmediateReport
+    :: (MonadIO m)
+    => RAFVar
+    -> SleScheduleStatusReport
+    -> m (Bool, SleScheduleStatusReportReturn)
+processImmediateReport var pdu = do
+    void $ rafStopSchedule var
+    rafSendStatusReport var
+    let retPdu = SleScheduleStatusReportReturn
+            { _sleSchedRetCredentials = Nothing
+            , _sleSchedRetInvokeID    = pdu ^. sleSchedInvokeID
+            , _sleSchedRetResult      = DiagScheduleStatusPositive
+            }
+    return (True, retPdu)
+
+
+processPeriodicalReport
+    :: (MonadUnliftIO m)
+    => RAFVar
+    -> Word16
+    -> SleScheduleStatusReport
+    -> m (Bool, SleScheduleStatusReportReturn)
+processPeriodicalReport var secs pdu = do
+    if secs >= 2 && secs <= 600
+        then do
+            void $ rafStopSchedule var
+            rafStartSchedule var secs
+            let retPdu = SleScheduleStatusReportReturn
+                    { _sleSchedRetCredentials = Nothing
+                    , _sleSchedRetInvokeID    = pdu ^. sleSchedInvokeID
+                    , _sleSchedRetResult      = DiagScheduleStatusPositive
+                    }
+            return (True, retPdu)
+        else do
+            let diag   = DiagScheduleSpecific InvalidReportingCycle
+                retPdu = SleScheduleStatusReportReturn
+                    { _sleSchedRetCredentials = Nothing
+                    , _sleSchedRetInvokeID    = pdu ^. sleSchedInvokeID
+                    , _sleSchedRetResult      = DiagScheduleStatusNegative diag
+                    }
+            return (False, retPdu)
+
+
+
+processReportStop
+    :: (MonadIO m)
+    => RAFVar
+    -> SleScheduleStatusReport
+    -> m (Bool, SleScheduleStatusReportReturn)
+processReportStop var pdu = do
+    res <- rafStopSchedule var
+    if res
+        then do
+            let retPdu = SleScheduleStatusReportReturn
+                    { _sleSchedRetCredentials = Nothing
+                    , _sleSchedRetInvokeID    = pdu ^. sleSchedInvokeID
+                    , _sleSchedRetResult      = DiagScheduleStatusPositive
+                    }
+            return (True, retPdu)
+        else do
+            let diag   = DiagScheduleSpecific AlreadyStopped
+                retPdu = SleScheduleStatusReportReturn
+                    { _sleSchedRetCredentials = Nothing
+                    , _sleSchedRetInvokeID    = pdu ^. sleSchedInvokeID
+                    , _sleSchedRetResult      = DiagScheduleStatusNegative diag
+                    }
+            return (False, retPdu)
 

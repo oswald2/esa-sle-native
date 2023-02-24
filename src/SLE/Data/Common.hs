@@ -40,6 +40,7 @@ module SLE.Data.Common
     , parseConditionalTime
     , parseOctetString
     , parseChoice
+    , parseChoiceASN1
     , Diagnostics(..)
     , diagnostics
     , parseDiagnostics
@@ -70,6 +71,20 @@ module SLE.Data.Common
     , ForwardDuStatus(..)
     , forwardDuStatus
     , parseForwardDuStatus
+    , ReportRequestType(..)
+    , SleScheduleStatusReport(..)
+    , parseScheduleStatusReport
+    , sleSchedCredentials
+    , sleSchedInvokeID
+    , sleSchedRequestType
+    , DiagScheduleSpecificVal(..)
+    , DiagScheduleStatus(..)
+    , DiagScheduleResult(..)
+    , SleScheduleStatusReportReturn(..)
+    , parseSleScheduleStatusReportReturn
+    , sleSchedRetCredentials
+    , sleSchedRetInvokeID
+    , sleSchedRetResult
     ) where
 
 import           RIO
@@ -255,6 +270,38 @@ parseChoice choice0 choice1 errTxt = do
         ((Other Context 1 bs) : rest) -> do
             put rest
             choice1 bs
+        (o : _) ->
+            throwError $ "parseChoice: expected choice, got " <> fromString
+                (show o)
+        _ -> throwError errTxt
+
+
+parseChoiceASN1 :: Parser b -> Parser b -> Text -> Parser b
+parseChoiceASN1 choice0 choice1 errTxt = do
+    x <- get
+    case x of
+        ((Other Context 0 bs) : rest) -> do
+            put rest
+            case decodeASN1' DER bs of
+                Left err ->
+                    throwError $ "Error decoding choice 0: " <> fromString
+                        (show err)
+                Right asn1 -> case parseASN1 choice0 asn1 of
+                    Left err ->
+                        throwError $ "Error decoding choice 0: " <> fromString
+                            (show err)
+                    Right v -> return v
+        ((Other Context 1 bs) : rest) -> do
+            put rest
+            case decodeASN1' DER bs of
+                Left err ->
+                    throwError $ "Error decoding choice 1: " <> fromString
+                        (show err)
+                Right asn1 -> case parseASN1 choice1 asn1 of
+                    Left err ->
+                        throwError $ "Error decoding choice 0: " <> fromString
+                            (show err)
+                    Right v -> return v
         (o : _) ->
             throwError $ "parseChoice: expected choice, got " <> fromString
                 (show o)
@@ -813,5 +860,180 @@ parseForwardDuStatus = do
         5 -> return FwDUProductionNotStarted
         6 -> return FwDUUnsupportedTransmissionMode
         _ -> return FwDUUnsupportedTransmissionMode
+
+
+
+data ReportRequestType =
+    ReportImmediately
+    | ReportPeriodically !Word16
+    | ReportStop
+    deriving (Show, Generic)
+
+reportRequestType :: ReportRequestType -> ASN1
+reportRequestType ReportImmediately = Other Context 0 B.empty
+reportRequestType (ReportPeriodically tim) =
+    Other Context 1 (encodeASN1' DER [IntVal (fromIntegral tim)])
+reportRequestType ReportStop = Other Context 2 B.empty
+
+parseReportRequestType :: Parser ReportRequestType
+parseReportRequestType = do
+    x <- get
+    case x of
+        Other Context 0 _ : rest -> do
+            put rest
+            return ReportImmediately
+        Other Context 1 bs : rest -> do
+            put rest
+            case decodeASN1' DER bs of
+                Left err ->
+                    throwError
+                        $  "Could not parse ReportRequestType: "
+                        <> fromString (show err)
+                Right (IntVal tim : _) -> do
+                    return (ReportPeriodically (fromIntegral tim))
+                Right val -> do
+                    throwError
+                        $ "Could not parse ReportRequestType: unexpected ASN1 field: "
+                        <> fromString (show val)
+        Other Context 2 _ : rest -> do
+            put rest
+            return ReportStop
+        asn1 : _ ->
+            throwError
+                $  "parseReportRequestType: unexpected ASN1 sequence: "
+                <> fromString (show asn1)
+        asn1 ->
+            throwError
+                $  "parseReportRequestType: unexpected ASN1 sequence: "
+                <> fromString (show asn1)
+
+data SleScheduleStatusReport = SleScheduleStatusReport
+    { _sleSchedCredentials :: !Credentials
+    , _sleSchedInvokeID    :: !Word16
+    , _sleSchedRequestType :: !ReportRequestType
+    }
+    deriving (Show, Generic)
+makeLenses ''SleScheduleStatusReport
+
+
+sleScheduleStatusReport :: SleScheduleStatusReport -> [ASN1]
+sleScheduleStatusReport SleScheduleStatusReport {..} =
+    [ Start (Container Context 4)
+    , credentials _sleSchedCredentials
+    , IntVal (fromIntegral _sleSchedInvokeID)
+    , reportRequestType _sleSchedRequestType
+    , End (Container Context 4)
+    ]
+
+instance EncodeASN1 SleScheduleStatusReport where
+    encode val = encodeASN1' DER (sleScheduleStatusReport val)
+
+parseScheduleStatusReport :: Parser SleScheduleStatusReport
+parseScheduleStatusReport = content
+  where
+    endContainer = parseBasicASN1 (== End (Container Context 4)) (const ())
+
+    content      = do
+        creds      <- parseCredentials
+        invokeID   <- parseIntVal
+        reportType <- parseReportRequestType
+        void endContainer
+        return SleScheduleStatusReport
+            { _sleSchedCredentials = creds
+            , _sleSchedInvokeID    = fromIntegral invokeID
+            , _sleSchedRequestType = reportType
+            }
+
+
+data DiagScheduleSpecificVal = DiagSchedNotSupportedInThisDeliveryMode
+    | AlreadyStopped
+    | InvalidReportingCycle
+    deriving (Show, Generic)
+
+diagScheduleSpecificVal :: DiagScheduleSpecificVal -> ASN1
+diagScheduleSpecificVal DiagSchedNotSupportedInThisDeliveryMode = IntVal 0
+diagScheduleSpecificVal AlreadyStopped                          = IntVal 1
+diagScheduleSpecificVal InvalidReportingCycle                   = IntVal 2
+
+parseDiagScheduleSpecificVal :: Parser DiagScheduleSpecificVal
+parseDiagScheduleSpecificVal = do
+    x <- parseIntVal
+    case x of
+        0 -> return DiagSchedNotSupportedInThisDeliveryMode
+        1 -> return AlreadyStopped
+        2 -> return InvalidReportingCycle
+        v ->
+            throwError
+                $  "Invalid value for DiagScheduleSpecificVal: "
+                <> fromString (show v)
+
+
+data DiagScheduleStatus = DiagScheduleCommon !Diagnostics | DiagScheduleSpecific !DiagScheduleSpecificVal
+    deriving (Show, Generic)
+
+diagScheduleStatus :: DiagScheduleStatus -> ASN1
+diagScheduleStatus (DiagScheduleCommon diag) =
+    Other Context 0 (encodeASN1' DER [diagnostics diag])
+diagScheduleStatus (DiagScheduleSpecific diag) =
+    Other Context 1 (encodeASN1' DER [diagScheduleSpecificVal diag])
+
+parseDiagScheduleStatus :: Parser DiagScheduleStatus
+parseDiagScheduleStatus = parseChoiceASN1
+    (DiagScheduleCommon <$> parseDiagnostics)
+    (DiagScheduleSpecific <$> parseDiagScheduleSpecificVal)
+    "Error parsing DiagScheduleStatus"
+
+data DiagScheduleResult = DiagScheduleStatusPositive | DiagScheduleStatusNegative DiagScheduleStatus
+    deriving (Show, Generic)
+
+diagScheduleResult :: DiagScheduleResult -> ASN1
+diagScheduleResult DiagScheduleStatusPositive = Other Context 0 B.empty
+diagScheduleResult (DiagScheduleStatusNegative diag) =
+    Other Context 1 (encodeASN1' DER [diagScheduleStatus diag])
+
+parseDiagScheduleResult :: Parser DiagScheduleResult
+parseDiagScheduleResult = parseChoiceASN1
+    (return DiagScheduleStatusPositive)
+    (DiagScheduleStatusNegative <$> parseDiagScheduleStatus)
+    "Error parsing DiagScheduleStatus"
+
+
+
+
+data SleScheduleStatusReportReturn = SleScheduleStatusReportReturn
+    { _sleSchedRetCredentials :: !Credentials
+    , _sleSchedRetInvokeID    :: !Word16
+    , _sleSchedRetResult      :: !DiagScheduleResult
+    }
+    deriving (Show, Generic)
+makeLenses ''SleScheduleStatusReportReturn
+
+sleScheduleStatusReportReturn :: SleScheduleStatusReportReturn -> [ASN1]
+sleScheduleStatusReportReturn SleScheduleStatusReportReturn {..} =
+    [ Start (Container Context 5)
+    , credentials _sleSchedRetCredentials
+    , IntVal (fromIntegral _sleSchedRetInvokeID)
+    , diagScheduleResult _sleSchedRetResult
+    , End (Container Context 5)
+    ]
+
+instance EncodeASN1 SleScheduleStatusReportReturn where
+    encode val = encodeASN1' DER (sleScheduleStatusReportReturn val)
+
+parseSleScheduleStatusReportReturn :: Parser SleScheduleStatusReportReturn
+parseSleScheduleStatusReportReturn = content
+  where
+    endContainer = parseBasicASN1 (== End (Container Context 5)) (const ())
+
+    content      = do
+        creds    <- parseCredentials
+        invokeID <- parseIntVal
+        diag     <- parseDiagScheduleResult
+        void endContainer
+        return SleScheduleStatusReportReturn
+            { _sleSchedRetCredentials = creds
+            , _sleSchedRetInvokeID    = fromIntegral invokeID
+            , _sleSchedRetResult      = diag
+            }
 
 

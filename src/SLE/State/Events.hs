@@ -34,6 +34,9 @@ data SleEvent =
   | SLERafStopFailed !SII
   | SLERafStopSucceed !SII
   | SLERafStatus !RAFIdx !ServiceState
+  | SLERafScheduleStatusReceived !SII !SleScheduleStatusReport
+  | SLERafScheduleStatusSuccess !SII
+  | SLERafScheduleStatusFailed !SII !Text 
   | SLEFcltuStatus !FCLTUIdx !ServiceState
   | SLEFcltuStartReceived !FcltuStartInvocation
   | SLEFcltuStartFailed !SII

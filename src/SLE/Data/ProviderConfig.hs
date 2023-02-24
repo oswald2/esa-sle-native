@@ -71,7 +71,7 @@ data RAFConfig = RAFConfig
 defaultRAFConfig :: RAFConfig
 defaultRAFConfig = RAFConfig
     { _cfgRAFSII        = SII "sagr=3.spack=facility-PASS1.rsl-fg=1.raf=onlc1"
-    , _cfgRAFPort       = 5008
+    , _cfgRAFPort       = 5100
     , _cfgRAFPortID     = "TMPORT"
     , _cfgRAFAntennaID  = LocalForm "PARAGONTT"
     , _cfgRAFBufferSize = 100
@@ -126,7 +126,7 @@ data RCFConfig = RCFConfig
 defaultRCFConfig :: RCFConfig
 defaultRCFConfig = RCFConfig
     { _cfgRCFSII        = SII "sagr=3.spack=facility-PASS1.rsl-fg=1.rcf=onlc1"
-    , _cfgRCFPort       = 5008
+    , _cfgRCFPort       = 5101
     , _cfgRCFPortID     = "TMPORT1"
     , _cfgRCFAntennaID  = LocalForm "PARAGONTT"
     , _cfgRCFBufferSize = 100
