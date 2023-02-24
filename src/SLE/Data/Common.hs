@@ -888,17 +888,18 @@ parseReportRequestType = do
             return ReportImmediately
         Other Context 1 bs : rest -> do
             put rest
-            case decodeASN1' DER bs of
-                Left err ->
+            case B.length bs of
+                1 -> do
+                    let val = B.index bs 0
+                    return (ReportPeriodically (fromIntegral val))
+                2 -> do
+                    let b0  = B.index bs 0
+                        b1  = B.index bs 1
+                        val = (fromIntegral b0 `shiftL` 8) .|. fromIntegral b1
+                    return (ReportPeriodically val)
+                _ -> do
                     throwError
-                        $  "Could not parse ReportRequestType: "
-                        <> fromString (show err)
-                Right (IntVal tim : _) -> do
-                    return (ReportPeriodically (fromIntegral tim))
-                Right val -> do
-                    throwError
-                        $ "Could not parse ReportRequestType: unexpected ASN1 field: "
-                        <> fromString (show val)
+                        "Could not parse ReportPeriodically time value: illegal lengtth (max 16 bit)"
         Other Context 2 _ : rest -> do
             put rest
             return ReportStop
