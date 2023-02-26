@@ -13,6 +13,7 @@ Currently implemented are:
  - TML, DEL and AUT layer
  - Authentication is working
  - Transport services for RAF and FCLTU
+ - Multiple RAF and FCLTU instances can be used in parallel
 
 This implementation does not use a communications server like the ESA SLE API implementations, it directly provides TCP/IP ports to connect to.
 
@@ -20,9 +21,9 @@ This implementation does not use a communications server like the ESA SLE API im
 
 RAF is currently the most complete implementation:
  - All transport operations (BIND, START, UNBIND, STOP, TRANSFER BUFFER) are supported.
-   - BIND start/stop times are currently ignored
- - There is currently no distinction between online complete, inline timely and offline. The focus was to integrate it into ParagonTT, which only uses online-complete
- - Buffer sizes and latency limit are supported
+   - production start/stop times are currently ignored
+ - There is currently no distinction between online complete, online timely and offline. The focus was to integrate it into ParagonTT, which only uses online-complete
+ - Configurable are buffer size, latency limit, SII, PortID and AntennaID
  - Status reports are fully supported (immediate, periodic and stopping)
  - Sync Notifications support is there, but the API currently does not allow to send them
  - Get Parameter requests currently only support Buffer Size and Latency Limit (under implementation)
@@ -34,3 +35,8 @@ FCLTU currently does support the following functionality:
  - All transport operations (BIND, START, UNBIND, STOP, TRANSFER DATA, ASYNC NOTIFY)
    - earliest and lates production times are passed on to the application
  - Currently, status reports and get parameter invocations are not supported yet
+ - Configurable are currently the SII, the PortID and the associated TM PortID on which the acknowledege TM should be sent back.
+
+** RCF Implementation 
+
+RCF is currently not implemented. The configuration values are already there, but no coding has been done for RCF.
