@@ -104,7 +104,11 @@ processInitState cfg var _state ppdu@(SlePduBind pdu) = do
                         <> display (pdu ^. sleBindInitiatorID)
                     , AccessDenied
                     )
-                                                                                                                                                                                                                                                                                            -- Check, if we are a RAF Bind Request
+<<<<<<< HEAD
+                                                                                                                                                                                                                                                                                    -- Check, if we are a RAF Bind Request
+=======
+                                                                                                                                                                                                                        -- Check, if we are a RAF Bind Request
+>>>>>>> get_parameter
             if pdu ^. sleBindServiceType /= RtnAllFrames
                 then Left
                     ( "Requested Service is not RAF: "
@@ -112,7 +116,11 @@ processInitState cfg var _state ppdu@(SlePduBind pdu) = do
                     , ServiceTypeNotSupported
                     )
                 else Right ()
-                                                                                                                                                                                                                                                                                            -- check the requested SLE Version 
+<<<<<<< HEAD
+                                                                                                                                                                                                                                                                                    -- check the requested SLE Version 
+=======
+                                                                                                                                                                                                                        -- check the requested SLE Version 
+>>>>>>> get_parameter
             if (pdu ^. sleVersionNumber /= VersionNumber 3)
                     && (pdu ^. sleVersionNumber /= VersionNumber 4)
                 then Left
@@ -359,14 +367,15 @@ processBoundState _cfg _var _state (SlePduBind _) = do
     logWarn "Received BIND when in bound state, ignored"
     return ServiceBound
 
+<<<<<<< HEAD
 processBoundState _cfg _var _state (SlePduStop _) = do
     logWarn "Received STOP when in bound state, ignored"
-    return ServiceBound
-
+=======
 processBoundState cfg var state (SlePduGetParameter pdu) = do
     logDebug "processBoundState: GET PARAMETER"
     sleRaiseEvent (SLEGetParameterReceived pdu)
     processGetParameter cfg var state pdu
+>>>>>>> get_parameter
     return ServiceBound
 
 processBoundState _cfg _var _state pdu = do
@@ -478,6 +487,7 @@ processActiveState _cfg _var _state pdu = do
 
 
 
+<<<<<<< HEAD
 processImmediateReport
     :: (MonadIO m)
     => RAFVar
@@ -546,7 +556,7 @@ processReportStop var pdu = do
                     }
             return (False, retPdu)
 
-
+=======
 processGetParameter
     :: (MonadIO m)
     => RAFConfig
@@ -576,12 +586,8 @@ getParameter
     -> m (Either DiagnosticRafGet RafGetParameter)
 getParameter cfg _var _state ParBufferSize = do
     let bufsize = cfg ^. cfgRAFBufferSize
-    return (Right (RafParBufferSize bufsize))
-
-getParameter cfg _var _state ParLatencyLimit = do
-    let latency = (cfg ^. cfgRAFLatency) `quot` 1_000_000
-    return (Right (RafParLatencyLimit (Just (fromIntegral latency))))
-
+    return (Right (RafParBufferSize ParBufferSize bufsize))
 
 getParameter _ _ _ _ = do
     return (Left (DiagRafGetSpecific RafUnknownParameter))
+>>>>>>> get_parameter

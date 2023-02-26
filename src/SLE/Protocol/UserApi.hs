@@ -9,6 +9,7 @@ module SLE.Protocol.UserApi
     , startFCLTU
     , stopFCLTU
     , sendFCLTUData
+    , rafGetParameter
     ) where
 
 import           RIO
@@ -106,6 +107,23 @@ scheduleReport _cfg hdl creds invokeID typ = do
                                       , _sleSchedRequestType = typ
                                       }
     writeSLE hdl (SLEPdu (SlePduScheduleStatusReport pdu))
+
+
+rafGetParameter
+    :: (MonadIO m)
+    => CommonConfig
+    -> SleHandle
+    -> Credentials
+    -> Word16
+    -> ParameterName
+    -> m ()
+rafGetParameter _cfg hdl creds invokeID paramName = do
+    let pdu = GetParameterInvocation { _gpCredentials = creds
+                                     , _gpInvokeID    = invokeID
+                                     , _gpParameter   = paramName
+                                     }
+    writeSLE hdl (SLEPdu (SlePduGetParameter pdu))
+
 
 
 startFCLTU

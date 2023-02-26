@@ -62,7 +62,7 @@ data RAFConfig = RAFConfig
     , _cfgRAFPort       :: !Word16
     , _cfgRAFPortID     :: !Text
     , _cfgRAFAntennaID  :: !AntennaID
-    , _cfgRAFBufferSize :: !Word32
+    , _cfgRAFBufferSize :: !Word16
     , _cfgRAFLatency    :: !Int
     }
     deriving stock (Show, Read, Generic)

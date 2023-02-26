@@ -17,6 +17,7 @@ import           SLE.Data.TMLConfig
 import           SLE.Data.UserConfig
 import           SLE.Protocol.User
 import           SLE.Protocol.UserApi
+import SLE.Protocol.UserApi (rafGetParameter)
 
 
 
@@ -43,7 +44,9 @@ sleProcedure cfg hdl = do
     sendStart cfg hdl
     threadDelay 1000000
 
-    sendSchedule cfg hdl 1    
+    -- sendSchedule cfg hdl 1    
+    --sendGetParameter cfg hdl 1 ParBufferSize
+    sendGetParameter cfg hdl 1 ParLatencyLimit
 
     threadDelay 200000000
     T.putStrLn "Terminating..."
@@ -90,3 +93,8 @@ sendSchedule cfg hdl invokeID = do
 sendScheduleStop :: UserConfig -> SleHandle -> Word16 -> IO() 
 sendScheduleStop cfg hdl invokeID = do 
     scheduleReport (cfg ^. cfgCommon) hdl Nothing invokeID ReportStop
+
+
+sendGetParameter :: UserConfig -> SleHandle -> Word16 -> ParameterName -> IO () 
+sendGetParameter cfg hdl invokeID paramName = do 
+    rafGetParameter (cfg ^. cfgCommon) hdl Nothing invokeID paramName 

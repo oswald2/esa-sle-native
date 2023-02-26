@@ -41,14 +41,7 @@ module SLE.Data.RAFOps
     , rafTransFrameQuality
     , rafTransPrivateAnnotation
     , rafTransData
-    , RafGetParameter(..)
-    , RafGetParameterReturn(..)
-    , rgpCredentials
-    , rgpInvokeID
-    , rgpResult
-    , DiagnosticRafGet(..)
-    , RafDiagRafGetSpecific(..)
-    , parseRafGetParameterReturn
+<<<<<<< HEAD
     , RafStatusReport(..)
     , parseRafStatusReport
     , rstrCredentials
@@ -59,6 +52,16 @@ module SLE.Data.RAFOps
     , rstrSubcarrierLockStatus
     , rstrCarrierLockStatus
     , rstrProductionStatus
+=======
+    , RafGetParameter(..)
+    , RafGetParameterReturn(..)
+    , rgpCredentials
+    , rgpInvokeID
+    , rgpResult
+    , DiagnosticRafGet(..)
+    , RafDiagRafGetSpecific(..)
+    , parseRafGetParameterReturn
+>>>>>>> get_parameter
     ) where
 
 import           RIO
@@ -507,7 +510,11 @@ rafTransferDataInvocation RafTransferDataInvocation {..} =
             , privateAnnotation _rafTransPrivateAnnotation
             , OctetString _rafTransData
             ]
-    in                           {- trace ("TransferData: " <> fromString (ppShow dat))-}
+<<<<<<< HEAD
+    in                 {- trace ("TransferData: " <> fromString (ppShow dat))-}
+=======
+    in                        {- trace ("TransferData: " <> fromString (ppShow dat))-}
+>>>>>>> get_parameter
         dat
 
 parseRafTransferDataInvocation :: Parser RafTransferDataInvocation
@@ -533,7 +540,7 @@ data FrameOrNotification = TransFrame !RafTransferDataInvocation | TransNotifica
     deriving stock (Show, Generic)
     deriving anyclass (NFData)
 
-data BadType = NoFrame | BadFrame | GoodFrame
+data BadType = NoFrame | BadFrame | GoodFrame 
 
 isFrameBad :: FrameOrNotification -> BadType
 isFrameBad (TransFrame frame) =
@@ -578,7 +585,11 @@ rafTransferBuffer buf =
             Start (Container Context 8)
                 :  concatMap frameOrNotification buf
                 ++ [End (Container Context 8)]
-    in                           {- trace ("TransferBuffer: " <> fromString (ppShow dat)) -}
+<<<<<<< HEAD
+    in                 {- trace ("TransferBuffer: " <> fromString (ppShow dat)) -}
+=======
+    in                        {- trace ("TransferBuffer: " <> fromString (ppShow dat)) -}
+>>>>>>> get_parameter
         dat
 
 
@@ -595,6 +606,7 @@ parseTransferBuffer = do
 
 
 
+<<<<<<< HEAD
 data RafStatusReport = RafStatusReport
     { _rstrCredentials          :: !Credentials
     , _rstrErrorFreeFrameNumber :: !Word32
@@ -652,58 +664,36 @@ parseRafStatusReport = content
             , _rstrProductionStatus     = prod
             }
 
-
-
+=======
 
 data RafGetParameter =
-    RafParBufferSize !Word16
-    | RafParLatencyLimit (Maybe Word16)
+    RafParBufferSize !ParameterName !Word16
+    | RafParLatencyLimit !ParameterName (Maybe Word16)
     deriving (Show, Generic)
 
 
 rafGetParameter :: RafGetParameter -> [ASN1]
-rafGetParameter (RafParBufferSize size) =
+rafGetParameter (RafParBufferSize nm size) =
     [ Start (Container Context 0)
-    , parameterName ParBufferSize
+    , parameterName nm
     , IntVal (fromIntegral size)
     , End (Container Context 0)
     ]
-rafGetParameter (RafParLatencyLimit (Just limit)) =
+rafGetParameter (RafParLatencyLimit nm (Just limit)) =
     [ Start (Container Context 2)
-    , parameterName ParLatencyLimit
-    , Other Context 0 (encWord16 limit)
+    , parameterName nm
+    , Other Context 0 (encodeASN1' DER [IntVal (fromIntegral limit)])
     , End (Container Context 2)
     ]
-rafGetParameter (RafParLatencyLimit Nothing) =
+rafGetParameter (RafParLatencyLimit nm Nothing) =
     [ Start (Container Context 2)
-    , parameterName ParLatencyLimit
+    , parameterName nm
     , Other Context 1 B.empty
     , End (Container Context 2)
     ]
 
 parseRafGetParameter :: Parser RafGetParameter
-parseRafGetParameter = do
-    x <- get
-    case x of
-        Start (Container Context 0) : rest -> do
-            put rest
-            void $ parseParameterName
-            val <- parseIntVal
-            parseEndContainer 0
-            return (RafParBufferSize (fromIntegral val))
-        Start (Container Context 2) : rest -> do
-            put rest
-            void $ parseParameterName
-            latency <- parseChoice (return . decWord16)
-                                   (\_ -> return Nothing)
-                                   "Error parsing latency value"
-            return $ RafParLatencyLimit latency 
-        asn1 ->
-            throwError
-                $ "Error parsing returned parameter value: unexpected ASN1 value: "
-                <> fromString (show asn1)
-
-
+parseRafGetParameter = undefined
 
 instance EncodeASN1 RafGetParameter where
     encode val = encodeASN1' DER (rafGetParameter val)
@@ -740,38 +730,15 @@ parseDiagnosticRafGet = do
         Left  diag -> return $ DiagRafGetCommon diag
         Right diag -> return $ DiagRafGetSpecific diag
 
-eitherRafGetResult :: Either DiagnosticRafGet RafGetParameter -> [ASN1]
+eitherRafGetResult :: Either DiagnosticRafGet RafGetParameter -> ASN1
 eitherRafGetResult (Left diag) =
-    [ Start (Container Context 1)
-    , diagnosticRafGet diag
-    , End (Container Context 1)
-    ]
+    Other Context 1 (encodeASN1' DER [diagnosticRafGet diag])
 eitherRafGetResult (Right param) =
-    Start (Container Context 0)
-        :  rafGetParameter param
-        ++ [End (Container Context 0)]
-
+    Other Context 0 (encodeASN1' DER (rafGetParameter param))
 
 parseEitherRafGetResult :: Parser (Either DiagnosticRafGet RafGetParameter)
 parseEitherRafGetResult = do
-    x <- get 
-    case x of 
-        Start (Container Context 0) : rest -> do 
-            put rest 
-            param <- parseRafGetParameter
-            parseEndContainer 0 
-            return (Right param)
-        Start (Container Context 1) : rest -> do 
-            put rest 
-            diag <- parseDiagnosticRafGet
-            parseEndContainer 1 
-            return (Left diag)
-        asn1 ->
-            throwError
-                $ "Error parsing returned parameter value: unexpected ASN1 value: "
-                <> fromString (show asn1)
-            
-
+    parseEitherASN1 parseDiagnosticRafGet parseRafGetParameter
 
 data RafGetParameterReturn = RafGetParameterReturn
     { _rgpCredentials :: !Credentials
@@ -784,11 +751,11 @@ makeLenses ''RafGetParameterReturn
 rafGetParameterReturn :: RafGetParameterReturn -> [ASN1]
 rafGetParameterReturn RafGetParameterReturn {..} =
     [ Start (Container Context 7)
-        , credentials _rgpCredentials
-        , IntVal (fromIntegral _rgpInvokeID)
-        ]
-        ++ eitherRafGetResult _rgpResult
-        ++ [End (Container Context 7)]
+    , credentials _rgpCredentials
+    , IntVal (fromIntegral _rgpInvokeID)
+    , eitherRafGetResult _rgpResult
+    , End (Container Context 7)
+    ]
 
 instance EncodeASN1 RafGetParameterReturn where
     encode val = encodeASN1' DER (rafGetParameterReturn val)
@@ -807,4 +774,5 @@ parseRafGetParameterReturn = content
                                      , _rgpInvokeID    = fromIntegral invokeID
                                      , _rgpResult      = result
                                      }
+>>>>>>> get_parameter
 
