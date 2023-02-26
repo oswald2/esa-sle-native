@@ -4,12 +4,15 @@
 #-}
 module Main where
 
+import           RIO
+import qualified RIO.ByteString                as B
+
 import           Data.ASN1.BinaryEncoding
 --import qualified RIO.Text                      as T
 --import qualified Data.Text.IO                  as T
 import           Data.ASN1.Encoding
 import           Data.ASN1.Types
-import           RIO
+
 
 import qualified Data.Text.IO                  as T
 
@@ -23,6 +26,122 @@ import           SLE.Data.ServiceInstanceID
 import qualified RIO.Text                      as T
 import           Test.Hspec
 
+bindEnc :: ByteString
+bindEnc =
+    "\191dj\128\NUL\SUB\bSLE_USER\SUB\ENQ55529\STX\SOH\NUL\STX\SOH\STX0O1\SO0\f\ACK\a+p\EOT\ETX\SOH\STX4\SUB\SOH11\EM0\ETB\ACK\a+p\EOT\ETX\SOH\STX5\SUB\fVST-PASS00011\SO0\f\ACK\a+p\EOT\ETX\SOH\STX&\SUB\SOH11\DC20\DLE\ACK\a+p\EOT\ETX\SOH\STX\SYN\SUB\ENQonlt1"
+
+bindEncW8 :: ByteString
+bindEncW8 = B.pack
+    [ 191
+    , 100
+    , 106
+    , 128
+    , 0
+    , 26
+    , 8
+    , 83
+    , 76
+    , 69
+    , 95
+    , 85
+    , 83
+    , 69
+    , 82
+    , 26
+    , 5
+    , 53
+    , 53
+    , 53
+    , 50
+    , 57
+    , 2
+    , 1
+    , 0
+    , 2
+    , 1
+    , 2
+    , 48
+    , 79
+    , 49
+    , 14
+    , 48
+    , 12
+    , 6
+    , 7
+    , 43
+    , 112
+    , 4
+    , 3
+    , 1
+    , 2
+    , 52
+    , 26
+    , 1
+    , 49
+    , 49
+    , 25
+    , 48
+    , 23
+    , 6
+    , 7
+    , 43
+    , 112
+    , 4
+    , 3
+    , 1
+    , 2
+    , 53
+    , 26
+    , 12
+    , 86
+    , 83
+    , 84
+    , 45
+    , 80
+    , 65
+    , 83
+    , 83
+    , 48
+    , 48
+    , 48
+    , 49
+    , 49
+    , 14
+    , 48
+    , 12
+    , 6
+    , 7
+    , 43
+    , 112
+    , 4
+    , 3
+    , 1
+    , 2
+    , 38
+    , 26
+    , 1
+    , 49
+    , 49
+    , 18
+    , 48
+    , 16
+    , 6
+    , 7
+    , 43
+    , 112
+    , 4
+    , 3
+    , 1
+    , 2
+    , 22
+    , 26
+    , 5
+    , 111
+    , 110
+    , 108
+    , 116
+    , 49
+    ]
 
 bind :: [ASN1]
 bind =
