@@ -1,0 +1,36 @@
+*  esa-sle-native
+
+
+An interface library to the CCSDS SLE transfer protocol.
+
+This library is a native Haskell implementation of the CCSDS SLE (Space Link Extension) Protocol. The development focus is currently heavily on the Provider side, although also some User side related functionality is there.
+
+The current tests have been conducted against ESA's SLETT tool as well as against the ESA C++ SLE API itself.
+
+* Implemented Features
+
+Currently implemented are:
+ - TML, DEL and AUT layer
+ - Authentication is working
+ - Transport services for RAF and FCLTU
+
+This implementation does not use a communications server like the ESA SLE API implementations, it directly provides TCP/IP ports to connect to.
+
+** RAF Implementation
+
+RAF is currently the most complete implementation:
+ - All transport operations (BIND, START, UNBIND, STOP, TRANSFER BUFFER) are supported.
+   - BIND start/stop times are currently ignored
+ - There is currently no distinction between online complete, inline timely and offline. The focus was to integrate it into ParagonTT, which only uses online-complete
+ - Buffer sizes and latency limit are supported
+ - Status reports are fully supported (immediate, periodic and stopping)
+ - Sync Notifications support is there, but the API currently does not allow to send them
+ - Get Parameter requests currently only support Buffer Size and Latency Limit (under implementation)
+ - Currently, the production is always in running state
+
+** FCLTU Implementation
+
+FCLTU currently does support the following functionality:
+ - All transport operations (BIND, START, UNBIND, STOP, TRANSFER DATA, ASYNC NOTIFY)
+   - earliest and lates production times are passed on to the application
+ - Currently, status reports and get parameter invocations are not supported yet
