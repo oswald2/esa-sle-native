@@ -107,7 +107,7 @@ processInitState cfg var _state ppdu@(SlePduBind pdu) = do
                         <> display (pdu ^. sleBindInitiatorID)
                     , AccessDenied
                     )
-                                                                                                                                                                                                                                                                                -- Check, if we are a RAF Bind Request
+                                                                                                                                                                                                                                                                                    -- Check, if we are a RAF Bind Request
             if pdu ^. sleBindServiceType /= RtnAllFrames
                 then Left
                     ( "Requested Service is not RAF: "
@@ -115,7 +115,7 @@ processInitState cfg var _state ppdu@(SlePduBind pdu) = do
                     , ServiceTypeNotSupported
                     )
                 else Right ()
-                                                                                                                                                                                                                                                                                -- check the requested SLE Version 
+                                                                                                                                                                                                                                                                                    -- check the requested SLE Version 
             if (pdu ^. sleVersionNumber /= VersionNumber 3)
                     && (pdu ^. sleVersionNumber /= VersionNumber 4)
                 then Left
@@ -328,13 +328,13 @@ processBoundState cfg var state ppdu@(SlePduScheduleStatusReport pdu) = do
             sendSlePdu var (SLEPdu (SlePduScheduleStatusReturn ret))
             if ok
                 then do
+                    sleRaiseEvent
+                        (SLERafScheduleStatusSuccess (cfg ^. cfgRAFSII))
+                else do
                     let msg = "Error scheduling report: "
                             <> fromString (show (ret ^. sleSchedRetResult))
                     sleRaiseEvent
                         (SLERafScheduleStatusFailed (cfg ^. cfgRAFSII) msg)
-                else do
-                    sleRaiseEvent
-                        (SLERafScheduleStatusSuccess (cfg ^. cfgRAFSII))
 
             return ServiceBound
         else do
@@ -436,13 +436,13 @@ processActiveState cfg var state ppdu@(SlePduScheduleStatusReport pdu) = do
             sendSlePdu var (SLEPdu (SlePduScheduleStatusReturn ret))
             if ok
                 then do
+                    sleRaiseEvent
+                        (SLERafScheduleStatusSuccess (cfg ^. cfgRAFSII))
+                else do
                     let msg = "Error scheduling report: "
                             <> fromString (show (ret ^. sleSchedRetResult))
                     sleRaiseEvent
                         (SLERafScheduleStatusFailed (cfg ^. cfgRAFSII) msg)
-                else do
-                    sleRaiseEvent
-                        (SLERafScheduleStatusSuccess (cfg ^. cfgRAFSII))
 
             return ServiceActive
         else do
