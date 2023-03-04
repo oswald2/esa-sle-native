@@ -268,6 +268,58 @@ bindS =
     ]
 
 
+bind2 :: [ASN1]
+bind2 =
+    [ {- Start (Container Context 100)
+    , -}
+      Other Context 0 ""
+    , ASN1String ASN1CharacterString { characterEncoding         = Visible
+                                     , getCharacterStringRawData = "SLETT"
+                                     }
+    , ASN1String ASN1CharacterString { characterEncoding         = Visible
+                                     , getCharacterStringRawData = "TMPORT"
+                                     }
+    , IntVal 0
+    , IntVal 3
+    , Start Sequence
+    , Start Set
+    , Start Sequence
+    , OID [1, 3, 112, 4, 3, 1, 2, 52]
+    , ASN1String ASN1CharacterString { characterEncoding         = Visible
+                                     , getCharacterStringRawData = "3"
+                                     }
+    , End Sequence
+    , End Set
+    , Start Set
+    , Start Sequence
+    , OID [1, 3, 112, 4, 3, 1, 2, 53]
+    , ASN1String ASN1CharacterString
+        { characterEncoding         = Visible
+        , getCharacterStringRawData = "facility-PASS1"
+        }
+    , End Sequence
+    , End Set
+    , Start Set
+    , Start Sequence
+    , OID [1, 3, 112, 4, 3, 1, 2, 38]
+    , ASN1String ASN1CharacterString { characterEncoding         = Visible
+                                     , getCharacterStringRawData = "1"
+                                     }
+    , End Sequence
+    , End Set
+    , Start Set
+    , Start Sequence
+    , OID [1, 3, 112, 4, 3, 1, 2, 22]
+    , ASN1String ASN1CharacterString { characterEncoding         = Visible
+                                     , getCharacterStringRawData = "onlc1"
+                                     }
+    , End Sequence
+    , End Set
+    , End Sequence
+    , End (Container Context 100)
+    ]
+
+
 attribute :: [ASN1]
 attribute =
     [ Start Set
@@ -281,6 +333,92 @@ attribute =
     , End Sequence
     , End Set
     ]
+
+twoAttributes :: [ASN1]
+twoAttributes =
+    [ Start Set
+    , Start Sequence
+    , OID [1, 3, 112, 4, 3, 1, 2, 52]
+    , ASN1String ASN1CharacterString { characterEncoding         = Visible
+                                     , getCharacterStringRawData = "3"
+                                     }
+    , End Sequence
+    , End Set
+    , Start Set
+    , Start Sequence
+    , OID [1, 3, 112, 4, 3, 1, 2, 53]
+    , ASN1String ASN1CharacterString
+        { characterEncoding         = Visible
+        , getCharacterStringRawData = "facility-PASS1"
+        }
+    , End Sequence
+    , End Set
+    ]
+
+
+twoAttributesSequence :: [ASN1]
+twoAttributesSequence =
+    [ Start Sequence
+    , Start Set
+    , Start Sequence
+    , OID [1, 3, 112, 4, 3, 1, 2, 52]
+    , ASN1String ASN1CharacterString { characterEncoding         = Visible
+                                     , getCharacterStringRawData = "3"
+                                     }
+    , End Sequence
+    , End Set
+    , Start Set
+    , Start Sequence
+    , OID [1, 3, 112, 4, 3, 1, 2, 53]
+    , ASN1String ASN1CharacterString
+        { characterEncoding         = Visible
+        , getCharacterStringRawData = "facility-PASS1"
+        }
+    , End Sequence
+    , End Set
+    , End Sequence
+    ]
+
+
+attributeList :: [ASN1]
+attributeList =
+    [ Start Sequence
+    , Start Set
+    , Start Sequence
+    , OID [1, 3, 112, 4, 3, 1, 2, 52]
+    , ASN1String ASN1CharacterString { characterEncoding         = Visible
+                                     , getCharacterStringRawData = "3"
+                                     }
+    , End Sequence
+    , End Set
+    , Start Set
+    , Start Sequence
+    , OID [1, 3, 112, 4, 3, 1, 2, 53]
+    , ASN1String ASN1CharacterString
+        { characterEncoding         = Visible
+        , getCharacterStringRawData = "facility-PASS1"
+        }
+    , End Sequence
+    , End Set
+    , Start Set
+    , Start Sequence
+    , OID [1, 3, 112, 4, 3, 1, 2, 38]
+    , ASN1String ASN1CharacterString { characterEncoding         = Visible
+                                     , getCharacterStringRawData = "1"
+                                     }
+    , End Sequence
+    , End Set
+    , Start Set
+    , Start Sequence
+    , OID [1, 3, 112, 4, 3, 1, 2, 22]
+    , ASN1String ASN1CharacterString { characterEncoding         = Visible
+                                     , getCharacterStringRawData = "onlc1"
+                                     }
+    , End Sequence
+    , End Set
+    , End Sequence
+    ]
+
 
 sleBindReturn :: [ASN1]
 sleBindReturn =
@@ -409,22 +547,25 @@ cltuLastOK =
 
 main :: IO ()
 main = hspec $ do
-    -- describe "Basic Parser Tests" $ do
-    --     it "manyA test" $ do
-    --         let vals   = [IntVal 1, IntVal 2, IntVal 3]
-    --             result = parseASN1 (manyA parseIntVal) vals
-    --         result `shouldBe` Right [1, 2, 3]
+    describe "Basic Parser Tests" $ do
+        it "manyA test" $ do
+            let vals   = [IntVal 1, IntVal 2, IntVal 3]
+                result = parseASN1 (manyA parseIntVal) vals
+            result `shouldBe` Right [1, 2, 3]
 
-        -- it "Sequence test" $ do
-        --     let vals =
-        --             [Start Sequence, IntVal 1, IntVal 2, IntVal 3, End Sequence]
-        --         result = parseASN1 (parseSequence parseIntVal) vals
-        --     result `shouldBe` Right [1, 2, 3]
+        it "Sequence test" $ do
+            let vals =
+                    [Start Sequence, IntVal 1, IntVal 2, IntVal 3, End Sequence]
+                parser = (,,) <$> parseIntVal <*> parseIntVal <*> parseIntVal
+                result = parseASN1 (parseSequence parser) vals
+            T.putStrLn $ "Result: " <> fromString (show result)
+            result `shouldBe` Right (1, 2, 3)
+            -- result `shouldSatisfy` isRight
 
-        -- it "Set test" $ do
-        --     let vals   = [Start Set, IntVal 1, IntVal 2, IntVal 3, End Set]
-        --         result = parseASN1 (parseSet parseIntVal) vals
-        --     result `shouldBe` Right [1, 2, 3]
+        it "Set test" $ do
+            let vals   = [Start Set, IntVal 1, IntVal 2, IntVal 3, End Set]
+                result = parseASN1 (parseSet parseIntVal) vals
+            result `shouldBe` Right [1, 2, 3]
 
     describe "FCLTU Async Parser" $ do
         it "CltuID Parser" $ do
@@ -465,67 +606,118 @@ main = hspec $ do
             result `shouldSatisfy` isRight
 
 
-    -- describe "Start Parser" $ do
-    --     it "Sle Start with Times" $ do
-    --         let result = parseASN1 parseRafStart startWithTimes
-    --         result `shouldSatisfy` isRight
+    describe "Start Parser" $ do
+        it "Sle Start with Times" $ do
+            let result = parseASN1 parseRafStart startWithTimes
+            result `shouldSatisfy` isRight
 
-    --     it "Sle Start without Times" $ do
-    --         let result = parseASN1 parseRafStart start
-    --         result `shouldSatisfy` isRight
+        it "Sle Start without Times" $ do
+            let result = parseASN1 parseRafStart start
+            result `shouldSatisfy` isRight
 
-    -- describe "Sle Bind Invocation" $ do
-    --     it "Sle Bind Start test" $ do
-    --         let result = parseASN1
-    --                 (parseBasicASN1 (== Start (Container Context 100))
-    --                                 (const ())
-    --                 )
-    --                 bind
-    --         result `shouldBe` Right ()
+    describe "Sle Bind Invocation" $ do
+        it "Sle Bind Start test" $ do
+            let result = parseASN1
+                    (parseBasicASN1 (== Start (Container Context 100))
+                                    (const ())
+                    )
+                    bind
+            result `shouldBe` Right ()
 
-    --     it "Sle Bind Start II" $ do
-    --         let parser = do
-    --                 void $ parseBasicASN1 (== Start (Container Context 100))
-    --                                       (const ())
-    --                 parseCredentials
-    --             result = parseASN1 parser bind
-    --         result `shouldSatisfy` isRight
-    --         result `shouldBe` Right Nothing
+        it "Sle Bind Start II" $ do
+            let parser = do
+                    void $ parseBasicASN1 (== Start (Container Context 100))
+                                          (const ())
+                    parseCredentials
+                result = parseASN1 parser bind
+            result `shouldSatisfy` isRight
+            result `shouldBe` Right Nothing
 
-    --     it "Sle Bind Start III" $ do
-    --         let parser = do
-    --                 void $ parseBasicASN1 (== Start (Container Context 100))
-    --                                       (const ())
-    --                 void parseCredentials
-    --                 parseAuthorityIdentifier
-    --             result = parseASN1 parser bind
-    --         result `shouldSatisfy` isRight
-    --         result `shouldBe` Right (AuthorityIdentifier "SLE_USER")
+        it "Sle Bind Start III" $ do
+            let parser = do
+                    void $ parseBasicASN1 (== Start (Container Context 100))
+                                          (const ())
+                    void parseCredentials
+                    parseAuthorityIdentifier
+                result = parseASN1 parser bind
+            result `shouldSatisfy` isRight
+            result `shouldBe` Right (AuthorityIdentifier "SLE_USER")
 
-    --     it "Sle Bind Start IV" $ do
-    --         let result = parseASN1 parseServiceInstanceAttribute attribute
-    --         result `shouldSatisfy` isRight
-    --         result `shouldBe` Right
-    --             (ServiceInstanceAttribute SPACK "VST-PASS0001")
+        it "Sle Bind Start SII Attribute" $ do
+            let result = parseASN1 parseServiceInstanceAttribute attribute
+            result `shouldSatisfy` isRight
+            result `shouldBe` Right
+                (ServiceInstanceAttribute SPACK "VST-PASS0001")
 
-    --     it "Sle Bind Invocation" $ do
-    --         let result = parseASN1 parseSleBind bindS
-    --         result `shouldSatisfy` isRight
-    --         result `shouldBe` Right sleBind
+        it "Sle Bind Start 2 SII Attributes" $ do
+            let
+                result = parseASN1 (manyA parseServiceInstanceAttribute)
+                                   twoAttributes
+            T.putStrLn $ "Result: " <> fromString (show result)
+            result `shouldSatisfy` isRight
+            result `shouldBe` Right
+                [ ServiceInstanceAttribute { _siAttrID    = SAGR
+                                           , _siAttrValue = "3"
+                                           }
+                , ServiceInstanceAttribute { _siAttrID    = SPACK
+                                           , _siAttrValue = "facility-PASS1"
+                                           }
+                ]
 
-    --     it "Sle encode/decode test" $ do
-    --         let bind   = sleBindInvocation sleBind
-    --             bind'  = encodeASN1 DER bind
-    --             bind'' = decodeASN1 DER bind'
+        it "Sle Bind Start 2 SII Attributes Sequence" $ do
+            let
+                parser = do 
+                    parseStartSequence
+                    val <- manyA parseServiceInstanceAttribute
+                    parseEndSequence
+                    return val 
+                -- result = parseASN1 (parseSequence (manyA parseServiceInstanceAttribute))
+                --                    twoAttributesSequence
+                result = parseASN1 parser twoAttributesSequence
+            T.putStrLn $ "Result: " <> fromString (show result)
+            result `shouldSatisfy` isRight
+            result `shouldBe` Right
+                [ ServiceInstanceAttribute { _siAttrID    = SAGR
+                                           , _siAttrValue = "3"
+                                           }
+                , ServiceInstanceAttribute { _siAttrID    = SPACK
+                                           , _siAttrValue = "facility-PASS1"
+                                           }
+                ]
 
-    --         bind'' `shouldSatisfy` isRight
-    --         case bind'' of
-    --             Left  _err    -> return ()
-    --             Right asnBind -> do
-    --                 let result = parseASN1 parseSleBind (drop 1 asnBind)
-    --                 result `shouldSatisfy` isRight
-    --                 case result of
-    --                     Left  _err -> return ()
-    --                     Right msg  -> do
-    --                         msg `shouldBe` sleBind
+
+        it "Sle Bind ServiceInstanceID" $ do
+            let result = parseASN1 parseServiceInstanceIdentifier attributeList
+            T.putStrLn $ "Result: " <> fromString (show result)
+            result `shouldSatisfy` isRight
+
+
+
+        it "Sle Bind Invocation" $ do
+            let result = parseASN1 parseSleBind bind2
+            T.putStrLn $ "Result: " <> fromString (show result)
+            result `shouldSatisfy` isRight
+            -- result `shouldBe` Right sleBind
+
+        it "Sle Bind Invocation" $ do
+            let result = parseASN1 parseSleBind bindS
+            T.putStrLn $ "Result: " <> fromString (show result)
+            result `shouldSatisfy` isRight
+            result `shouldBe` Right sleBind
+
+        it "Sle encode/decode test" $ do
+            let bind   = sleBindInvocation sleBind
+                bind'  = encodeASN1 DER bind
+                bind'' = decodeASN1 DER bind'
+
+            bind'' `shouldSatisfy` isRight
+            case bind'' of
+                Left  _err    -> return ()
+                Right asnBind -> do
+                    let result = parseASN1 parseSleBind (drop 1 asnBind)
+                    result `shouldSatisfy` isRight
+                    case result of
+                        Left  _err -> return ()
+                        Right msg  -> do
+                            msg `shouldBe` sleBind
 

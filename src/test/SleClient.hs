@@ -1,5 +1,6 @@
 {-# LANGUAGE
   OverloadedStrings
+  , NumericUnderscores
 #-}
 module Main where
 
@@ -45,8 +46,19 @@ sleProcedure cfg hdl = do
     threadDelay 1000000
 
     -- sendSchedule cfg hdl 1    
-    --sendGetParameter cfg hdl 1 ParBufferSize
-    sendGetParameter cfg hdl 1 ParLatencyLimit
+    sendGetParameter cfg hdl 1 ParBufferSize
+    sendGetParameter cfg hdl 2 ParLatencyLimit
+    sendGetParameter cfg hdl 3 ParDeliveryMode
+    sendGetParameter cfg hdl 4 ParReportingCycle
+
+    sendSchedule cfg hdl 5 
+    sendGetParameter cfg hdl 6 ParReportingCycle
+
+    sendGetParameter cfg hdl 7 ParMinReportingCycle
+    sendGetParameter cfg hdl 8 ParReturnTimeoutPeriod
+    sendGetParameter cfg hdl 9 ParRequestedFrameQuality
+    -- sendGetParameter cfg hdl 8 ParPermittedFrameQuality
+
 
     threadDelay 200000000
     T.putStrLn "Terminating..."

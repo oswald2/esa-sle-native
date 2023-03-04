@@ -41,6 +41,7 @@ module SLE.State.RAFState
     , rafSendStatusReport
     , rafStartSchedule
     , rafStopSchedule
+    , rafGetReportSchedule
     ) where
 
 import           RIO                     hiding ( (.~)
@@ -89,7 +90,7 @@ data RAFVar = RAFVar
     , _rafIdx        :: !RAFIdx
     , _rafContinuity :: !(TVar Int32)
     , _rafPeers      :: !(HashMap AuthorityIdentifier Peer)
-    , _rafSchedule   :: !(TVar (Maybe (Async ())))
+    , _rafSchedule   :: !(TVar (Maybe (Async (), Word16)))
     }
 makeLenses ''RAFVar
 
@@ -168,7 +169,7 @@ sendFrameOrNotification :: (MonadIO m) => RAFVar -> FrameOrNotification -> m ()
 sendFrameOrNotification var value = do
     let hdl = var ^. rafSleHandle
     case isFrameBad value of
-        NoFrame    -> writeFrameOrNotification hdl value
+        NoFrame   -> writeFrameOrNotification hdl value
         GoodFrame -> atomically $ do
             modifyRAFSTM var setPositive
             writeFrameOrNotificationSTM hdl value
@@ -217,8 +218,8 @@ rafStopSchedule :: (MonadIO m) => RAFVar -> m Bool
 rafStopSchedule var = do
     thr <- readTVarIO (_rafSchedule var)
     case thr of
-        Nothing     -> return False
-        Just thread -> do
+        Nothing          -> return False
+        Just (thread, _) -> do
             cancel thread
             atomically $ writeTVar (_rafSchedule var) Nothing
             return True
@@ -227,9 +228,16 @@ rafStartSchedule :: (MonadUnliftIO m) => RAFVar -> Word16 -> m ()
 rafStartSchedule var secs = do
     void $ rafStopSchedule var
     thr <- async thread
-    atomically $ writeTVar (_rafSchedule var) (Just thr)
+    atomically $ writeTVar (_rafSchedule var) (Just (thr, secs))
   where
     thread = do
         rafSendStatusReport var
         threadDelay (fromIntegral secs * 1_000_000)
         thread
+
+rafGetReportSchedule :: (MonadIO m) => RAFVar -> m (Maybe Word16)
+rafGetReportSchedule var = do
+    val <- readTVarIO (_rafSchedule var)
+    case val of
+        Nothing         -> return Nothing
+        Just (_, sched) -> return (Just sched)

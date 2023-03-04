@@ -43,7 +43,8 @@
             "_cfgRAFLatency": 1000000,
             "_cfgRAFPort": 5100,
             "_cfgRAFPortID": "TMPORT",
-            "_cfgRAFSII": "sagr=3.spack=facility-PASS1.rsl-fg=1.raf=onlc1"
+            "_cfgRAFSII": "sagr=3.spack=facility-PASS1.rsl-fg=1.raf=onlc1",
+            "_cfgRAFDeliveryMode": "DelRtnCompleteOnline"
         }
     ],
     "_cfgRCFs": [

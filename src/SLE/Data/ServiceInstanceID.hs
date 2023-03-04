@@ -152,7 +152,9 @@ parseServiceID = do
                     throwError
                         $ "parseServiceID: illegal number for service ID in OID: "
                         <> T.pack (show x)
-        _ -> throwError "parseServiceID: no OID detected"
+        a -> do 
+            put a 
+            throwError "parseServiceID: no OID detected"
 
 
 

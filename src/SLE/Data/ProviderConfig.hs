@@ -34,6 +34,7 @@ module SLE.Data.ProviderConfig
     , cfgRCFAntennaID
     , cfgRCFBufferSize
     , cfgRCFLatency
+    , cfgRAFDeliveryMode
     , cfgRCFGVCIDs
     , cfgFCLTUSII
     , cfgFCLTUPort
@@ -58,24 +59,26 @@ import           SLE.Data.CommonConfig
 
 
 data RAFConfig = RAFConfig
-    { _cfgRAFSII        :: !SII
-    , _cfgRAFPort       :: !Word16
-    , _cfgRAFPortID     :: !Text
-    , _cfgRAFAntennaID  :: !AntennaID
-    , _cfgRAFBufferSize :: !Word16
-    , _cfgRAFLatency    :: !Int
+    { _cfgRAFSII          :: !SII
+    , _cfgRAFPort         :: !Word16
+    , _cfgRAFPortID       :: !Text
+    , _cfgRAFAntennaID    :: !AntennaID
+    , _cfgRAFBufferSize   :: !Word16
+    , _cfgRAFLatency      :: !Int
+    , _cfgRAFDeliveryMode :: !DeliveryMode
     }
     deriving stock (Show, Read, Generic)
     deriving anyclass (FromJSON, ToJSON)
 
 defaultRAFConfig :: RAFConfig
 defaultRAFConfig = RAFConfig
-    { _cfgRAFSII        = SII "sagr=3.spack=facility-PASS1.rsl-fg=1.raf=onlc1"
-    , _cfgRAFPort       = 5100
-    , _cfgRAFPortID     = "TMPORT"
-    , _cfgRAFAntennaID  = LocalForm "PARAGONTT"
-    , _cfgRAFBufferSize = 100
-    , _cfgRAFLatency    = 1_000_000
+    { _cfgRAFSII          = SII "sagr=3.spack=facility-PASS1.rsl-fg=1.raf=onlc1"
+    , _cfgRAFPort         = 5100
+    , _cfgRAFPortID       = "TMPORT"
+    , _cfgRAFAntennaID    = LocalForm "PARAGONTT"
+    , _cfgRAFBufferSize   = 100
+    , _cfgRAFLatency      = 1_000_000
+    , _cfgRAFDeliveryMode = DelRtnCompleteOnline
     }
 
 data PusMasterChannel = PusMasterChannel

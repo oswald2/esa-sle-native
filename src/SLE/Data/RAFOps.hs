@@ -59,6 +59,8 @@ module SLE.Data.RAFOps
     , rstrSubcarrierLockStatus
     , rstrCarrierLockStatus
     , rstrProductionStatus
+    , reqFrameQualitySet
+    , parseReqFrameQualitySet
     ) where
 
 import           RIO
@@ -115,6 +117,9 @@ reqFrameQuality ErredOnly        = IntVal 1
 reqFrameQuality AllFrames        = IntVal 2
 reqFrameQuality FrameQualInvalid = IntVal 127
 
+reqFrameQualitySet :: [ReqFrameQuality] -> [ASN1]
+reqFrameQualitySet lst = Start Set : map reqFrameQuality lst ++ [End Set]
+
 
 parseReqFrameQuality :: Parser ReqFrameQuality
 parseReqFrameQuality = do
@@ -124,6 +129,10 @@ parseReqFrameQuality = do
         1 -> return ErredOnly
         2 -> return AllFrames
         _ -> return FrameQualInvalid
+
+parseReqFrameQualitySet :: Parser [ReqFrameQuality]
+parseReqFrameQualitySet = do
+    parseSet parseReqFrameQuality
 
 
 data RafStartInvocation = RafStartInvocation
@@ -507,7 +516,7 @@ rafTransferDataInvocation RafTransferDataInvocation {..} =
             , privateAnnotation _rafTransPrivateAnnotation
             , OctetString _rafTransData
             ]
-    in                           {- trace ("TransferData: " <> fromString (ppShow dat))-}
+    in                                 {- trace ("TransferData: " <> fromString (ppShow dat))-}
         dat
 
 parseRafTransferDataInvocation :: Parser RafTransferDataInvocation
@@ -578,7 +587,7 @@ rafTransferBuffer buf =
             Start (Container Context 8)
                 :  concatMap frameOrNotification buf
                 ++ [End (Container Context 8)]
-    in                           {- trace ("TransferBuffer: " <> fromString (ppShow dat)) -}
+    in                                 {- trace ("TransferBuffer: " <> fromString (ppShow dat)) -}
         dat
 
 
@@ -657,7 +666,13 @@ parseRafStatusReport = content
 
 data RafGetParameter =
     RafParBufferSize !Word16
-    | RafParLatencyLimit (Maybe Word16)
+    | RafParDeliveryMode !DeliveryMode
+    | RafParLatencyLimit !(Maybe Word16)
+    | RafParReqFrameQuality !ReqFrameQuality
+    | RafParMinReportingCycle !Word16
+    | RafParReturnTimeout !Word16
+    | RafParPermittedFrameQuality ![ReqFrameQuality]
+    | RafParReportingCycle !(Maybe Word16)
     deriving (Show, Generic)
 
 
@@ -668,6 +683,34 @@ rafGetParameter (RafParBufferSize size) =
     , IntVal (fromIntegral size)
     , End (Container Context 0)
     ]
+rafGetParameter (RafParDeliveryMode mode) =
+    [ Start (Container Context 1)
+    , parameterName ParDeliveryMode
+    , deliveryMode mode
+    , End (Container Context 1)
+    ]
+rafGetParameter (RafParReqFrameQuality qual) =
+    [ Start (Container Context 4)
+    , parameterName ParRequestedFrameQuality
+    , reqFrameQuality qual
+    , End (Container Context 4)
+    ]
+rafGetParameter (RafParMinReportingCycle cycl) =
+    [ Start (Container Context 7)
+    , parameterName ParMinReportingCycle
+    , IntVal (fromIntegral cycl)
+    , End (Container Context 7)
+    ]
+rafGetParameter (RafParReturnTimeout val) =
+    [ Start (Container Context 5)
+    , parameterName ParReturnTimeoutPeriod
+    , IntVal (fromIntegral val)
+    , End (Container Context 5)
+    ]
+rafGetParameter (RafParPermittedFrameQuality val) =
+    [Start (Container Context 6), parameterName ParPermittedFrameQuality]
+        ++ reqFrameQualitySet val
+        ++ [End (Container Context 6)]
 rafGetParameter (RafParLatencyLimit (Just limit)) =
     [ Start (Container Context 2)
     , parameterName ParLatencyLimit
@@ -680,6 +723,20 @@ rafGetParameter (RafParLatencyLimit Nothing) =
     , Other Context 1 B.empty
     , End (Container Context 2)
     ]
+rafGetParameter (RafParReportingCycle (Just val)) =
+    [ Start (Container Context 3)
+    , parameterName ParReportingCycle
+    , Other Context 1 (encWord16 val)
+    , End (Container Context 3)
+    ]
+rafGetParameter (RafParReportingCycle Nothing) =
+    [ Start (Container Context 3)
+    , parameterName ParReportingCycle
+    , Other Context 0 B.empty
+    , End (Container Context 3)
+    ]
+
+
 
 parseRafGetParameter :: Parser RafGetParameter
 parseRafGetParameter = do
@@ -691,14 +748,54 @@ parseRafGetParameter = do
             val <- parseIntVal
             parseEndContainer 0
             return (RafParBufferSize (fromIntegral val))
+        Start (Container Context 1) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseDeliveryMode
+            parseEndContainer 1
+            return (RafParDeliveryMode val)
         Start (Container Context 2) : rest -> do
             put rest
             void $ parseParameterName
             latency <- parseChoice (return . decWord16)
                                    (\_ -> return Nothing)
                                    "Error parsing latency value"
-            return $ RafParLatencyLimit latency 
-        asn1 ->
+            parseEndContainer 2
+            return $ RafParLatencyLimit latency
+        Start (Container Context 3) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseChoice (\_ -> return Nothing)
+                               (return . decWord16)
+                               "Error parsing reporting cycle"
+            parseEndContainer 3
+            return $ RafParReportingCycle val
+        Start (Container Context 4) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseReqFrameQuality
+            parseEndContainer 4
+            return (RafParReqFrameQuality val)
+        Start (Container Context 5) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseIntVal
+            parseEndContainer 5
+            return (RafParReturnTimeout (fromIntegral val))
+        Start (Container Context 6) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseReqFrameQualitySet
+            parseEndContainer 6
+            return (RafParPermittedFrameQuality val)
+        Start (Container Context 7) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseIntVal
+            parseEndContainer 7
+            return (RafParMinReportingCycle (fromIntegral val))
+        asn1 -> do
+            put asn1
             throwError
                 $ "Error parsing returned parameter value: unexpected ASN1 value: "
                 <> fromString (show asn1)
@@ -754,23 +851,23 @@ eitherRafGetResult (Right param) =
 
 parseEitherRafGetResult :: Parser (Either DiagnosticRafGet RafGetParameter)
 parseEitherRafGetResult = do
-    x <- get 
-    case x of 
-        Start (Container Context 0) : rest -> do 
-            put rest 
+    x <- get
+    case x of
+        Start (Container Context 0) : rest -> do
+            put rest
             param <- parseRafGetParameter
-            parseEndContainer 0 
+            parseEndContainer 0
             return (Right param)
-        Start (Container Context 1) : rest -> do 
-            put rest 
+        Start (Container Context 1) : rest -> do
+            put rest
             diag <- parseDiagnosticRafGet
-            parseEndContainer 1 
+            parseEndContainer 1
             return (Left diag)
         asn1 ->
             throwError
                 $ "Error parsing returned parameter value: unexpected ASN1 value: "
                 <> fromString (show asn1)
-            
+
 
 
 data RafGetParameterReturn = RafGetParameterReturn

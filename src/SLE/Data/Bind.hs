@@ -224,7 +224,7 @@ data SleBindInvocation = SleBindInvocation
     , _sleVersionNumber       :: !VersionNumber
     , _sleServiceInstanceID   :: !ServiceInstanceIdentifier
     }
-    deriving (Show, Generic)
+    deriving (Eq, Show, Generic)
 makeLenses ''SleBindInvocation
 
 mkSleBindInvocation

@@ -97,6 +97,9 @@ module SLE.Data.Common
     , sleSchedRetCredentials
     , sleSchedRetInvokeID
     , sleSchedRetResult
+    , DeliveryMode(..)
+    , parseDeliveryMode
+    , deliveryMode
     ) where
 
 import           RIO
@@ -137,6 +140,8 @@ import           Text.Builder                  as TB
                                                 , text
                                                 )
 
+-- import           Text.Show.Pretty        hiding ( Time )
+
 
 newtype SII = SII Text
     deriving stock (Eq, Ord, Show, Read, Generic)
@@ -166,7 +171,7 @@ data ISP1Credentials = ISP1Credentials
     , _isp1RandomNumber :: Int32
     , _isp1TheProtected :: HexBytes
     }
-    deriving stock (Show, Generic)
+    deriving stock (Eq, Show, Generic)
     deriving anyclass NFData
 
 mkCredentials :: CCSDSTime -> Int32 -> ByteString -> ISP1Credentials
@@ -229,7 +234,9 @@ parseIntVal = do
         (IntVal v : rest) -> do
             put rest
             return v
-        _ -> throwError "parseIntVal: no IntVal"
+        a -> do
+            put a
+            throwError "parseIntVal: no IntVal"
 
 
 type Credentials = Maybe ISP1Credentials
@@ -262,7 +269,8 @@ parseCredentials = do
                         Left err ->
                             throwError $ "Could not parse Credentials: " <> err
                         Right isp -> return (Just isp)
-        asn1 ->
+        asn1 -> do
+            put asn1
             throwError
                 $  "Could not parse Credentials: unexpected ASN1: "
                 <> fromString (show asn1)
@@ -283,10 +291,11 @@ parseChoice choice0 choice1 errTxt = do
         ((Other Context 1 bs) : rest) -> do
             put rest
             choice1 bs
-        (o : _) ->
+        a@(o : _) -> do
+            put a
             throwError $ "parseChoice: expected choice, got " <> fromString
                 (show o)
-        _ -> throwError errTxt
+        [] -> throwError errTxt
 
 
 parseChoiceASN1 :: Parser b -> Parser b -> Text -> Parser b
@@ -315,10 +324,11 @@ parseChoiceASN1 choice0 choice1 errTxt = do
                         throwError $ "Error decoding choice 0: " <> fromString
                             (show err)
                     Right v -> return v
-        (o : _) ->
+        a@(o : _) -> do
+            put a
             throwError $ "parseChoice: expected choice, got " <> fromString
                 (show o)
-        _ -> throwError errTxt
+        [] -> throwError errTxt
 
 data Time =
   Time CCSDSTime
@@ -358,7 +368,9 @@ parseTime = do
             case timeFromBS bs of
                 Left  err -> throwError err
                 Right t   -> return t
-        _ -> throwError "parseTime: no time found"
+        a -> do
+            put a
+            throwError "parseTime: no time found"
 
 
 parseCredentialTime :: Parser Time
@@ -370,7 +382,8 @@ parseCredentialTime = do
             case timeFromBS bs of
                 Left  err -> throwError err
                 Right t   -> return t
-        asn1 ->
+        asn1 -> do
+            put asn1
             throwError
                 $  "Parsing ISP1 Credentials Time: unexpected ASN1: "
                 <> fromString (show asn1)
@@ -423,7 +436,8 @@ parseConditionalTime = do
             -> do
                 put rest
                 tim bs
-        (asn1 : _) -> do
+        a@(asn1 : _) -> do
+            put a
             throwError
                 $  "Conditional Time Parser: unexpected ASN1 value: "
                 <> fromString (show asn1)
@@ -450,6 +464,7 @@ parseVisibleString = do
     x <- get
     case x of
         (ASN1String (ASN1CharacterString Visible t) : rest) -> do
+            put rest
             case decodeUtf8' t of
                 Left err ->
                     throwError
@@ -458,9 +473,10 @@ parseVisibleString = do
                         <> ": "
                         <> T.pack (show t)
                 Right txt -> do
-                    put rest
                     return txt
-        _ -> throwError "parseVisibleString: no visible string"
+        a -> do
+            put a
+            throwError "parseVisibleString: no visible string"
 
 
 parseOctetString :: Parser ByteString
@@ -470,7 +486,9 @@ parseOctetString = do
         OctetString bs : rest -> do
             put rest
             return bs
-        _ -> throwError "parseOctetString: no octet string found"
+        a -> do
+            put a
+            throwError "parseOctetString: no octet string found"
 
 
 parseASN1 :: Parser a -> [ASN1] -> Either Text a
@@ -484,18 +502,19 @@ parseBasicASN1 :: (ASN1 -> Bool) -> (ASN1 -> a) -> Parser a
 parseBasicASN1 p f = do
     x <- get
     case x of
-        (val : rest) -> do
+        a@(val : rest) -> do
             -- traceM $ "Val: " <> T.pack (show val) <> "\nrest:\n" <> T.pack
             --     (ppShow rest)
             if p val
                 then do
+                    put rest 
                     -- traceM "Match."
-                    put rest
                     return (f val)
                 else do
+                    put a
                     -- traceM "No Match."
                     throwError "parseASN1: Predicate did not match"
-        _ -> throwError "parseASN1: list empty, could not parse value"
+        [] -> throwError "parseASN1: list empty, could not parse value"
 
 
 parseEitherASN1 :: Parser a -> Parser b -> Parser (Either a b)
@@ -530,10 +549,12 @@ parseEitherASN1 leftp rightp = do
                                 $ "parseEitherASN1: error on parsing RIGHT value: "
                                 <> err
                         Right l -> return (Right l)
-        (Other Context n _ : _) ->
+        a@(Other Context n _ : _) -> do
+            put a
             throwError $ "parseEitherASN1: illegal value for choice: " <> T.pack
                 (show n)
-        (o : _) ->
+        a@(o : _) -> do
+            put a
             throwError $ "parseEitherASN1: expected CHOICE, got: " <> T.pack
                 (show o)
         [] -> throwError "parseEitherASN1: expected CHOICE, got nothing"
@@ -633,7 +654,9 @@ parseOptionalDiagnostcs = do
                         $ "Optional Diagnostic RAF Start Parser: could not decode diagnostic: "
                         <> fromString (show err)
                 Right v -> return (Just (diagnosticsFromInt v))
-        _ -> throwError "Could not parse optional diagnostics"
+        a -> do
+            put a
+            throwError "Could not parse optional diagnostics"
 
 
 data SleStopInvocation = SleStopInvocation
@@ -726,7 +749,8 @@ parseAntennaID = parseChoice global loc "Error parsing AntennaID"
         Right (OID o : rest) -> do
             put rest
             return $ GlobalForm o
-        Right _ ->
+        Right asn1 -> do
+            put asn1
             throwError $ "Error parsing global antenna ID, no OID provided"
 
     loc bs = case decodeUtf8' bs of
@@ -1120,11 +1144,13 @@ parseReportRequestType = do
         Other Context 2 _ : rest -> do
             put rest
             return ReportStop
-        asn1 : _ ->
+        a@(asn1 : _) -> do 
+            put a
             throwError
                 $  "parseReportRequestType: unexpected ASN1 sequence: "
                 <> fromString (show asn1)
-        asn1 ->
+        asn1 -> do 
+            put asn1
             throwError
                 $  "parseReportRequestType: unexpected ASN1 sequence: "
                 <> fromString (show asn1)
@@ -1252,11 +1278,13 @@ parseDiagScheduleResult = do
                     else do
                         throwError
                             $ "Error decoding ScheduleStatusReturn specific diagnostics: bytestring too short"
-        asn1 : _rest ->
+        a@(asn1 : _rest) -> do 
+            put a 
             throwError
                 $ "Error decoding ScheduleStatusReturn specific diagnostics: unexpected ASN1: "
                 <> fromString (show asn1)
-        asn1 ->
+        asn1 -> do
+            put asn1
             throwError
                 $ "Error decoding ScheduleStatusReturn specific diagnostics: unexpected ASN1: "
                 <> fromString (show asn1)
@@ -1337,4 +1365,34 @@ instance EncodeASN1 GetParameterInvocation where
     encode val = encodeASN1' DER (getParameterInvocation val)
 
 
+
+data DeliveryMode =
+    DelRtnTimelyOnline
+    | DelRtnCompleteOnline
+    | DelRtnOffline
+    | FwdOnline
+    | FwdOffline
+    deriving stock (Read, Show, Generic)
+    deriving anyclass (FromJSON, ToJSON)
+
+deliveryMode :: DeliveryMode -> ASN1
+deliveryMode DelRtnTimelyOnline   = IntVal 0
+deliveryMode DelRtnCompleteOnline = IntVal 1
+deliveryMode DelRtnOffline        = IntVal 2
+deliveryMode FwdOnline            = IntVal 3
+deliveryMode FwdOffline           = IntVal 4
+
+parseDeliveryMode :: Parser DeliveryMode
+parseDeliveryMode = do
+    x <- parseIntVal
+    case x of
+        0 -> return DelRtnTimelyOnline
+        1 -> return DelRtnCompleteOnline
+        2 -> return DelRtnOffline
+        3 -> return FwdOnline
+        4 -> return FwdOffline
+        v ->
+            throwError
+                $  "Could not parse Deliver Mode, illegal value: "
+                <> fromString (show v)
 
