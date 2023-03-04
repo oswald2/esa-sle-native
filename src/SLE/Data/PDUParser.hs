@@ -72,6 +72,7 @@ parsePDU FwdCltu      1  = SlePduFcltuStartReturn <$> parseFcltuStartReturn
 parsePDU FwdCltu 10 = SlePduFcltuTransferData <$> parseFcltuTransDataInvocation
 parsePDU FwdCltu 11 = SlePduFcltuTransReturn <$> parseFcltuTransferDataReturn
 parsePDU FwdCltu      12 = SlePduFcltuAsync <$> parseFcltuAsyncStatus
+parsePDU FwdCltu      13 = SlePduFcltuStatusReport <$> parseCltuStatusReport
 parsePDU _            6  = SlePduGetParameter <$> parseGetParameterInvocation
 parsePDU RtnAllFrames 7 =
     SlePduRafParameterReturn <$> parseRafGetParameterReturn

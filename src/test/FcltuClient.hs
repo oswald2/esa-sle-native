@@ -54,11 +54,18 @@ main = do
 sleProcedure :: UserConfig -> SleHandle -> IO ()
 sleProcedure cfg hdl = do
     sendBind cfg hdl
+
     threadDelay 1_000_000
     sendStart cfg hdl
+
     threadDelay 1_000_000
-    sendData cfg hdl cltu
+
+    --sendData cfg hdl cltu
+    -- sendScheduleImmediately cfg hdl 1 
+    sendSchedule cfg hdl 1 
+
     threadDelay 200_000_000
+
     T.putStrLn "Terminating..."
     sendStop cfg hdl
     threadDelay 1_000_000
@@ -191,3 +198,15 @@ sendData cfg hdl frame = do
                   (Duration 0)
                   ProduceNotification
                   frame
+
+sendScheduleImmediately :: UserConfig -> SleHandle -> Word16 -> IO() 
+sendScheduleImmediately cfg hdl invokeID = do 
+    scheduleReport (cfg ^. cfgCommon) hdl Nothing invokeID ReportImmediately
+
+sendSchedule :: UserConfig -> SleHandle -> Word16 -> IO() 
+sendSchedule cfg hdl invokeID = do 
+    scheduleReport (cfg ^. cfgCommon) hdl Nothing invokeID (ReportPeriodically 10)
+
+sendScheduleStop :: UserConfig -> SleHandle -> Word16 -> IO() 
+sendScheduleStop cfg hdl invokeID = do 
+    scheduleReport (cfg ^. cfgCommon) hdl Nothing invokeID ReportStop

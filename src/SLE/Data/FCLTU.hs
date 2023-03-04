@@ -45,7 +45,7 @@ bindFCLTU fcltu = fcltu & fcltuState .~ ServiceBound
 
 
 fcltuStateMachine
-    :: ( MonadIO m
+    :: ( MonadUnliftIO m
        , MonadReader env m
        , HasCommonConfig env
        , HasEventHandler env
@@ -103,7 +103,7 @@ processInitState cfg var _state ppdu@(SlePduBind pdu) = do
                         <> display (pdu ^. sleBindInitiatorID)
                     , AccessDenied
                     )
-                                                                                                    -- Check, if we are a FCLTU Bind Request
+                                                                                                                            -- Check, if we are a FCLTU Bind Request
             if pdu ^. sleBindServiceType /= FwdCltu
                 then Left
                     ( "Requested Service is not FCLTU: "
@@ -111,7 +111,7 @@ processInitState cfg var _state ppdu@(SlePduBind pdu) = do
                     , ServiceTypeNotSupported
                     )
                 else Right ()
-                                                                                                    -- check the requested SLE Version 
+                                                                                                                            -- check the requested SLE Version 
             if (pdu ^. sleVersionNumber /= VersionNumber 3)
                     && (pdu ^. sleVersionNumber /= VersionNumber 4)
                 then Left
@@ -182,6 +182,9 @@ processInitState _ _ _ (SlePduAck _) = do
 processInitState _ _ _ (SlePduRafTransferBuffer _) = do
     logDebug "Received RAF TRANSFER BUFFER when in FCLTU init state, ignored"
     return ServiceInit
+processInitState _ _ _ (SlePduScheduleStatusReport _) = do
+    logDebug "Received SCHEDULE STATUS REPORT when in FCLTU init state, ignored"
+    return ServiceInit
 processInitState _ _ _ (SlePduPeerAbort _) = do
     logDebug "Received PEER ABORT when in init state, ignored"
     return ServiceInit
@@ -194,7 +197,7 @@ processInitState _cfg _var _state pdu = do
 
 
 processBoundState
-    :: ( MonadIO m
+    :: ( MonadUnliftIO m
        , MonadReader env m
        , HasEventHandler env
        , HasLogFunc env
@@ -291,7 +294,55 @@ processBoundState cfg var state ppdu@(SlePduFcltuStart pdu) = do
             sleRaiseEvent (SLEFcltuStartFailed (cfg ^. cfgFCLTUSII))
             return ServiceBound
 
+processBoundState cfg var state ppdu@(SlePduScheduleStatusReport pdu) = do
+    logDebug "processBoundState: FCLTU SCHEDULE STATUS REPORT"
 
+    sleRaiseEvent (SLEFcltuScheduleStatusReceived (cfg ^. cfgFCLTUSII) pdu)
+
+    cmCfg <- RIO.view commonCfg
+
+    if checkPermission (cmCfg ^. cfgAuthorize)
+                       (state ^. fcltuInitiator)
+                       (var ^. fcltuPeers)
+                       ppdu
+        then do
+            (ok, ret) <- case pdu ^. sleSchedRequestType of
+                ReportImmediately -> do
+                    processImmediateReport var pdu
+                ReportPeriodically secs -> do
+                    processPeriodicalReport var secs pdu
+                ReportStop -> do
+                    processReportStop var pdu
+
+            sendSleFcltuPdu var (SLEPdu (SlePduScheduleStatusReturn ret))
+            if ok
+                then do
+                    sleRaiseEvent
+                        (SLEFcltuScheduleStatusSuccess (cfg ^. cfgFCLTUSII))
+                else do
+                    let msg = "Error scheduling report: "
+                            <> fromString (show (ret ^. sleSchedRetResult))
+                    sleRaiseEvent
+                        (SLEFcltuScheduleStatusFailed (cfg ^. cfgFCLTUSII) msg)
+
+            return ServiceBound
+        else do
+            let
+                ret =
+                    SLEPdu
+                        $ SlePduScheduleStatusReturn
+                        $ SleScheduleStatusReportReturn
+                              { _sleSchedRetCredentials = Nothing
+                              , _sleSchedRetInvokeID = pdu ^. sleSchedInvokeID
+                              , _sleSchedRetResult = DiagScheduleStatusNegative
+                                  (DiagScheduleCommon DiagOtherReason)
+                              }
+            sendSleFcltuPdu var ret
+            sleRaiseEvent
+                (SLEFcltuScheduleStatusFailed (cfg ^. cfgFCLTUSII)
+                                              "Authentication Failed!"
+                )
+            return ServiceBound
 
 processBoundState _cfg _var _state (SlePduBind _) = do
     logWarn "Received BIND when in FCLTU bound state, ignored"
@@ -306,7 +357,7 @@ processBoundState _cfg _var _state pdu = do
 
 
 processActiveState
-    :: ( MonadIO m
+    :: ( MonadUnliftIO m
        , MonadReader env m
        , HasEventHandler env
        , HasLogFunc env
@@ -410,6 +461,55 @@ processActiveState cfg var state perfFunc ppdu@(SlePduFcltuTransferData pdu) =
                 return ServiceActive
 
 
+processActiveState cfg var state _perfFunc ppdu@(SlePduScheduleStatusReport pdu) = do
+    logDebug "processActiveState: FCLTU SCHEDULE STATUS REPORT"
+
+    sleRaiseEvent (SLEFcltuScheduleStatusReceived (cfg ^. cfgFCLTUSII) pdu)
+
+    cmCfg <- RIO.view commonCfg
+
+    if checkPermission (cmCfg ^. cfgAuthorize)
+                       (state ^. fcltuInitiator)
+                       (var ^. fcltuPeers)
+                       ppdu
+        then do
+            (ok, ret) <- case pdu ^. sleSchedRequestType of
+                ReportImmediately -> do
+                    processImmediateReport var pdu
+                ReportPeriodically secs -> do
+                    processPeriodicalReport var secs pdu
+                ReportStop -> do
+                    processReportStop var pdu
+
+            sendSleFcltuPdu var (SLEPdu (SlePduScheduleStatusReturn ret))
+            if ok
+                then do
+                    sleRaiseEvent
+                        (SLEFcltuScheduleStatusSuccess (cfg ^. cfgFCLTUSII))
+                else do
+                    let msg = "Error scheduling report: "
+                            <> fromString (show (ret ^. sleSchedRetResult))
+                    sleRaiseEvent
+                        (SLEFcltuScheduleStatusFailed (cfg ^. cfgFCLTUSII) msg)
+
+            return ServiceBound
+        else do
+            let
+                ret =
+                    SLEPdu
+                        $ SlePduScheduleStatusReturn
+                        $ SleScheduleStatusReportReturn
+                              { _sleSchedRetCredentials = Nothing
+                              , _sleSchedRetInvokeID = pdu ^. sleSchedInvokeID
+                              , _sleSchedRetResult = DiagScheduleStatusNegative
+                                  (DiagScheduleCommon DiagOtherReason)
+                              }
+            sendSleFcltuPdu var ret
+            sleRaiseEvent
+                (SLEFcltuScheduleStatusFailed (cfg ^. cfgFCLTUSII)
+                                              "Authentication Failed!"
+                )
+            return ServiceActive
 
 processActiveState _cfg _var _state _perfFunc pdu = do
     logWarn
@@ -418,3 +518,72 @@ processActiveState _cfg _var _state _perfFunc pdu = do
     return ServiceActive
 
 
+
+
+processImmediateReport
+    :: (MonadIO m)
+    => FCLTUVar
+    -> SleScheduleStatusReport
+    -> m (Bool, SleScheduleStatusReportReturn)
+processImmediateReport var pdu = do
+    void $ fcltuStopSchedule var
+    fcltuSendStatusReport var
+    let retPdu = SleScheduleStatusReportReturn
+            { _sleSchedRetCredentials = Nothing
+            , _sleSchedRetInvokeID    = pdu ^. sleSchedInvokeID
+            , _sleSchedRetResult      = DiagScheduleStatusPositive
+            }
+    return (True, retPdu)
+
+
+processPeriodicalReport
+    :: (MonadUnliftIO m)
+    => FCLTUVar
+    -> Word16
+    -> SleScheduleStatusReport
+    -> m (Bool, SleScheduleStatusReportReturn)
+processPeriodicalReport var secs pdu = do
+    if secs >= 2 && secs <= 600
+        then do
+            void $ fcltuStopSchedule var
+            fcltuStartSchedule var secs
+            let retPdu = SleScheduleStatusReportReturn
+                    { _sleSchedRetCredentials = Nothing
+                    , _sleSchedRetInvokeID    = pdu ^. sleSchedInvokeID
+                    , _sleSchedRetResult      = DiagScheduleStatusPositive
+                    }
+            return (True, retPdu)
+        else do
+            let diag   = DiagScheduleSpecific InvalidReportingCycle
+                retPdu = SleScheduleStatusReportReturn
+                    { _sleSchedRetCredentials = Nothing
+                    , _sleSchedRetInvokeID    = pdu ^. sleSchedInvokeID
+                    , _sleSchedRetResult      = DiagScheduleStatusNegative diag
+                    }
+            return (False, retPdu)
+
+
+
+processReportStop
+    :: (MonadIO m)
+    => FCLTUVar
+    -> SleScheduleStatusReport
+    -> m (Bool, SleScheduleStatusReportReturn)
+processReportStop var pdu = do
+    res <- fcltuStopSchedule var
+    if res
+        then do
+            let retPdu = SleScheduleStatusReportReturn
+                    { _sleSchedRetCredentials = Nothing
+                    , _sleSchedRetInvokeID    = pdu ^. sleSchedInvokeID
+                    , _sleSchedRetResult      = DiagScheduleStatusPositive
+                    }
+            return (True, retPdu)
+        else do
+            let diag   = DiagScheduleSpecific AlreadyStopped
+                retPdu = SleScheduleStatusReportReturn
+                    { _sleSchedRetCredentials = Nothing
+                    , _sleSchedRetInvokeID    = pdu ^. sleSchedInvokeID
+                    , _sleSchedRetResult      = DiagScheduleStatusNegative diag
+                    }
+            return (False, retPdu)

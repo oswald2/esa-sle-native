@@ -26,10 +26,12 @@ module SLE.State.FCLTUState
     , fcltuIdx
     , fcltuTMIdx
     , fcltuPeers
+    , fcltuSchedule
     , fcltuCltuID
     , fcltuLastProcessed
     , fcltuLastOK
     , fcltuProdStatus
+    , fcltuUplinkStatus
     , fcltuCltusReceived
     , fcltuCltusProcessed
     , fcltuCltusRadiated
@@ -37,6 +39,10 @@ module SLE.State.FCLTUState
     , fcltuSetInitiator
     , fcltuGetInitiator
     , fcltuGetPeer
+    , fcltuSendStatusReport
+    , fcltuStopSchedule
+    , fcltuStartSchedule
+    , fcltuGetReportSchedule
     ) where
 
 import           RIO
@@ -52,6 +58,7 @@ import           SLE.Data.Common
 import           SLE.Data.CommonConfig
 import           SLE.Data.FCLTUOps
 import           SLE.Data.Handle
+import           SLE.Data.PDU
 import           SLE.Data.ProviderConfig
 import           SLE.Data.WriteCmd
 
@@ -64,6 +71,7 @@ data FCLTU = FCLTU
     , _fcltuLastProcessed      :: !CltuLastProcessed
     , _fcltuLastOK             :: !CltuLastOk
     , _fcltuProdStatus         :: !ProductionStatus
+    , _fcltuUplinkStatus       :: !UplinkStatus
     , _fcltuCltusReceived      :: !Word64
     , _fcltuCltusProcessed     :: !Word64
     , _fcltuCltusRadiated      :: !Word64
@@ -84,6 +92,7 @@ data FCLTUVar = FCLTUVar
     , _fcltuIdx       :: !FCLTUIdx
     , _fcltuTMIdx     :: !TMIdx
     , _fcltuPeers     :: !(HashMap AuthorityIdentifier Peer)
+    , _fcltuSchedule  :: !(TVar (Maybe (Async (), Word16)))
     }
 makeLenses ''FCLTUVar
 
@@ -97,6 +106,7 @@ fcltuStartState cfg = FCLTU { _fcltuSII                = cfg ^. cfgFCLTUSII
                             , _fcltuLastProcessed      = NoCltuProcessed
                             , _fcltuLastOK             = NoCltuOk
                             , _fcltuProdStatus         = ProdOperational
+                            , _fcltuUplinkStatus       = UplinkNominal
                             , _fcltuCltusReceived      = 0
                             , _fcltuCltusProcessed     = 0
                             , _fcltuCltusRadiated      = 0
@@ -113,10 +123,11 @@ newFCLTUVarIO
     -> m FCLTUVar
 newFCLTUVarIO commonCfg cfg idx tmIdx = do
     let fcltu = fcltuStartState cfg
-    var <- newTVarIO fcltu
-    q   <- newTBQueueIO 100
-    hdl <- newSleHandle (TCFCLTU idx) 1 -- buffer size is 1 as we don't use a buffer
-    return $! FCLTUVar var q hdl cfg idx tmIdx (mkPeerSet commonCfg)
+    var   <- newTVarIO fcltu
+    q     <- newTBQueueIO 100
+    hdl   <- newSleHandle (TCFCLTU idx) 1 -- buffer size is 1 as we don't use a buffer
+    sched <- newTVarIO Nothing
+    return $! FCLTUVar var q hdl cfg idx tmIdx (mkPeerSet commonCfg) sched
 
 
 readFCLTUVarIO :: (MonadIO m) => FCLTUVar -> m FCLTU
@@ -176,3 +187,49 @@ fcltuGetInitiator var = _fcltuInitiator <$> readFCLTUVarIO var
 
 fcltuGetPeer :: FCLTUVar -> AuthorityIdentifier -> Maybe Peer
 fcltuGetPeer var authority = HM.lookup authority (_fcltuPeers var)
+
+
+fcltuSendStatusReport :: (MonadIO m) => FCLTUVar -> m ()
+fcltuSendStatusReport var = do
+    fcltu <- readFCLTUVarIO var
+    let pdu = SLEPdu $ SlePduFcltuStatusReport CltuStatusReport
+            { _fcltuStatusCredentials      = Nothing
+            , _fcltuStatusLastProcessed    = fcltu ^. fcltuLastProcessed
+            , _fcltuStatusLastOk           = fcltu ^. fcltuLastOK
+            , _fcltuStatusProductionStatus = fcltu ^. fcltuProdStatus
+            , _fcltuStatusUplinkStatus     = fcltu ^. fcltuUplinkStatus
+            , _fcltuStatusNumReceived      = fcltu ^. fcltuCltusReceived
+            , _fcltuStatusNumProcessed     = fcltu ^. fcltuCltusProcessed
+            , _fcltuStatusNumRadiated      = fcltu ^. fcltuCltusRadiated
+            , _fcltuStatusBufferAvailable  = fromIntegral (maxBound :: Int32)
+            }
+    sendSleFcltuPdu var pdu
+
+
+fcltuStopSchedule :: (MonadIO m) => FCLTUVar -> m Bool
+fcltuStopSchedule var = do
+    thr <- readTVarIO (_fcltuSchedule var)
+    case thr of
+        Nothing          -> return False
+        Just (thread, _) -> do
+            cancel thread
+            atomically $ writeTVar (_fcltuSchedule var) Nothing
+            return True
+
+fcltuStartSchedule :: (MonadUnliftIO m) => FCLTUVar -> Word16 -> m ()
+fcltuStartSchedule var secs = do
+    void $ fcltuStopSchedule var
+    thr <- async thread
+    atomically $ writeTVar (_fcltuSchedule var) (Just (thr, secs))
+  where
+    thread = do
+        fcltuSendStatusReport var
+        threadDelay (fromIntegral secs * 1_000_000)
+        thread
+
+fcltuGetReportSchedule :: (MonadIO m) => FCLTUVar -> m (Maybe Word16)
+fcltuGetReportSchedule var = do
+    val <- readTVarIO (_fcltuSchedule var)
+    case val of
+        Nothing         -> return Nothing
+        Just (_, sched) -> return (Just sched)

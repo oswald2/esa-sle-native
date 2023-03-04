@@ -185,6 +185,9 @@ processInitState _ _ _ (SlePduRafTransferBuffer _) = do
 processInitState _ _ _ (SlePduPeerAbort _) = do
     logDebug "Received PEER ABORT when in init state, ignored"
     return ServiceInit
+processInitState _ _ _ (SlePduScheduleStatusReport _) = do
+    logDebug "Received SCHEDULE STATUS REPORT when in init state, ignored"
+    return ServiceInit
 processInitState _ _ _ (SlePduGetParameter _) = do
     logDebug "Received GET PARAMETER when in init state, ignored"
     return ServiceInit

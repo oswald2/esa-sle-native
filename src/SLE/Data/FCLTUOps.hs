@@ -21,12 +21,14 @@ module SLE.Data.FCLTUOps
     , ProductionStatus(..)
     , UplinkStatus(..)
     , FcltuAsyncNotify(..)
+    , CltuStatusReport(..)
     , parseFcltuStart
     , parseFcltuThrowEvent
     , parseFcltuTransDataInvocation
     , parseFcltuStartReturn
     , parseFcltuTransferDataReturn
     , parseFcltuAsyncStatus
+    , parseCltuStatusReport
     , fcltuStartCredentials
     , fcltuStartInvokeID
     , fcluStartFirstCltuIdentification
@@ -60,6 +62,15 @@ module SLE.Data.FCLTUOps
     , parseCltuLastProcessed
     , parseCltuIdentification
     , parseCltuLastOk
+    , fcltuStatusCredentials
+    , fcltuStatusLastProcessed
+    , fcltuStatusLastOk
+    , fcltuStatusProductionStatus
+    , fcltuStatusUplinkStatus
+    , fcltuStatusNumReceived
+    , fcltuStatusNumProcessed
+    , fcltuStatusNumRadiated
+    , fcltuStatusBufferAvailable
     ) where
 
 import           RIO
@@ -827,3 +838,64 @@ instance EncodeASN1 FcltuAsyncNotify where
     encode val = encodeASN1' DER (fcltuAsyncStatus val)
 
 makeLenses ''FcltuAsyncNotify
+
+
+data CltuStatusReport = CltuStatusReport
+    { _fcltuStatusCredentials      :: !Credentials
+    , _fcltuStatusLastProcessed    :: !CltuLastProcessed
+    , _fcltuStatusLastOk           :: !CltuLastOk
+    , _fcltuStatusProductionStatus :: !ProductionStatus
+    , _fcltuStatusUplinkStatus     :: !UplinkStatus
+    , _fcltuStatusNumReceived      :: !Word64
+    , _fcltuStatusNumProcessed     :: !Word64
+    , _fcltuStatusNumRadiated      :: !Word64
+    , _fcltuStatusBufferAvailable  :: !Word64
+    }
+    deriving (Show, Generic)
+makeLenses ''CltuStatusReport
+
+cltuStatusReport :: CltuStatusReport -> [ASN1]
+cltuStatusReport CltuStatusReport {..} =
+    [Start (Container Context 13), credentials _fcltuStatusCredentials]
+        ++ cltuLastProcessed _fcltuStatusLastProcessed
+        ++ cltuLastOk _fcltuStatusLastOk
+        ++ [ productionStatus _fcltuStatusProductionStatus
+           , uplinkStatus _fcltuStatusUplinkStatus
+           , IntVal (fromIntegral _fcltuStatusNumReceived)
+           , IntVal (fromIntegral _fcltuStatusNumProcessed)
+           , IntVal (fromIntegral _fcltuStatusNumRadiated)
+           , IntVal (fromIntegral _fcltuStatusBufferAvailable)
+           , End (Container Context 13)
+           ]
+
+
+instance EncodeASN1 CltuStatusReport where
+    encode val = encodeASN1' DER (cltuStatusReport val)
+
+parseCltuStatusReport :: Parser CltuStatusReport
+parseCltuStatusReport = content
+  where
+    endContainer = parseBasicASN1 (== End (Container Context 13)) (const ())
+
+    content      = do
+        creds         <- parseCredentials
+        lastProcessed <- parseCltuLastProcessed
+        lastOk        <- parseCltuLastOk
+        prodStatus    <- parseProductionStatus
+        uplStatus     <- parseUplinkStatus
+        numReceived   <- parseIntVal
+        numProcessed  <- parseIntVal
+        numRadiated   <- parseIntVal
+        bufAvailable  <- parseIntVal
+        void endContainer
+        return CltuStatusReport
+            { _fcltuStatusCredentials      = creds
+            , _fcltuStatusLastProcessed    = lastProcessed
+            , _fcltuStatusLastOk           = lastOk
+            , _fcltuStatusProductionStatus = prodStatus
+            , _fcltuStatusUplinkStatus     = uplStatus
+            , _fcltuStatusNumReceived      = fromIntegral numReceived
+            , _fcltuStatusNumProcessed     = fromIntegral numProcessed
+            , _fcltuStatusNumRadiated      = fromIntegral numRadiated
+            , _fcltuStatusBufferAvailable  = fromIntegral bufAvailable
+            }
