@@ -88,7 +88,7 @@ main = do
         -- port = 55529
     T.putStrLn $ "Running Server using config:\n" <> T.pack (ppShow cfg)
 
-    let appCfg = ConfigFromApp { appSCID = 1, appVCID = 1 }
+    let appCfg = ConfigFromApp { appSCID = 1 }
 
     startServer cfg appCfg
     return ()

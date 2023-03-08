@@ -68,7 +68,6 @@ import           SLE.Data.CommonConfig
 
 data ConfigFromApp = ConfigFromApp
     { appSCID :: !Word16
-    , appVCID :: !Word8
     }
 
 
@@ -156,7 +155,7 @@ defaultRCFConfig = RCFConfig
     }
 
 
-data FCLTUChannelType = MasterChannel | VirtualChannel
+data FCLTUChannelType = MasterChannel | VirtualChannel !Word8
     deriving stock (Show, Read, Generic)
     deriving anyclass (FromJSON, ToJSON)
 

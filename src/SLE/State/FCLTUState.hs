@@ -47,8 +47,6 @@ module SLE.State.FCLTUState
     , fcltuGetReportSchedule
     , fcltuSetBitLock
     , fcltuSCID
-    , fcltuVCID
-    , fcltuSetVCID
     ) where
 
 import           RIO
@@ -84,7 +82,6 @@ data FCLTU = FCLTU
     , _fcltuInitiator          :: !(Maybe Peer)
     , _fcltuBitLock            :: !Bool
     , _fcltuSCID               :: !Word16
-    , _fcltuVCID               :: !Word8
     }
 makeLenses ''FCLTU
 
@@ -123,7 +120,6 @@ fcltuStartState cfg appCfg = FCLTU
     , _fcltuInitiator          = Nothing
     , _fcltuBitLock            = True
     , _fcltuSCID               = appSCID appCfg
-    , _fcltuVCID               = appVCID appCfg
     }
 
 
@@ -254,6 +250,3 @@ fcltuSetBitLock :: (MonadIO m) => FCLTUVar -> Bool -> m ()
 fcltuSetBitLock var val = do
     modifyFCLTU var (\s -> s & fcltuBitLock .~ val)
 
-fcltuSetVCID :: (MonadIO m) => FCLTUVar -> Word8 -> m ()
-fcltuSetVCID var val = do
-    modifyFCLTU var (\s -> s & fcltuVCID .~ val)

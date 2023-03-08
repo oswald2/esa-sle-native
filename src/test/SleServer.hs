@@ -98,7 +98,7 @@ startServer cfg eventHandler = do
     defLogOptions <- logOptionsHandle stdout True
     let logOptions = setLogMinLevel LevelDebug defLogOptions
 
-    let appCfg     = ConfigFromApp { appSCID = 1, appVCID = 1 }
+    let appCfg     = ConfigFromApp { appSCID = 1 }
 
     withLogFunc logOptions $ \logFunc -> do
         state <- initialState cfg logFunc eventHandler appCfg
