@@ -45,7 +45,7 @@ module SLE.State.FCLTUState
     , fcltuStopSchedule
     , fcltuStartSchedule
     , fcltuGetReportSchedule
-    , fcltuSetBitLock
+    , fcltuSetRFAndBitLock
     , fcltuSCID
     ) where
 
@@ -81,6 +81,7 @@ data FCLTU = FCLTU
     , _fcltuCltusRadiated      :: !Word64
     , _fcltuInitiator          :: !(Maybe Peer)
     , _fcltuBitLock            :: !Bool
+    , _fcltuRFAvailable        :: !Bool
     , _fcltuSCID               :: !Word16
     }
 makeLenses ''FCLTU
@@ -119,6 +120,7 @@ fcltuStartState cfg appCfg = FCLTU
     , _fcltuCltusRadiated      = 0
     , _fcltuInitiator          = Nothing
     , _fcltuBitLock            = True
+    , _fcltuRFAvailable        = True
     , _fcltuSCID               = appSCID appCfg
     }
 
@@ -246,7 +248,7 @@ fcltuGetReportSchedule var = do
         Just (_, sched) -> return (Just sched)
 
 
-fcltuSetBitLock :: (MonadIO m) => FCLTUVar -> Bool -> m ()
-fcltuSetBitLock var val = do
-    modifyFCLTU var (\s -> s & fcltuBitLock .~ val)
+fcltuSetRFAndBitLock :: (MonadIO m) => FCLTUVar -> Bool -> Bool -> m ()
+fcltuSetRFAndBitLock var rf bitlock = do
+    modifyFCLTU var (\s -> s & fcltuBitLock .~ bitlock & fcltuRFAvailable .~ rf)
 
