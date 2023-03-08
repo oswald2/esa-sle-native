@@ -76,6 +76,8 @@ parsePDU FwdCltu      13 = SlePduFcltuStatusReport <$> parseCltuStatusReport
 parsePDU _            6  = SlePduGetParameter <$> parseGetParameterInvocation
 parsePDU RtnAllFrames 7 =
     SlePduRafParameterReturn <$> parseRafGetParameterReturn
+parsePDU FwdCltu 7 =
+    SlePduFcltuParameterReturn <$> parseFcltuGetParameterReturn
 parsePDU t x =
     throwError
         $  TB.run

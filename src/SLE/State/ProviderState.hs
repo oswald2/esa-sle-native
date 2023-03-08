@@ -51,8 +51,9 @@ initialState
     => ProviderConfig
     -> LogFunc
     -> SleEventHandler
+    -> ConfigFromApp
     -> m ProviderState
-initialState cfg logFunc eventHandler = do
+initialState cfg logFunc eventHandler appCfg = do
     var  <- liftIO $ newTVarIO Nothing
     var1 <- liftIO $ newTVarIO Nothing
     let tmlCfg = cfg ^. cfgCommon . cfgTML
@@ -85,11 +86,12 @@ initialState cfg logFunc eventHandler = do
                                       cfg'
                                       (FCLTUIdx idx)
                                       (TMFirst 0)
-                    Just tmIdx -> newFCLTUVarIO
-                        (cfg ^. cfgCommon)
-                        cfg'
-                        (FCLTUIdx idx)
-                        (TMRAF (RAFIdx tmIdx))
+                                      appCfg 
+                    Just tmIdx -> newFCLTUVarIO (cfg ^. cfgCommon)
+                                                cfg'
+                                                (FCLTUIdx idx)
+                                                (TMRAF (RAFIdx tmIdx))
+                                                appCfg
 
     rafs   <- V.imapM createFunc (cfg ^. cfgRAFs)
     fcltus <- V.imapM createFcltuFunc (cfg ^. cfgFCLTUs)

@@ -3,6 +3,7 @@
 #-}
 module SLE.Data.ProviderConfig
     ( ProviderConfig(..)
+    , ConfigFromApp(..)
     , RAFConfig(..)
     , RAFIdx(..)
     , RCFConfig(..)
@@ -13,6 +14,7 @@ module SLE.Data.ProviderConfig
     , PusMasterChannel(..)
     , PusVirtualChannel(..)
     , RCFGvcid(..)
+    , FCLTUChannelType(..)
     , configPretty
     , defaultProviderConfigFileName
     , defaultProviderConfig
@@ -40,6 +42,12 @@ module SLE.Data.ProviderConfig
     , cfgFCLTUPort
     , cfgFCLTUPortID
     , cfgFCLTUAssociatedTMPort
+    , cfgFCLTUAcquisitionSequenceLength
+    , cfgFCLTUPlop1InitSequenceLength
+    , cfgFCLTUBitlockRequired
+    , cfgFCLTURFAvailableRequired
+    , cfgFCLTUGVCIDVersion
+    , cfgFCLTUGVCIDChannelType
     ) where
 
 
@@ -56,6 +64,12 @@ import qualified Data.List.NonEmpty            as N
 
 import           SLE.Data.Common
 import           SLE.Data.CommonConfig
+
+
+data ConfigFromApp = ConfigFromApp
+    { appSCID :: !Word16
+    , appVCID :: !Word8
+    }
 
 
 data RAFConfig = RAFConfig
@@ -142,11 +156,21 @@ defaultRCFConfig = RCFConfig
     }
 
 
+data FCLTUChannelType = MasterChannel | VirtualChannel
+    deriving stock (Show, Read, Generic)
+    deriving anyclass (FromJSON, ToJSON)
+
 data FCLTUConfig = FCLTUConfig
-    { _cfgFCLTUSII              :: !SII
-    , _cfgFCLTUPort             :: !Word16
-    , _cfgFCLTUPortID           :: !Text
-    , _cfgFCLTUAssociatedTMPort :: !Text
+    { _cfgFCLTUSII                       :: !SII
+    , _cfgFCLTUPort                      :: !Word16
+    , _cfgFCLTUPortID                    :: !Text
+    , _cfgFCLTUAssociatedTMPort          :: !Text
+    , _cfgFCLTUAcquisitionSequenceLength :: !Word16
+    , _cfgFCLTUPlop1InitSequenceLength   :: !Word16
+    , _cfgFCLTUBitlockRequired           :: !Bool
+    , _cfgFCLTURFAvailableRequired       :: !Bool
+    , _cfgFCLTUGVCIDVersion              :: !Word16
+    , _cfgFCLTUGVCIDChannelType          :: !FCLTUChannelType
     }
     deriving stock (Show, Read, Generic)
     deriving anyclass (FromJSON, ToJSON)
@@ -154,9 +178,15 @@ data FCLTUConfig = FCLTUConfig
 defaultFCLTUConfig :: FCLTUConfig
 defaultFCLTUConfig = FCLTUConfig
     { _cfgFCLTUSII = SII "sagr=3.spack=facility-PASS1.fsl-fg=1.cltu=cltu1"
-    , _cfgFCLTUPort             = 5009
-    , _cfgFCLTUPortID           = "TCPORT"
-    , _cfgFCLTUAssociatedTMPort = "TMPORT"
+    , _cfgFCLTUPort                      = 5009
+    , _cfgFCLTUPortID                    = "TCPORT"
+    , _cfgFCLTUAssociatedTMPort          = "TMPORT"
+    , _cfgFCLTUAcquisitionSequenceLength = 65535
+    , _cfgFCLTUPlop1InitSequenceLength   = 65535
+    , _cfgFCLTUBitlockRequired           = True
+    , _cfgFCLTURFAvailableRequired       = True
+    , _cfgFCLTUGVCIDVersion              = 1
+    , _cfgFCLTUGVCIDChannelType          = MasterChannel
     }
 
 

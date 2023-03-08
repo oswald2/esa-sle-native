@@ -28,15 +28,16 @@ runFCLTU
        , HasFCLTU env
        )
     => (Word64 -> IO ())
+    -> ConfigFromApp
     -> FCLTUVar
     -> m ()
-runFCLTU perfFunc var = do
+runFCLTU perfFunc appCfg var = do
     let cfg = var ^. fcltuVarCfg
     listenFCLTU (var ^. fcltuSleHandle)
                 cfg
                 (var ^. fcltuIdx)
-                (fcltuStateMachine cfg var perfFunc)
-    runFCLTU perfFunc var
+                (fcltuStateMachine cfg var perfFunc appCfg)
+    runFCLTU perfFunc appCfg var
 
 
 
@@ -51,12 +52,13 @@ runFCLTUs
        , HasFCLTU env
        )
     => (Word64 -> IO ())
+    -> ConfigFromApp
     -> m ()
-runFCLTUs perfFunc = do
+runFCLTUs perfFunc appCfg = do
     env <- ask
     let fcltus  = env ^. getFCLTUs
         threads = V.foldl
-            (\prev fcltu -> prev <> conc (runFCLTU perfFunc fcltu))
+            (\prev fcltu -> prev <> conc (runFCLTU perfFunc appCfg fcltu))
             mempty
             fcltus
     runConc threads

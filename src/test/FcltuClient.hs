@@ -62,7 +62,12 @@ sleProcedure cfg hdl = do
 
     --sendData cfg hdl cltu
     -- sendScheduleImmediately cfg hdl 1 
-    sendSchedule cfg hdl 1 
+    -- sendSchedule cfg hdl 1 
+    -- sendGetParameter cfg hdl 1 ParAcquisitionSequenceLength
+    -- sendGetParameter cfg hdl 1 ParPlop1IdleSequenceLength
+    -- sendGetParameter cfg hdl 1 ParBitLockRequired
+    -- sendGetParameter cfg hdl 1 ParRfAvailableRequired
+    sendGetParameter cfg hdl 1 ParClcwGlobalVCID
 
     threadDelay 200_000_000
 
@@ -210,3 +215,7 @@ sendSchedule cfg hdl invokeID = do
 sendScheduleStop :: UserConfig -> SleHandle -> Word16 -> IO() 
 sendScheduleStop cfg hdl invokeID = do 
     scheduleReport (cfg ^. cfgCommon) hdl Nothing invokeID ReportStop
+
+sendGetParameter :: UserConfig -> SleHandle -> Word16 -> ParameterName -> IO () 
+sendGetParameter cfg hdl invokeID paramName = do 
+    fcltuGetParameter (cfg ^. cfgCommon) hdl Nothing invokeID paramName 

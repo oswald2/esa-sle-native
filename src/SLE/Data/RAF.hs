@@ -368,7 +368,7 @@ processBoundState _cfg _var _state (SlePduStop _) = do
 
 processBoundState cfg var state (SlePduGetParameter pdu) = do
     logDebug "processBoundState: GET PARAMETER"
-    sleRaiseEvent (SLEGetParameterReceived pdu)
+    sleRaiseEvent (SLEGetParameterReceived (cfg ^. cfgRAFSII) pdu)
     processGetParameter cfg var state pdu
     return ServiceBound
 
@@ -474,7 +474,7 @@ processActiveState cfg var state ppdu@(SlePduScheduleStatusReport pdu) = do
 
 processActiveState cfg var state (SlePduGetParameter pdu) = do
     logDebug "processActiveState: GET PARAMETER"
-    sleRaiseEvent (SLEGetParameterReceived pdu)
+    sleRaiseEvent (SLEGetParameterReceived (cfg ^. cfgRAFSII) pdu)
     processGetParameter cfg var state pdu
     return ServiceActive
 

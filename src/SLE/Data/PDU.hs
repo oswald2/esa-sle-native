@@ -43,6 +43,7 @@ data SlePdu =
   | SlePduGetParameter !GetParameterInvocation
   | SlePduRafParameterReturn !RafGetParameterReturn
   | SlePduFcltuStatusReport !CltuStatusReport
+  | SlePduFcltuParameterReturn !FcltuGetParameterReturn
   deriving (Show, Generic)
 
 
@@ -109,6 +110,8 @@ setCredentials (SlePduRafParameterReturn val) creds =
     SlePduRafParameterReturn $ val & rgpCredentials ?~ creds
 setCredentials (SlePduFcltuStatusReport val) creds =
     SlePduFcltuStatusReport $ val & fcltuStatusCredentials ?~ creds
+setCredentials (SlePduFcltuParameterReturn val) creds =
+    SlePduFcltuParameterReturn $ val & fgpCredentials ?~ creds
 
 
 
@@ -135,8 +138,7 @@ getCredentials (SlePduRafStatusReport      pdu ) = pdu ^. rstrCredentials
 getCredentials (SlePduScheduleStatusReport pdu ) = pdu ^. sleSchedCredentials
 getCredentials (SlePduScheduleStatusReturn pdu ) = pdu ^. sleSchedRetCredentials
 getCredentials (SlePduFcltuStatusReport    pdu ) = pdu ^. fcltuStatusCredentials
-
-
+getCredentials (SlePduFcltuParameterReturn pdu ) = pdu ^. fgpCredentials
 
 
 checkPermission
@@ -230,5 +232,5 @@ instance EncodeASN1 SlePdu where
     encode (SlePduScheduleStatusReport val) = encode val
     encode (SlePduScheduleStatusReturn val) = encode val
     encode (SlePduFcltuStatusReport    val) = encode val
-
+    encode (SlePduFcltuParameterReturn val) = encode val
 

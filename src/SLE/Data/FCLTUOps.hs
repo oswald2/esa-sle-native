@@ -22,6 +22,14 @@ module SLE.Data.FCLTUOps
     , UplinkStatus(..)
     , FcltuAsyncNotify(..)
     , CltuStatusReport(..)
+    , FcltuGetParameterReturn(..)
+    , DiagnosticFcltuGet(..)
+    , FcltuGetParameter(..)
+    , FcltuDiagFcltuGetSpecific(..)
+    , GvcID(..)
+    , VChannel(..)
+    , ClcwGvcID(..)
+    , parseFcltuGetParameterReturn
     , parseFcltuStart
     , parseFcltuThrowEvent
     , parseFcltuTransDataInvocation
@@ -71,6 +79,9 @@ module SLE.Data.FCLTUOps
     , fcltuStatusNumProcessed
     , fcltuStatusNumRadiated
     , fcltuStatusBufferAvailable
+    , fgpCredentials
+    , fgpInvokeID
+    , fgpResult
     ) where
 
 import           RIO
@@ -899,3 +910,248 @@ parseCltuStatusReport = content
             , _fcltuStatusNumRadiated      = fromIntegral numRadiated
             , _fcltuStatusBufferAvailable  = fromIntegral bufAvailable
             }
+
+
+data VChannel = MasterChannel | VirtualChannel !Word8
+    deriving (Show, Generic)
+
+vChannel :: VChannel -> ASN1
+vChannel MasterChannel       = Other Context 0 B.empty
+vChannel (VirtualChannel vc) = Other Context 1 (B.singleton vc)
+
+
+data GvcID = GvcID
+    { _gvcidSCID    :: !Word16
+    , _gvcidVersion :: !Word8
+    , _gvcidVCID    :: !VChannel
+    }
+    deriving (Show, Generic)
+
+gvcid :: GvcID -> [ASN1]
+gvcid GvcID {..} =
+    [ IntVal (fromIntegral _gvcidSCID)
+    , IntVal (fromIntegral _gvcidVersion)
+    , vChannel _gvcidVCID
+    ]
+
+parseGvcid :: Parser GvcID
+parseGvcid = do
+    scid    <- parseIntVal
+    version <- parseIntVal
+    chan    <- choiceParser (\_ -> return MasterChannel)
+                            (\bs -> return (VirtualChannel (bs `B.index` 0)))
+                            "Error parsing FCLTU GVCID"
+    return GvcID { _gvcidSCID    = fromIntegral scid
+                 , _gvcidVersion = fromIntegral version
+                 , _gvcidVCID    = chan
+                 }
+
+
+
+data ClcwGvcID = Configured GvcID | NotConfigured
+    deriving(Show, Generic)
+
+clcwGvcID :: ClcwGvcID -> [ASN1]
+clcwGvcID (Configured vcid) = Start Sequence : gvcid vcid ++ [End Sequence]
+clcwGvcID NotConfigured     = [Other Context 1 ""]
+
+parseClcwGvcID :: Parser ClcwGvcID
+parseClcwGvcID = do
+    x <- get
+    case x of
+        Other Context 1 _ : rest -> do
+            put rest
+            return NotConfigured
+        Start Sequence : rest -> do
+            put rest
+            vcid <- parseGvcid
+            parseEndSequence
+            return (Configured vcid)
+        asn1 -> do
+            throwError
+                $  "Error parsing CLCW Global GVCID, unexpected ASN1: "
+                <> fromString (show asn1)
+
+
+
+data FcltuGetParameter =
+    FcltuAcquisitionSequenceLength !Word16
+    | FcltuPlop1IdleSequenceLength !Word16
+    | FcltuBitLockRequired !Bool
+    | FcltuRFAvailableRequired !Bool
+    | FcltuClcwGlobalVcID !ClcwGvcID
+    deriving (Show, Generic)
+
+fcltuGetParameter :: FcltuGetParameter -> [ASN1]
+fcltuGetParameter (FcltuAcquisitionSequenceLength size) =
+    [ Start (Container Context 12)
+    , parameterName ParAcquisitionSequenceLength
+    , IntVal (fromIntegral size)
+    , End (Container Context 12)
+    ]
+fcltuGetParameter (FcltuPlop1IdleSequenceLength size) =
+    [ Start (Container Context 17)
+    , parameterName ParPlop1IdleSequenceLength
+    , IntVal (fromIntegral size)
+    , End (Container Context 17)
+    ]
+fcltuGetParameter (FcltuBitLockRequired yes) =
+    [ Start (Container Context 0)
+    , parameterName ParBitLockRequired
+    , if yes then IntVal 0 else IntVal 1
+    , End (Container Context 0)
+    ]
+fcltuGetParameter (FcltuRFAvailableRequired yes) =
+    [ Start (Container Context 11)
+    , parameterName ParRfAvailableRequired
+    , if yes then IntVal 0 else IntVal 1
+    , End (Container Context 11)
+    ]
+fcltuGetParameter (FcltuClcwGlobalVcID vcid) =
+    [Start (Container Context 13), parameterName ParClcwGlobalVCID]
+        ++ clcwGvcID vcid
+        ++ [End (Container Context 13)]
+
+
+parseFcltuGetParameter :: Parser FcltuGetParameter
+parseFcltuGetParameter = do
+    x <- get
+    case x of
+        Start (Container Context 12) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseIntVal
+            parseEndContainer 12
+            return (FcltuAcquisitionSequenceLength (fromIntegral val))
+        Start (Container Context 17) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseIntVal
+            parseEndContainer 17
+            return (FcltuPlop1IdleSequenceLength (fromIntegral val))
+        Start (Container Context 0) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseIntVal
+            parseEndContainer 0
+            let yes = if val == 0 then True else False
+            return (FcltuBitLockRequired yes)
+        Start (Container Context 11) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseIntVal
+            parseEndContainer 11
+            let yes = if val == 0 then True else False
+            return (FcltuRFAvailableRequired yes)
+        Start (Container Context 13) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseClcwGvcID
+            parseEndContainer 13
+            return (FcltuClcwGlobalVcID val)
+        asn1 -> do
+            put asn1
+            throwError
+                $ "Error parsing returned parameter value: unexpected ASN1 value: "
+                <> fromString (show asn1)
+
+data FcltuDiagFcltuGetSpecific = FcltuUnknownParameter | FcltuDiagInvalid
+    deriving(Eq, Ord, Enum, Show, Generic)
+
+fcltuDiagFcltuGetSpecific :: FcltuDiagFcltuGetSpecific -> ASN1
+fcltuDiagFcltuGetSpecific FcltuUnknownParameter = IntVal 0
+fcltuDiagFcltuGetSpecific FcltuDiagInvalid      = IntVal 0
+
+parseFcltuDiagFcltuGetSpecific :: Parser FcltuDiagFcltuGetSpecific
+parseFcltuDiagFcltuGetSpecific = do
+    x <- parseIntVal
+    case x of
+        0 -> return FcltuUnknownParameter
+        _ -> return FcltuDiagInvalid
+
+
+
+data DiagnosticFcltuGet = DiagFcltuGetCommon Diagnostics | DiagFcltuGetSpecific FcltuDiagFcltuGetSpecific
+    deriving(Show, Generic)
+
+diagnosticFcltuGet :: DiagnosticFcltuGet -> ASN1
+diagnosticFcltuGet (DiagFcltuGetCommon diag) =
+    Other Context 0 (encodeASN1' DER [diagnostics diag])
+diagnosticFcltuGet (DiagFcltuGetSpecific diag) =
+    Other Context 1 (encodeASN1' DER [fcltuDiagFcltuGetSpecific diag])
+
+
+parseDiagnosticFcltuGet :: Parser DiagnosticFcltuGet
+parseDiagnosticFcltuGet = do
+    res <- parseEitherASN1 parseDiagnostics parseFcltuDiagFcltuGetSpecific
+    case res of
+        Left  diag -> return $ DiagFcltuGetCommon diag
+        Right diag -> return $ DiagFcltuGetSpecific diag
+
+eitherFcltuGetResult :: Either DiagnosticFcltuGet FcltuGetParameter -> [ASN1]
+eitherFcltuGetResult (Left diag) =
+    [ Start (Container Context 1)
+    , diagnosticFcltuGet diag
+    , End (Container Context 1)
+    ]
+eitherFcltuGetResult (Right param) =
+    Start (Container Context 0)
+        :  fcltuGetParameter param
+        ++ [End (Container Context 0)]
+
+
+parseEitherFcltuGetResult
+    :: Parser (Either DiagnosticFcltuGet FcltuGetParameter)
+parseEitherFcltuGetResult = do
+    x <- get
+    case x of
+        Start (Container Context 0) : rest -> do
+            put rest
+            param <- parseFcltuGetParameter
+            parseEndContainer 0
+            return (Right param)
+        Start (Container Context 1) : rest -> do
+            put rest
+            diag <- parseDiagnosticFcltuGet
+            parseEndContainer 1
+            return (Left diag)
+        asn1 ->
+            throwError
+                $ "Error parsing returned parameter value: unexpected ASN1 value: "
+                <> fromString (show asn1)
+
+
+data FcltuGetParameterReturn = FcltuGetParameterReturn
+    { _fgpCredentials :: !Credentials
+    , _fgpInvokeID    :: !Word16
+    , _fgpResult      :: !(Either DiagnosticFcltuGet FcltuGetParameter)
+    }
+    deriving (Show, Generic)
+makeLenses ''FcltuGetParameterReturn
+
+fcltuGetParameterReturn :: FcltuGetParameterReturn -> [ASN1]
+fcltuGetParameterReturn FcltuGetParameterReturn {..} =
+    [ Start (Container Context 7)
+        , credentials _fgpCredentials
+        , IntVal (fromIntegral _fgpInvokeID)
+        ]
+        ++ eitherFcltuGetResult _fgpResult
+        ++ [End (Container Context 7)]
+
+instance EncodeASN1 FcltuGetParameterReturn where
+    encode val = encodeASN1' DER (fcltuGetParameterReturn val)
+
+parseFcltuGetParameterReturn :: Parser FcltuGetParameterReturn
+parseFcltuGetParameterReturn = content
+  where
+    endContainer = parseBasicASN1 (== End (Container Context 7)) (const ())
+
+    content      = do
+        creds    <- parseCredentials
+        invokeID <- parseIntVal
+        result   <- parseEitherFcltuGetResult
+        void endContainer
+        return FcltuGetParameterReturn { _fgpCredentials = creds
+                                       , _fgpInvokeID    = fromIntegral invokeID
+                                       , _fgpResult      = result
+                                       }

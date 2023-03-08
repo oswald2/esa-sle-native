@@ -27,9 +27,15 @@
     },
     "_cfgFCLTUs": [
         {
+            "_cfgFCLTUAcquisitionSequenceLength": 65535,
             "_cfgFCLTUAssociatedTMPort": "TMPORT",
+            "_cfgFCLTUBitlockRequired": true,
+            "_cfgFCLTUGVCIDChannelType": "MasterChannel",
+            "_cfgFCLTUGVCIDVersion": 1,
+            "_cfgFCLTUPlop1InitSequenceLength": 65535,
             "_cfgFCLTUPort": 5009,
             "_cfgFCLTUPortID": "TCPORT",
+            "_cfgFCLTURFAvailableRequired": true,
             "_cfgFCLTUSII": "sagr=3.spack=facility-PASS1.fsl-fg=1.cltu=cltu1"
         }
     ],
@@ -40,11 +46,11 @@
                 "tag": "LocalForm"
             },
             "_cfgRAFBufferSize": 100,
+            "_cfgRAFDeliveryMode": "DelRtnCompleteOnline",
             "_cfgRAFLatency": 1000000,
             "_cfgRAFPort": 5100,
             "_cfgRAFPortID": "TMPORT",
-            "_cfgRAFSII": "sagr=3.spack=facility-PASS1.rsl-fg=1.raf=onlc1",
-            "_cfgRAFDeliveryMode": "DelRtnCompleteOnline"
+            "_cfgRAFSII": "sagr=3.spack=facility-PASS1.rsl-fg=1.raf=onlc1"
         }
     ],
     "_cfgRCFs": [

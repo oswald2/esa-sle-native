@@ -8,6 +8,8 @@ module SLE.Data.Common
     , intPosShort
     , encWord16
     , decWord16
+    , encWord8
+    , decWord8
     , Credentials
     , credentials
     , ISP1Credentials(..)
@@ -45,6 +47,7 @@ module SLE.Data.Common
     , parseOctetString
     , parseChoice
     , parseChoiceASN1
+    , choiceParser
     , Diagnostics(..)
     , diagnostics
     , parseDiagnostics
@@ -297,6 +300,24 @@ parseChoice choice0 choice1 errTxt = do
                 (show o)
         [] -> throwError errTxt
 
+choiceParser
+    :: (ByteString -> Parser b) -> (ByteString -> Parser b) -> Text -> Parser b
+choiceParser choice0 choice1 errTxt = do
+    x <- get
+    case x of
+        ((Other Context 0 bs) : rest) -> do
+            put rest
+            choice0 bs
+        ((Other Context 1 bs) : rest) -> do
+            put rest
+            choice1 bs
+        a@(o : _) -> do
+            put a
+            throwError $ "parseChoice: expected choice, got " <> fromString
+                (show o)
+        [] -> throwError errTxt
+
+
 
 parseChoiceASN1 :: Parser b -> Parser b -> Text -> Parser b
 parseChoiceASN1 choice0 choice1 errTxt = do
@@ -507,7 +528,7 @@ parseBasicASN1 p f = do
             --     (ppShow rest)
             if p val
                 then do
-                    put rest 
+                    put rest
                     -- traceM "Match."
                     return (f val)
                 else do
@@ -1115,6 +1136,12 @@ decWord16 bs = case B.length bs of
         in  Just val
     _ -> Nothing
 
+encWord8 :: Word8 -> ByteString
+encWord8 val = B.singleton val
+
+decWord8 :: ByteString -> Maybe Word8
+decWord8 bs = if B.length bs >= 1 then Just $ bs `B.index` 0 else Nothing
+
 
 data ReportRequestType =
     ReportImmediately
@@ -1144,12 +1171,12 @@ parseReportRequestType = do
         Other Context 2 _ : rest -> do
             put rest
             return ReportStop
-        a@(asn1 : _) -> do 
+        a@(asn1 : _) -> do
             put a
             throwError
                 $  "parseReportRequestType: unexpected ASN1 sequence: "
                 <> fromString (show asn1)
-        asn1 -> do 
+        asn1 -> do
             put asn1
             throwError
                 $  "parseReportRequestType: unexpected ASN1 sequence: "
@@ -1278,8 +1305,8 @@ parseDiagScheduleResult = do
                     else do
                         throwError
                             $ "Error decoding ScheduleStatusReturn specific diagnostics: bytestring too short"
-        a@(asn1 : _rest) -> do 
-            put a 
+        a@(asn1 : _rest) -> do
+            put a
             throwError
                 $ "Error decoding ScheduleStatusReturn specific diagnostics: unexpected ASN1: "
                 <> fromString (show asn1)

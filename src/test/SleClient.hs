@@ -18,7 +18,6 @@ import           SLE.Data.TMLConfig
 import           SLE.Data.UserConfig
 import           SLE.Protocol.User
 import           SLE.Protocol.UserApi
-import SLE.Protocol.UserApi (rafGetParameter)
 
 
 

@@ -18,12 +18,12 @@ perfFunc :: Word64 -> IO ()
 perfFunc len = T.putStrLn $ "Sent " <> fromString (show len) <> " bytes"
 
 startServer
-    :: ProviderConfig -> SleEventHandler -> RIO ProviderState () -> IO ()
-startServer cfg eventHandler action = do
+    :: ProviderConfig -> SleEventHandler -> ConfigFromApp -> RIO ProviderState () -> IO ()
+startServer cfg eventHandler appCfg action = do
     defLogOptions <- logOptionsHandle stdout True
     let logOptions = setLogMinLevel LevelDebug defLogOptions
     withLogFunc logOptions $ \logFunc -> do
-        state <- initialState cfg logFunc eventHandler
+        state <- initialState cfg logFunc eventHandler appCfg 
 
         runRIO state $ do
             logDebug "Starting listening on SLE..."
