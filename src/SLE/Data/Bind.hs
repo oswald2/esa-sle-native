@@ -49,6 +49,8 @@ module SLE.Data.Bind
     , sleUnbindRetCredentials
     , sleUnbindRetResult
     , parseSleUnbindReturn
+    , sleVersionToNumber
+    , versionNumberToSle
     ) where
 
 
@@ -196,7 +198,16 @@ parseApplicationIdentifier = do
             throwError
                 "parseApplicationIdentifier: no int value for application identifier"
 
+sleVersionToNumber :: SleVersion -> VersionNumber
+sleVersionToNumber SLE3 = VersionNumber 3
+sleVersionToNumber SLE4 = VersionNumber 4
+sleVersionToNumber SLE5 = VersionNumber 5
 
+versionNumberToSle :: VersionNumber -> Maybe SleVersion
+versionNumberToSle (VersionNumber 3) = Just SLE3
+versionNumberToSle (VersionNumber 4) = Just SLE4
+versionNumberToSle (VersionNumber 5) = Just SLE5
+versionNumberToSle _                 = Nothing
 
 
 newtype VersionNumber = VersionNumber Word16

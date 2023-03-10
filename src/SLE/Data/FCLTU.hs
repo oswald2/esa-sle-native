@@ -105,7 +105,7 @@ processInitState cfg var _state appCfg ppdu@(SlePduBind pdu) = do
                         <> display (pdu ^. sleBindInitiatorID)
                     , AccessDenied
                     )
-                                                                                                                                                -- Check, if we are a FCLTU Bind Request
+                                                                                                                                                    -- Check, if we are a FCLTU Bind Request
             if pdu ^. sleBindServiceType /= FwdCltu
                 then Left
                     ( "Requested Service is not FCLTU: "
@@ -113,7 +113,7 @@ processInitState cfg var _state appCfg ppdu@(SlePduBind pdu) = do
                     , ServiceTypeNotSupported
                     )
                 else Right ()
-                                                                                                                                                -- check the requested SLE Version 
+                                                                                                                                                    -- check the requested SLE Version 
             if (pdu ^. sleVersionNumber /= VersionNumber 3)
                     && (pdu ^. sleVersionNumber /= VersionNumber 4)
                 then Left
@@ -683,6 +683,24 @@ getParameter cfg _var state ParClcwGlobalVCID = do
                 SLE.Data.FCLTUOps.VirtualChannel vc
     return (Right (FcltuClcwGlobalVcID vcid))
 
+getParameter cfg _var _state ParClcwPhysicalChannel = do
+    let val = cfg ^. cfgFCLTUClcwChannel
+    return (Right (FcltuPhysicalChannel val))
+
+getParameter _cfg _var _state ParDeliveryMode = do
+    return (Right (FcltuDeliveryMode FwdOnline))
+
+getParameter _cfg _var state ParExpectedSlduIdentification = do
+    let val = (state ^. fcltuCltuID) + 1
+    return (Right (FcltuCltuIdentification val))
+
+getParameter _cfg _var state ParExpectedEventInvocationIdentification = do
+    let val = state ^. fcltuEventID
+    return (Right (FcltuEventIdentification val))
+
+getParameter _cfg _var state ParSubcarrierToBitRateRatio = do
+    let val = state ^. fcltuSubcarrierToBitRateRatio
+    return (Right (FcltuSubcarrierToBitRateRatio val))
 
 getParameter _ _ _ _ = do
     return (Left (DiagFcltuGetSpecific FcltuUnknownParameter))

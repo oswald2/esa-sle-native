@@ -48,6 +48,7 @@ module SLE.Data.ProviderConfig
     , cfgFCLTURFAvailableRequired
     , cfgFCLTUGVCIDVersion
     , cfgFCLTUGVCIDChannelType
+    , cfgFCLTUClcwChannel
     ) where
 
 
@@ -170,6 +171,7 @@ data FCLTUConfig = FCLTUConfig
     , _cfgFCLTURFAvailableRequired       :: !Bool
     , _cfgFCLTUGVCIDVersion              :: !Word16
     , _cfgFCLTUGVCIDChannelType          :: !FCLTUChannelType
+    , _cfgFCLTUClcwChannel               :: !Text 
     }
     deriving stock (Show, Read, Generic)
     deriving anyclass (FromJSON, ToJSON)
@@ -186,6 +188,7 @@ defaultFCLTUConfig = FCLTUConfig
     , _cfgFCLTURFAvailableRequired       = True
     , _cfgFCLTUGVCIDVersion              = 1
     , _cfgFCLTUGVCIDChannelType          = MasterChannel
+    , _cfgFCLTUClcwChannel               = "PARAGONTT"
     }
 
 

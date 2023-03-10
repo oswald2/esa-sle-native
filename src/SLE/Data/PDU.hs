@@ -5,6 +5,7 @@ module SLE.Data.PDU
     , isBindOrReturn
     , isTransfer
     , checkPermission
+    , encodeSlePdu
     ) where
 
 import           RIO                     hiding ( (^.) )
@@ -208,29 +209,29 @@ notifChk (Just authority) notif = case notif ^. rafSyncNCredentials of
                                   (Password (cfgPeerPassword authority))
 
 
-
-instance EncodeASN1 SlePdu where
-    encode (SlePduBind                 val) = encode val
-    encode (SlePduBindReturn           val) = encode val
-    encode (SlePduUnbind               val) = encode val
-    encode (SlePduUnbindReturn         val) = encode val
-    encode (SlePduRafStart             val) = encode val
-    encode (SlePduRafStartReturn       val) = encode val
-    encode (SlePduStop                 val) = encode val
-    encode (SlePduAck                  val) = encode val
-    encode (SlePduRafTransferBuffer    val) = encode val
-    encode (SlePduPeerAbort            val) = encode val
-    encode (SlePduFcltuStart           val) = encode val
-    encode (SlePduFcltuStartReturn     val) = encode val
-    encode (SlePduFcltuThrowEvent      val) = encode val
-    encode (SlePduFcltuTransferData    val) = encode val
-    encode (SlePduFcltuTransReturn     val) = encode val
-    encode (SlePduFcltuAsync           val) = encode val
-    encode (SlePduGetParameter         val) = encode val
-    encode (SlePduRafParameterReturn   val) = encode val
-    encode (SlePduRafStatusReport      val) = encode val
-    encode (SlePduScheduleStatusReport val) = encode val
-    encode (SlePduScheduleStatusReturn val) = encode val
-    encode (SlePduFcltuStatusReport    val) = encode val
-    encode (SlePduFcltuParameterReturn val) = encode val
+encodeSlePdu :: SleVersion -> SlePdu -> ByteString
+encodeSlePdu _version (SlePduBind                 val) = encode val
+encodeSlePdu _version (SlePduBindReturn           val) = encode val
+encodeSlePdu _version (SlePduUnbind               val) = encode val
+encodeSlePdu _version (SlePduUnbindReturn         val) = encode val
+encodeSlePdu _version (SlePduRafStart             val) = encode val
+encodeSlePdu _version (SlePduRafStartReturn       val) = encode val
+encodeSlePdu _version (SlePduStop                 val) = encode val
+encodeSlePdu _version (SlePduAck                  val) = encode val
+encodeSlePdu _version (SlePduRafTransferBuffer    val) = encode val
+encodeSlePdu _version (SlePduPeerAbort            val) = encode val
+encodeSlePdu _version (SlePduFcltuStart           val) = encode val
+encodeSlePdu _version (SlePduFcltuStartReturn     val) = encode val
+encodeSlePdu _version (SlePduFcltuThrowEvent      val) = encode val
+encodeSlePdu _version (SlePduFcltuTransferData    val) = encode val
+encodeSlePdu _version (SlePduFcltuTransReturn     val) = encode val
+encodeSlePdu _version (SlePduFcltuAsync           val) = encode val
+encodeSlePdu _version (SlePduGetParameter         val) = encode val
+encodeSlePdu _version (SlePduRafParameterReturn   val) = encode val
+encodeSlePdu _version (SlePduRafStatusReport      val) = encode val
+encodeSlePdu _version (SlePduScheduleStatusReport val) = encode val
+encodeSlePdu _version (SlePduScheduleStatusReturn val) = encode val
+encodeSlePdu _version (SlePduFcltuStatusReport    val) = encode val
+encodeSlePdu version (SlePduFcltuParameterReturn val) =
+    encodeFcltuGetParameterReturn version val
 

@@ -47,6 +47,8 @@ module SLE.State.FCLTUState
     , fcltuGetReportSchedule
     , fcltuSetRFAndBitLock
     , fcltuSCID
+    , fcltuEventID
+    , fcltuSubcarrierToBitRateRatio
     ) where
 
 import           RIO
@@ -67,22 +69,24 @@ import           SLE.Data.ProviderConfig
 import           SLE.Data.WriteCmd
 
 data FCLTU = FCLTU
-    { _fcltuSII                :: !SII
-    , _fcltuState              :: !ServiceState
-    , _fcltuProdNotification   :: !SlduStatusNotification
-    , _fcltuStartRadiationTime :: !CCSDSTime
-    , _fcltuCltuID             :: !CltuIdentification
-    , _fcltuLastProcessed      :: !CltuLastProcessed
-    , _fcltuLastOK             :: !CltuLastOk
-    , _fcltuProdStatus         :: !ProductionStatus
-    , _fcltuUplinkStatus       :: !UplinkStatus
-    , _fcltuCltusReceived      :: !Word64
-    , _fcltuCltusProcessed     :: !Word64
-    , _fcltuCltusRadiated      :: !Word64
-    , _fcltuInitiator          :: !(Maybe Peer)
-    , _fcltuBitLock            :: !Bool
-    , _fcltuRFAvailable        :: !Bool
-    , _fcltuSCID               :: !Word16
+    { _fcltuSII                      :: !SII
+    , _fcltuState                    :: !ServiceState
+    , _fcltuProdNotification         :: !SlduStatusNotification
+    , _fcltuStartRadiationTime       :: !CCSDSTime
+    , _fcltuCltuID                   :: !CltuIdentification
+    , _fcltuLastProcessed            :: !CltuLastProcessed
+    , _fcltuLastOK                   :: !CltuLastOk
+    , _fcltuProdStatus               :: !ProductionStatus
+    , _fcltuUplinkStatus             :: !UplinkStatus
+    , _fcltuCltusReceived            :: !Word64
+    , _fcltuCltusProcessed           :: !Word64
+    , _fcltuCltusRadiated            :: !Word64
+    , _fcltuInitiator                :: !(Maybe Peer)
+    , _fcltuBitLock                  :: !Bool
+    , _fcltuRFAvailable              :: !Bool
+    , _fcltuSCID                     :: !Word16
+    , _fcltuEventID                  :: !EventInvocationID
+    , _fcltuSubcarrierToBitRateRatio :: !Word16
     }
 makeLenses ''FCLTU
 
@@ -106,22 +110,24 @@ makeLenses ''FCLTUVar
 
 fcltuStartState :: FCLTUConfig -> ConfigFromApp -> FCLTU
 fcltuStartState cfg appCfg = FCLTU
-    { _fcltuSII                = cfg ^. cfgFCLTUSII
-    , _fcltuState              = ServiceInit
-    , _fcltuProdNotification   = ProduceNotification
-    , _fcltuStartRadiationTime = ccsdsNullTime
-    , _fcltuCltuID             = CltuIdentification 0
-    , _fcltuLastProcessed      = NoCltuProcessed
-    , _fcltuLastOK             = NoCltuOk
-    , _fcltuProdStatus         = ProdOperational
-    , _fcltuUplinkStatus       = UplinkNominal
-    , _fcltuCltusReceived      = 0
-    , _fcltuCltusProcessed     = 0
-    , _fcltuCltusRadiated      = 0
-    , _fcltuInitiator          = Nothing
-    , _fcltuBitLock            = True
-    , _fcltuRFAvailable        = True
-    , _fcltuSCID               = appSCID appCfg
+    { _fcltuSII                      = cfg ^. cfgFCLTUSII
+    , _fcltuState                    = ServiceInit
+    , _fcltuProdNotification         = ProduceNotification
+    , _fcltuStartRadiationTime       = ccsdsNullTime
+    , _fcltuCltuID                   = CltuIdentification 0
+    , _fcltuLastProcessed            = NoCltuProcessed
+    , _fcltuLastOK                   = NoCltuOk
+    , _fcltuProdStatus               = ProdOperational
+    , _fcltuUplinkStatus             = UplinkNominal
+    , _fcltuCltusReceived            = 0
+    , _fcltuCltusProcessed           = 0
+    , _fcltuCltusRadiated            = 0
+    , _fcltuInitiator                = Nothing
+    , _fcltuBitLock                  = True
+    , _fcltuRFAvailable              = True
+    , _fcltuSCID                     = appSCID appCfg
+    , _fcltuEventID                  = EventInvocationID 0
+    , _fcltuSubcarrierToBitRateRatio = 10
     }
 
 

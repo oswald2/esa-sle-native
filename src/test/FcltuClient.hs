@@ -66,7 +66,12 @@ sleProcedure cfg hdl = do
     -- sendGetParameter cfg hdl 1 ParPlop1IdleSequenceLength
     -- sendGetParameter cfg hdl 1 ParBitLockRequired
     -- sendGetParameter cfg hdl 1 ParRfAvailableRequired
-    sendGetParameter cfg hdl 1 ParClcwGlobalVCID
+    -- sendGetParameter cfg hdl 1 ParClcwGlobalVCID
+    -- sendGetParameter cfg hdl 1 ParClcwPhysicalChannel
+    -- sendGetParameter cfg hdl 1 ParDeliveryMode
+    -- sendGetParameter cfg hdl 1 ParExpectedSlduIdentification
+    -- sendGetParameter cfg hdl 1 ParExpectedEventInvocationIdentification
+    sendGetParameter cfg hdl 1 ParSubcarrierToBitRateRatio
 
     threadDelay 200_000_000
 
@@ -203,18 +208,22 @@ sendData cfg hdl frame = do
                   ProduceNotification
                   frame
 
-sendScheduleImmediately :: UserConfig -> SleHandle -> Word16 -> IO() 
-sendScheduleImmediately cfg hdl invokeID = do 
+sendScheduleImmediately :: UserConfig -> SleHandle -> Word16 -> IO ()
+sendScheduleImmediately cfg hdl invokeID = do
     scheduleReport (cfg ^. cfgCommon) hdl Nothing invokeID ReportImmediately
 
-sendSchedule :: UserConfig -> SleHandle -> Word16 -> IO() 
-sendSchedule cfg hdl invokeID = do 
-    scheduleReport (cfg ^. cfgCommon) hdl Nothing invokeID (ReportPeriodically 10)
+sendSchedule :: UserConfig -> SleHandle -> Word16 -> IO ()
+sendSchedule cfg hdl invokeID = do
+    scheduleReport (cfg ^. cfgCommon)
+                   hdl
+                   Nothing
+                   invokeID
+                   (ReportPeriodically 10)
 
-sendScheduleStop :: UserConfig -> SleHandle -> Word16 -> IO() 
-sendScheduleStop cfg hdl invokeID = do 
+sendScheduleStop :: UserConfig -> SleHandle -> Word16 -> IO ()
+sendScheduleStop cfg hdl invokeID = do
     scheduleReport (cfg ^. cfgCommon) hdl Nothing invokeID ReportStop
 
-sendGetParameter :: UserConfig -> SleHandle -> Word16 -> ParameterName -> IO () 
-sendGetParameter cfg hdl invokeID paramName = do 
-    fcltuGetParameter (cfg ^. cfgCommon) hdl Nothing invokeID paramName 
+sendGetParameter :: UserConfig -> SleHandle -> Word16 -> ParameterName -> IO ()
+sendGetParameter cfg hdl invokeID paramName = do
+    fcltuGetParameter (cfg ^. cfgCommon) hdl Nothing invokeID paramName

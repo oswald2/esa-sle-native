@@ -27,6 +27,7 @@ import           Control.Lens
 import           Data.Aeson
 
 import           SLE.Data.Bind
+import           SLE.Data.Common
 import           SLE.Data.HexBytes
 import           SLE.Data.TMLConfig      hiding ( loadConfigJSON
                                                 , writeConfigJSON
@@ -69,7 +70,7 @@ data CommonConfig = CommonConfig
     , _cfgLocal     :: !AuthorityIdentifier
     , _cfgAuthorize :: !SleAuthType
     , _cfgSHAType   :: !HashToUse
-    , _cfgVersion   :: !VersionNumber
+    , _cfgVersion   :: !SleVersion
     , _cfgPassword  :: !HexBytes
     }
     deriving (Show, Read, Generic)
@@ -101,7 +102,7 @@ defaultCommonConfig = CommonConfig
     , _cfgLocal     = AuthorityIdentifier "PARAGONTT"
     , _cfgAuthorize = AuthNone
     , _cfgSHAType   = SHA1
-    , _cfgVersion   = VersionNumber 3
+    , _cfgVersion   = SLE3
     , _cfgPassword  = bsToHex
                           (B.pack
                               [ 0x00

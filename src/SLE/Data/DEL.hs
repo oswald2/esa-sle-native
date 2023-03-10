@@ -9,8 +9,8 @@ module SLE.Data.DEL
     ) where
 
 
-import           RIO
 --import qualified RIO.Text                      as T
+import           RIO
 
 import           Data.Bits                      ( Bits((.&.)) )
 
@@ -18,8 +18,8 @@ import           SLE.Data.AUL                   ( mkHashInput
                                                 , theProtected
                                                 )
 import           SLE.Data.CCSDSTime             ( getCurrentTime )
-import           SLE.Data.Common                ( EncodeASN1(encode)
-                                                , ISP1Credentials(..)
+import           SLE.Data.Common                ( ISP1Credentials(..)
+                                                , SleVersion(..)
                                                 , isp1Credentials
                                                 , isp1CredentialsParser
                                                 , mkCredentials
@@ -34,11 +34,11 @@ import           System.Random.SplitMix         ( initSMGen
 
 encodePDU :: CommonConfig -> SlePdu -> IO ByteString
 encodePDU cfg pdu = case cfg ^. cfgAuthorize of
-    AuthNone -> encodePDUwoCreds pdu
+    AuthNone -> encodePDUwoCreds (cfg ^. cfgVersion) pdu
     AuthAll  -> encodePDUwithCreds cfg pdu
     AuthBind -> if isBindOrReturn pdu
         then encodePDUwithCreds cfg pdu
-        else encodePDUwoCreds pdu
+        else encodePDUwoCreds (cfg ^. cfgVersion) pdu
 
 
 
@@ -55,12 +55,12 @@ encodePDUwithCreds cfg pdu = do
 
         newPdu = setCredentials pdu isp1
 
-    return (encode newPdu)
+    return (encodeSlePdu (cfg ^. cfgVersion) newPdu)
 
 
-encodePDUwoCreds :: SlePdu -> IO ByteString
-encodePDUwoCreds pdu = do
-    return $ encode pdu
+encodePDUwoCreds :: SleVersion -> SlePdu -> IO ByteString
+encodePDUwoCreds version pdu = do
+    return $ encodeSlePdu version pdu
 
 
 

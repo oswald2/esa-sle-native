@@ -23,14 +23,17 @@
             "cfgMinHeartBeat": 3,
             "cfgServerInitTime": 30
         },
-        "_cfgVersion": 3
+        "_cfgVersion": "SLE3"
     },
     "_cfgFCLTUs": [
         {
             "_cfgFCLTUAcquisitionSequenceLength": 65535,
             "_cfgFCLTUAssociatedTMPort": "TMPORT",
             "_cfgFCLTUBitlockRequired": true,
-            "_cfgFCLTUGVCIDChannelType": "MasterChannel",
+            "_cfgFCLTUClcwChannel": "PARAGONTT",
+            "_cfgFCLTUGVCIDChannelType": {
+                "tag": "MasterChannel"
+            },
             "_cfgFCLTUGVCIDVersion": 1,
             "_cfgFCLTUPlop1InitSequenceLength": 65535,
             "_cfgFCLTUPort": 5009,

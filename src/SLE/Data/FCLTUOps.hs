@@ -23,6 +23,7 @@ module SLE.Data.FCLTUOps
     , FcltuAsyncNotify(..)
     , CltuStatusReport(..)
     , FcltuGetParameterReturn(..)
+    , encodeFcltuGetParameterReturn
     , DiagnosticFcltuGet(..)
     , FcltuGetParameter(..)
     , FcltuDiagFcltuGetSpecific(..)
@@ -980,41 +981,98 @@ data FcltuGetParameter =
     | FcltuBitLockRequired !Bool
     | FcltuRFAvailableRequired !Bool
     | FcltuClcwGlobalVcID !ClcwGvcID
+    | FcltuPhysicalChannel !Text
+    | FcltuDeliveryMode !DeliveryMode
+    | FcltuCltuIdentification !CltuIdentification
+    | FcltuEventIdentification !EventInvocationID
+    | FcltuSubcarrierToBitRateRatio !Word16
     deriving (Show, Generic)
 
+
+fcltuGetParameterV4 :: Proxy 'SLE4 -> FcltuGetParameter -> [ASN1]
+fcltuGetParameterV4 _ = fcltuGetParameter
+
+fcltuGetParameterV5 :: Proxy 'SLE5 -> FcltuGetParameter -> [ASN1]
+fcltuGetParameterV5 _ = fcltuGetParameter
+
 fcltuGetParameter :: FcltuGetParameter -> [ASN1]
-fcltuGetParameter (FcltuAcquisitionSequenceLength size) =
+fcltuGetParameter = undefined
+
+
+fcltuGetParameterV3 :: Proxy 'SLE3 -> FcltuGetParameter -> [ASN1]
+fcltuGetParameterV3 _ (FcltuAcquisitionSequenceLength size) =
     [ Start (Container Context 12)
     , parameterName ParAcquisitionSequenceLength
     , IntVal (fromIntegral size)
     , End (Container Context 12)
     ]
-fcltuGetParameter (FcltuPlop1IdleSequenceLength size) =
+fcltuGetParameterV3 _ (FcltuPlop1IdleSequenceLength size) =
     [ Start (Container Context 17)
     , parameterName ParPlop1IdleSequenceLength
     , IntVal (fromIntegral size)
     , End (Container Context 17)
     ]
-fcltuGetParameter (FcltuBitLockRequired yes) =
+fcltuGetParameterV3 _ (FcltuBitLockRequired yes) =
     [ Start (Container Context 0)
     , parameterName ParBitLockRequired
     , if yes then IntVal 0 else IntVal 1
     , End (Container Context 0)
     ]
-fcltuGetParameter (FcltuRFAvailableRequired yes) =
+fcltuGetParameterV3 _ (FcltuRFAvailableRequired yes) =
     [ Start (Container Context 11)
     , parameterName ParRfAvailableRequired
     , if yes then IntVal 0 else IntVal 1
     , End (Container Context 11)
     ]
-fcltuGetParameter (FcltuClcwGlobalVcID vcid) =
+fcltuGetParameterV3 _ (FcltuPhysicalChannel chan) =
+    [ Start (Container Context 14)
+    , parameterName ParClcwPhysicalChannel
+    , visibleString chan
+    , End (Container Context 14)
+    ]
+fcltuGetParameterV3 _ (FcltuDeliveryMode val) =
+    [ Start (Container Context 4)
+    , parameterName ParDeliveryMode
+    , deliveryMode val
+    , End (Container Context 4)
+    ]
+fcltuGetParameterV3 _ (FcltuCltuIdentification val) =
+    [ Start (Container Context 1)
+    , parameterName ParExpectedSlduIdentification
+    , cltuIdentification val
+    , End (Container Context 1)
+    ]
+fcltuGetParameterV3 _ (FcltuEventIdentification val) =
+    [ Start (Container Context 2)
+    , parameterName ParExpectedEventInvocationIdentification
+    , eventInvocationID val
+    , End (Container Context 2)
+    ]
+fcltuGetParameterV3 _ (FcltuSubcarrierToBitRateRatio val) =
+    [ Start (Container Context 3)
+    , parameterName ParSubcarrierToBitRateRatio
+    , IntVal (fromIntegral val)
+    , End (Container Context 3)
+    ]
+
+fcltuGetParameterV3 _ (FcltuClcwGlobalVcID vcid) =
     [Start (Container Context 13), parameterName ParClcwGlobalVCID]
         ++ clcwGvcID vcid
         ++ [End (Container Context 13)]
 
 
+parseFcltuGetParameterV4 :: Proxy 'SLE4 -> Parser FcltuGetParameter
+parseFcltuGetParameterV4 _ = parseFcltuGetParameter
+
+parseFcltuGetParameterV5 :: Proxy 'SLE5 -> Parser FcltuGetParameter
+parseFcltuGetParameterV5 _ = parseFcltuGetParameter
+
 parseFcltuGetParameter :: Parser FcltuGetParameter
-parseFcltuGetParameter = do
+parseFcltuGetParameter = undefined
+
+
+parseFcltuGetParameterV3 :: Proxy 'SLE3 -> Parser FcltuGetParameter
+parseFcltuGetParameterV3 _ = do
     x <- get
     case x of
         Start (Container Context 12) : rest -> do
@@ -1049,6 +1107,36 @@ parseFcltuGetParameter = do
             val <- parseClcwGvcID
             parseEndContainer 13
             return (FcltuClcwGlobalVcID val)
+        Start (Container Context 14) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseVisibleString
+            parseEndContainer 14
+            return (FcltuPhysicalChannel val)
+        Start (Container Context 4) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseDeliveryMode
+            parseEndContainer 4
+            return (FcltuDeliveryMode val)
+        Start (Container Context 1) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseCltuIdentification
+            parseEndContainer 1
+            return (FcltuCltuIdentification val)
+        Start (Container Context 2) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseEventInvocationID
+            parseEndContainer 2
+            return (FcltuEventIdentification val)
+        Start (Container Context 3) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseIntVal
+            parseEndContainer 3
+            return (FcltuSubcarrierToBitRateRatio (fromIntegral val))
         asn1 -> do
             put asn1
             throwError
@@ -1088,26 +1176,33 @@ parseDiagnosticFcltuGet = do
         Left  diag -> return $ DiagFcltuGetCommon diag
         Right diag -> return $ DiagFcltuGetSpecific diag
 
-eitherFcltuGetResult :: Either DiagnosticFcltuGet FcltuGetParameter -> [ASN1]
-eitherFcltuGetResult (Left diag) =
+eitherFcltuGetResult
+    :: SleVersion -> Either DiagnosticFcltuGet FcltuGetParameter -> [ASN1]
+eitherFcltuGetResult _version (Left diag) =
     [ Start (Container Context 1)
     , diagnosticFcltuGet diag
     , End (Container Context 1)
     ]
-eitherFcltuGetResult (Right param) =
+eitherFcltuGetResult version (Right param) =
     Start (Container Context 0)
-        :  fcltuGetParameter param
+        :  case version of
+               SLE3 -> fcltuGetParameterV3 (Proxy :: Proxy 'SLE3) param
+               SLE4 -> fcltuGetParameterV4 (Proxy :: Proxy 'SLE4) param
+               SLE5 -> fcltuGetParameterV5 (Proxy :: Proxy 'SLE5) param
         ++ [End (Container Context 0)]
 
 
 parseEitherFcltuGetResult
-    :: Parser (Either DiagnosticFcltuGet FcltuGetParameter)
-parseEitherFcltuGetResult = do
+    :: SleVersion -> Parser (Either DiagnosticFcltuGet FcltuGetParameter)
+parseEitherFcltuGetResult version = do
     x <- get
     case x of
         Start (Container Context 0) : rest -> do
             put rest
-            param <- parseFcltuGetParameter
+            param <- case version of
+                SLE3 -> parseFcltuGetParameterV3 (Proxy :: Proxy 'SLE3)
+                SLE4 -> parseFcltuGetParameterV4 (Proxy :: Proxy 'SLE4)
+                SLE5 -> parseFcltuGetParameterV5 (Proxy :: Proxy 'SLE5)
             parseEndContainer 0
             return (Right param)
         Start (Container Context 1) : rest -> do
@@ -1129,27 +1224,35 @@ data FcltuGetParameterReturn = FcltuGetParameterReturn
     deriving (Show, Generic)
 makeLenses ''FcltuGetParameterReturn
 
-fcltuGetParameterReturn :: FcltuGetParameterReturn -> [ASN1]
-fcltuGetParameterReturn FcltuGetParameterReturn {..} =
+fcltuGetParameterReturn :: SleVersion -> FcltuGetParameterReturn -> [ASN1]
+fcltuGetParameterReturn version FcltuGetParameterReturn {..} =
     [ Start (Container Context 7)
         , credentials _fgpCredentials
         , IntVal (fromIntegral _fgpInvokeID)
         ]
-        ++ eitherFcltuGetResult _fgpResult
+        ++ eitherFcltuGetResult version _fgpResult
         ++ [End (Container Context 7)]
 
-instance EncodeASN1 FcltuGetParameterReturn where
-    encode val = encodeASN1' DER (fcltuGetParameterReturn val)
+-- instance EncodeASN1 FcltuGetParameterReturn where
+--     encode val = encodeASN1' DER (fcltuGetParameterReturn val)
 
-parseFcltuGetParameterReturn :: Parser FcltuGetParameterReturn
-parseFcltuGetParameterReturn = content
+encodeFcltuGetParameterReturn
+    :: SleVersion -> FcltuGetParameterReturn -> ByteString
+encodeFcltuGetParameterReturn version val =
+    -- let enc = fcltuGetParameterReturn version val
+    -- in  trace ("Encoded GetParameterReturn:\n" <> fromString (show enc))
+    --         $ encodeASN1' DER enc
+    encodeASN1' DER (fcltuGetParameterReturn version val)
+
+parseFcltuGetParameterReturn :: SleVersion -> Parser FcltuGetParameterReturn
+parseFcltuGetParameterReturn version = content
   where
     endContainer = parseBasicASN1 (== End (Container Context 7)) (const ())
 
     content      = do
         creds    <- parseCredentials
         invokeID <- parseIntVal
-        result   <- parseEitherFcltuGetResult
+        result   <- parseEitherFcltuGetResult version
         void endContainer
         return FcltuGetParameterReturn { _fgpCredentials = creds
                                        , _fgpInvokeID    = fromIntegral invokeID

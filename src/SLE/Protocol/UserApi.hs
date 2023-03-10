@@ -47,7 +47,7 @@ bind cfg hdl creds appID port attrs = do
                                   (cfg ^. cfgLocal)
                                   port
                                   appID
-                                  (cfg ^. cfgVersion)
+                                  (sleVersionToNumber (cfg ^. cfgVersion))
                                   (ServiceInstanceIdentifier attrs)
     -- send it to the lower layers
     writeSLE hdl (SLEPdu (SlePduBind bnd))

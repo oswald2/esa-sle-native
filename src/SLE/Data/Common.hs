@@ -3,6 +3,7 @@
 module SLE.Data.Common
     ( SII(..)
     , mkSII
+    , SleVersion(..)
     , ServiceState(..)
     , IntPosShort(..)
     , intPosShort
@@ -144,6 +145,12 @@ import           Text.Builder                  as TB
                                                 )
 
 -- import           Text.Show.Pretty        hiding ( Time )
+
+data SleVersion = SLE3 | SLE4 | SLE5
+    deriving stock (Read, Show, Generic)
+    deriving anyclass (FromJSON, ToJSON)
+
+
 
 
 newtype SII = SII Text
@@ -945,7 +952,7 @@ data ParameterName =
     | ParDirectiveInvocationOnline
     | ParExpectedDirectiveIdentification
     | ParExpectedEventInvocationIdentification
-    | ParExpectedSludIdentification
+    | ParExpectedSlduIdentification
     | ParFopSlidingWindow
     | ParFopState
     | ParLatencyLimit
@@ -1007,7 +1014,7 @@ parameterName ParDirectiveInvocation                   = IntVal 7
 parameterName ParDirectiveInvocationOnline             = IntVal 108
 parameterName ParExpectedDirectiveIdentification       = IntVal 8
 parameterName ParExpectedEventInvocationIdentification = IntVal 9
-parameterName ParExpectedSludIdentification            = IntVal 10
+parameterName ParExpectedSlduIdentification            = IntVal 10
 parameterName ParFopSlidingWindow                      = IntVal 11
 parameterName ParFopState                              = IntVal 12
 parameterName ParLatencyLimit                          = IntVal 15
@@ -1071,7 +1078,7 @@ parseParameterName = do
         108 -> return ParDirectiveInvocationOnline
         8   -> return ParExpectedDirectiveIdentification
         9   -> return ParExpectedEventInvocationIdentification
-        10  -> return ParExpectedSludIdentification
+        10  -> return ParExpectedSlduIdentification
         11  -> return ParFopSlidingWindow
         12  -> return ParFopState
         15  -> return ParLatencyLimit
