@@ -35,11 +35,15 @@
                 "tag": "MasterChannel"
             },
             "_cfgFCLTUGVCIDVersion": 1,
+            "_cfgFCLTUModulationFrequency": 100000,
+            "_cfgFCLTUModulationIndex": 1,
             "_cfgFCLTUPlop1InitSequenceLength": 65535,
+            "_cfgFCLTUPlopInEffect": "PLOP2",
             "_cfgFCLTUPort": 5009,
             "_cfgFCLTUPortID": "TCPORT",
             "_cfgFCLTURFAvailableRequired": true,
-            "_cfgFCLTUSII": "sagr=3.spack=facility-PASS1.fsl-fg=1.cltu=cltu1"
+            "_cfgFCLTUSII": "sagr=3.spack=facility-PASS1.fsl-fg=1.cltu=cltu1",
+            "_cfgFCLTUSubcarrierToBitRateRatio": 10
         }
     ],
     "_cfgRAFs": [

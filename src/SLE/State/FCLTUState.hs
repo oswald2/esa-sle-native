@@ -49,6 +49,9 @@ module SLE.State.FCLTUState
     , fcltuSCID
     , fcltuEventID
     , fcltuSubcarrierToBitRateRatio
+    , fcltuModulationFrequency
+    , fcltuModulationIndex
+    , fcltuPlopInEffect
     ) where
 
 import           RIO
@@ -87,6 +90,9 @@ data FCLTU = FCLTU
     , _fcltuSCID                     :: !Word16
     , _fcltuEventID                  :: !EventInvocationID
     , _fcltuSubcarrierToBitRateRatio :: !Word16
+    , _fcltuModulationFrequency      :: !Word32
+    , _fcltuModulationIndex          :: !Int16
+    , _fcltuPlopInEffect             :: !PLOP
     }
 makeLenses ''FCLTU
 
@@ -128,6 +134,9 @@ fcltuStartState cfg appCfg = FCLTU
     , _fcltuSCID                     = appSCID appCfg
     , _fcltuEventID                  = EventInvocationID 0
     , _fcltuSubcarrierToBitRateRatio = 10
+    , _fcltuModulationFrequency      = 1000000
+    , _fcltuModulationIndex          = 1
+    , _fcltuPlopInEffect             = PLOP2
     }
 
 
@@ -140,7 +149,17 @@ newFCLTUVarIO
     -> ConfigFromApp
     -> m FCLTUVar
 newFCLTUVarIO commonCfg cfg idx tmIdx appCfg = do
-    let fcltu = fcltuStartState cfg appCfg
+    let fcltu =
+            fcltuStartState cfg appCfg
+                &  fcltuSubcarrierToBitRateRatio
+                .~ (cfg ^. cfgFCLTUSubcarrierToBitRateRatio)
+                &  fcltuModulationFrequency
+                .~ (cfg ^. cfgFCLTUModulationFrequency)
+                &  fcltuModulationIndex
+                .~ (cfg ^. cfgFCLTUModulationIndex)
+                &  fcltuPlopInEffect
+                .~ (cfg ^. cfgFCLTUPlopInEffect)
+
     var   <- newTVarIO fcltu
     q     <- newTBQueueIO 100
     hdl   <- newSleHandle (TCFCLTU idx) 1 -- buffer size is 1 as we don't use a buffer

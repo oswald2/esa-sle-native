@@ -702,6 +702,28 @@ getParameter _cfg _var state ParSubcarrierToBitRateRatio = do
     let val = state ^. fcltuSubcarrierToBitRateRatio
     return (Right (FcltuSubcarrierToBitRateRatio val))
 
+getParameter _cfg _var _state ParMaximumSlduLength = do
+    return (Right (FcltuMaxCltuLen 4096))
+
+getParameter _cfg _var state ParModulationFrequency = do
+    let val = state ^. fcltuModulationFrequency
+    return (Right (FcltuModulationFrequency val))
+
+getParameter _cfg _var state ParModulationIndex = do
+    let val = state ^. fcltuModulationIndex
+    return (Right (FcltuModulationIndex val))
+
+getParameter _cfg _var state ParPlopInEffect = do
+    let val = state ^. fcltuPlopInEffect
+    return (Right (FcltuPlopInEffect val))
+
+getParameter _cfg var _state ParReportingCycle = do
+    val <- fcltuGetReportSchedule var 
+    return (Right (FcltuReportingCycle val))
+
+getParameter _cfg _var _state ParReturnTimeoutPeriod = do
+    return (Right (FcltuReturnTimeout 60))
+
 getParameter _ _ _ _ = do
     return (Left (DiagFcltuGetSpecific FcltuUnknownParameter))
 

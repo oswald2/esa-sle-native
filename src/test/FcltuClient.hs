@@ -71,7 +71,12 @@ sleProcedure cfg hdl = do
     -- sendGetParameter cfg hdl 1 ParDeliveryMode
     -- sendGetParameter cfg hdl 1 ParExpectedSlduIdentification
     -- sendGetParameter cfg hdl 1 ParExpectedEventInvocationIdentification
-    sendGetParameter cfg hdl 1 ParSubcarrierToBitRateRatio
+    -- sendGetParameter cfg hdl 1 ParSubcarrierToBitRateRatio
+    -- sendGetParameter cfg hdl 1 ParMaximumSlduLength
+    -- sendGetParameter cfg hdl 1 ParModulationFrequency
+    -- sendGetParameter cfg hdl 1 ParModulationIndex
+    -- sendGetParameter cfg hdl 1 ParPlopInEffect
+    sendGetParameter cfg hdl 1 ParReportingCycle
 
     threadDelay 200_000_000
 

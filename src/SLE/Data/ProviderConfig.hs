@@ -15,6 +15,7 @@ module SLE.Data.ProviderConfig
     , PusVirtualChannel(..)
     , RCFGvcid(..)
     , FCLTUChannelType(..)
+    , PLOP(..)
     , configPretty
     , defaultProviderConfigFileName
     , defaultProviderConfig
@@ -43,12 +44,16 @@ module SLE.Data.ProviderConfig
     , cfgFCLTUPortID
     , cfgFCLTUAssociatedTMPort
     , cfgFCLTUAcquisitionSequenceLength
-    , cfgFCLTUPlop1InitSequenceLength
     , cfgFCLTUBitlockRequired
     , cfgFCLTURFAvailableRequired
     , cfgFCLTUGVCIDVersion
     , cfgFCLTUGVCIDChannelType
     , cfgFCLTUClcwChannel
+    , cfgFCLTUSubcarrierToBitRateRatio
+    , cfgFCLTUModulationFrequency
+    , cfgFCLTUModulationIndex
+    , cfgFCLTUPlopInEffect
+    , cfgFCLTUPlop1InitSequenceLength
     ) where
 
 
@@ -160,18 +165,27 @@ data FCLTUChannelType = MasterChannel | VirtualChannel !Word8
     deriving stock (Show, Read, Generic)
     deriving anyclass (FromJSON, ToJSON)
 
+data PLOP = PLOP1 | PLOP2
+    deriving stock (Show, Read, Generic)
+    deriving anyclass (FromJSON, ToJSON)
+
+
 data FCLTUConfig = FCLTUConfig
     { _cfgFCLTUSII                       :: !SII
     , _cfgFCLTUPort                      :: !Word16
     , _cfgFCLTUPortID                    :: !Text
     , _cfgFCLTUAssociatedTMPort          :: !Text
     , _cfgFCLTUAcquisitionSequenceLength :: !Word16
-    , _cfgFCLTUPlop1InitSequenceLength   :: !Word16
     , _cfgFCLTUBitlockRequired           :: !Bool
     , _cfgFCLTURFAvailableRequired       :: !Bool
     , _cfgFCLTUGVCIDVersion              :: !Word16
     , _cfgFCLTUGVCIDChannelType          :: !FCLTUChannelType
-    , _cfgFCLTUClcwChannel               :: !Text 
+    , _cfgFCLTUClcwChannel               :: !Text
+    , _cfgFCLTUSubcarrierToBitRateRatio  :: !Word16
+    , _cfgFCLTUModulationFrequency       :: !Word32
+    , _cfgFCLTUModulationIndex           :: !Int16
+    , _cfgFCLTUPlopInEffect              :: !PLOP
+    , _cfgFCLTUPlop1InitSequenceLength   :: !Word16
     }
     deriving stock (Show, Read, Generic)
     deriving anyclass (FromJSON, ToJSON)
@@ -183,12 +197,16 @@ defaultFCLTUConfig = FCLTUConfig
     , _cfgFCLTUPortID                    = "TCPORT"
     , _cfgFCLTUAssociatedTMPort          = "TMPORT"
     , _cfgFCLTUAcquisitionSequenceLength = 65535
-    , _cfgFCLTUPlop1InitSequenceLength   = 65535
     , _cfgFCLTUBitlockRequired           = True
     , _cfgFCLTURFAvailableRequired       = True
     , _cfgFCLTUGVCIDVersion              = 1
     , _cfgFCLTUGVCIDChannelType          = MasterChannel
     , _cfgFCLTUClcwChannel               = "PARAGONTT"
+    , _cfgFCLTUSubcarrierToBitRateRatio  = 10
+    , _cfgFCLTUModulationFrequency       = 100000
+    , _cfgFCLTUModulationIndex           = 1
+    , _cfgFCLTUPlopInEffect              = PLOP2
+    , _cfgFCLTUPlop1InitSequenceLength   = 65535
     }
 
 

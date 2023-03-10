@@ -99,6 +99,7 @@ import           Data.ASN1.Types
 
 import           SLE.Data.Common
 import           SLE.Data.HexBytes
+import           SLE.Data.ProviderConfig        ( PLOP(..) )
 
 --import           Text.Show.Pretty
 
@@ -986,8 +987,26 @@ data FcltuGetParameter =
     | FcltuCltuIdentification !CltuIdentification
     | FcltuEventIdentification !EventInvocationID
     | FcltuSubcarrierToBitRateRatio !Word16
+    | FcltuMaxCltuLen !Word16
+    | FcltuModulationFrequency !Word32
+    | FcltuModulationIndex !Int16
+    | FcltuPlopInEffect !PLOP
+    | FcltuReportingCycle !(Maybe Word16)
+    | FcltuReturnTimeout !Word16
     deriving (Show, Generic)
 
+plop :: PLOP -> ASN1
+plop PLOP1 = IntVal 0
+plop PLOP2 = IntVal 1
+
+parsePlop :: Parser PLOP
+parsePlop = do
+    x <- parseIntVal
+    case x of
+        0 -> return PLOP1
+        1 -> return PLOP2
+        v -> throwError $ "Parsing PLOP field: illegal value: " <> fromString
+            (show v)
 
 fcltuGetParameterV4 :: Proxy 'SLE4 -> FcltuGetParameter -> [ASN1]
 fcltuGetParameterV4 _ = fcltuGetParameter
@@ -1053,6 +1072,48 @@ fcltuGetParameterV3 _ (FcltuSubcarrierToBitRateRatio val) =
     , parameterName ParSubcarrierToBitRateRatio
     , IntVal (fromIntegral val)
     , End (Container Context 3)
+    ]
+fcltuGetParameterV3 _ (FcltuMaxCltuLen val) =
+    [ Start (Container Context 5)
+    , parameterName ParMaximumSlduLength
+    , IntVal (fromIntegral val)
+    , End (Container Context 5)
+    ]
+fcltuGetParameterV3 _ (FcltuModulationFrequency val) =
+    [ Start (Container Context 6)
+    , parameterName ParModulationFrequency
+    , IntVal (fromIntegral val)
+    , End (Container Context 6)
+    ]
+fcltuGetParameterV3 _ (FcltuModulationIndex val) =
+    [ Start (Container Context 7)
+    , parameterName ParModulationIndex
+    , IntVal (fromIntegral val)
+    , End (Container Context 7)
+    ]
+fcltuGetParameterV3 _ (FcltuPlopInEffect val) =
+    [ Start (Container Context 8)
+    , parameterName ParPlopInEffect
+    , plop val
+    , End (Container Context 8)
+    ]
+fcltuGetParameterV3 _ (FcltuReportingCycle Nothing) =
+    [ Start (Container Context 9)
+    , parameterName ParReportingCycle
+    , Other Context 0 B.empty
+    , End (Container Context 9)
+    ]
+fcltuGetParameterV3 _ (FcltuReportingCycle (Just val)) =
+    [ Start (Container Context 9)
+    , parameterName ParReportingCycle
+    , Other Context 1 (encWord16 val)
+    , End (Container Context 9)
+    ]
+fcltuGetParameterV3 _ (FcltuReturnTimeout val) =
+    [ Start (Container Context 10)
+    , parameterName ParReturnTimeoutPeriod
+    , IntVal (fromIntegral val)
+    , End (Container Context 10)
     ]
 
 fcltuGetParameterV3 _ (FcltuClcwGlobalVcID vcid) =
@@ -1137,6 +1198,44 @@ parseFcltuGetParameterV3 _ = do
             val <- parseIntVal
             parseEndContainer 3
             return (FcltuSubcarrierToBitRateRatio (fromIntegral val))
+        Start (Container Context 5) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseIntVal
+            parseEndContainer 5
+            return (FcltuMaxCltuLen (fromIntegral val))
+        Start (Container Context 6) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseIntVal
+            parseEndContainer 6
+            return (FcltuModulationFrequency (fromIntegral val))
+        Start (Container Context 7) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseIntVal
+            parseEndContainer 7
+            return (FcltuModulationIndex (fromIntegral val))
+        Start (Container Context 8) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parsePlop
+            parseEndContainer 8
+            return (FcltuPlopInEffect val)
+        Start (Container Context 9) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseChoice (\_ -> return Nothing)
+                               (return . decWord16)
+                               "Error parsing reporting cycle"
+            parseEndContainer 9
+            return (FcltuReportingCycle val)
+        Start (Container Context 10) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseIntVal
+            parseEndContainer 10
+            return (FcltuReturnTimeout (fromIntegral val))
         asn1 -> do
             put asn1
             throwError
