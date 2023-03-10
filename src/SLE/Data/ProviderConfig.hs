@@ -54,6 +54,8 @@ module SLE.Data.ProviderConfig
     , cfgFCLTUModulationIndex
     , cfgFCLTUPlopInEffect
     , cfgFCLTUPlop1InitSequenceLength
+    , cfgFCLTUProtocolAbortMode
+    , cfgFCLTUNotificationMode
     ) where
 
 
@@ -186,6 +188,8 @@ data FCLTUConfig = FCLTUConfig
     , _cfgFCLTUModulationIndex           :: !Int16
     , _cfgFCLTUPlopInEffect              :: !PLOP
     , _cfgFCLTUPlop1InitSequenceLength   :: !Word16
+    , _cfgFCLTUProtocolAbortMode         :: !ProtocolAbortMode
+    , _cfgFCLTUNotificationMode          :: !NotificationMode
     }
     deriving stock (Show, Read, Generic)
     deriving anyclass (FromJSON, ToJSON)
@@ -207,6 +211,8 @@ defaultFCLTUConfig = FCLTUConfig
     , _cfgFCLTUModulationIndex           = 1
     , _cfgFCLTUPlopInEffect              = PLOP2
     , _cfgFCLTUPlop1InitSequenceLength   = 65535
+    , _cfgFCLTUProtocolAbortMode         = Abort
+    , _cfgFCLTUNotificationMode          = Deferred
     }
 
 

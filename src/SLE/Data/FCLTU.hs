@@ -724,6 +724,21 @@ getParameter _cfg var _state ParReportingCycle = do
 getParameter _cfg _var _state ParReturnTimeoutPeriod = do
     return (Right (FcltuReturnTimeout 60))
 
+getParameter _cfg _var _state ParMinimumDelayTime = do
+    return (Right (FcltuMinimumDelayTime 0))
+
+getParameter _cfg _var _state ParMinReportingCycle = do
+    return (Right (FcltuMinReportingCycle 2))
+
+getParameter _cfg _var state ParNotificationMode = do
+    let val = state ^. fcltuNotificationMode
+    return (Right (FcltuNotificationReport val))
+
+getParameter _cfg _var state ParProtocolAbortMode = do
+    let val = state ^. fcltuProtocolAbortMode
+    return (Right (FcltuProtocolAbortMode val))
+
+
 getParameter _ _ _ _ = do
     return (Left (DiagFcltuGetSpecific FcltuUnknownParameter))
 

@@ -104,6 +104,12 @@ module SLE.Data.Common
     , DeliveryMode(..)
     , parseDeliveryMode
     , deliveryMode
+    , NotificationMode(..)
+    , notificationMode
+    , parseNotificationMode
+    , ProtocolAbortMode(..)
+    , protocolAbortMode
+    , parseProtocolAbortMode
     ) where
 
 import           RIO
@@ -1430,3 +1436,38 @@ parseDeliveryMode = do
                 $  "Could not parse Deliver Mode, illegal value: "
                 <> fromString (show v)
 
+data NotificationMode = Deferred | Immediate
+    deriving stock (Read, Show, Generic)
+    deriving anyclass (FromJSON, ToJSON)
+
+notificationMode :: NotificationMode -> ASN1
+notificationMode Deferred  = IntVal 0
+notificationMode Immediate = IntVal 1
+
+
+parseNotificationMode :: Parser NotificationMode
+parseNotificationMode = do
+    x <- parseIntVal
+    case x of
+        0 -> return Deferred
+        1 -> return Immediate
+        v -> throwError $ "Unexpected Notification Mode value: " <> fromString
+            (show v)
+
+data ProtocolAbortMode = Abort | Continue
+    deriving stock (Read, Show, Generic)
+    deriving anyclass (FromJSON, ToJSON)
+
+protocolAbortMode :: ProtocolAbortMode -> ASN1
+protocolAbortMode Abort    = IntVal 0
+protocolAbortMode Continue = IntVal 1
+
+parseProtocolAbortMode :: Parser ProtocolAbortMode
+parseProtocolAbortMode = do
+    x <- parseIntVal
+    case x of
+        0 -> return Abort
+        1 -> return Continue
+        v ->
+            throwError $ "Unexpected Protocol Abort Mode value: " <> fromString
+                (show v)

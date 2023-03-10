@@ -34,7 +34,7 @@ main = do
         cfg = sleConfig
 
     withSleHandle (TMRAF (RAFIdx 0)) 100 $ \hdl -> do
-        void $ concurrently (startClient RtnAllFrames addr handler hdl)
+        void $ concurrently (startClient cfg RtnAllFrames addr handler hdl)
                             (sleProcedure cfg hdl)
 
 

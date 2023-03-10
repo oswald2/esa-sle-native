@@ -52,6 +52,8 @@ module SLE.State.FCLTUState
     , fcltuModulationFrequency
     , fcltuModulationIndex
     , fcltuPlopInEffect
+    , fcltuNotificationMode
+    , fcltuProtocolAbortMode
     ) where
 
 import           RIO
@@ -93,6 +95,8 @@ data FCLTU = FCLTU
     , _fcltuModulationFrequency      :: !Word32
     , _fcltuModulationIndex          :: !Int16
     , _fcltuPlopInEffect             :: !PLOP
+    , _fcltuNotificationMode         :: !NotificationMode
+    , _fcltuProtocolAbortMode        :: !ProtocolAbortMode
     }
 makeLenses ''FCLTU
 
@@ -133,10 +137,12 @@ fcltuStartState cfg appCfg = FCLTU
     , _fcltuRFAvailable              = True
     , _fcltuSCID                     = appSCID appCfg
     , _fcltuEventID                  = EventInvocationID 0
-    , _fcltuSubcarrierToBitRateRatio = 10
-    , _fcltuModulationFrequency      = 1000000
-    , _fcltuModulationIndex          = 1
-    , _fcltuPlopInEffect             = PLOP2
+    , _fcltuSubcarrierToBitRateRatio = cfg ^. cfgFCLTUSubcarrierToBitRateRatio
+    , _fcltuModulationFrequency      = cfg ^. cfgFCLTUModulationFrequency
+    , _fcltuModulationIndex          = cfg ^. cfgFCLTUModulationIndex
+    , _fcltuPlopInEffect             = cfg ^. cfgFCLTUPlopInEffect
+    , _fcltuNotificationMode         = cfg ^. cfgFCLTUNotificationMode
+    , _fcltuProtocolAbortMode        = cfg ^. cfgFCLTUProtocolAbortMode
     }
 
 
@@ -149,16 +155,7 @@ newFCLTUVarIO
     -> ConfigFromApp
     -> m FCLTUVar
 newFCLTUVarIO commonCfg cfg idx tmIdx appCfg = do
-    let fcltu =
-            fcltuStartState cfg appCfg
-                &  fcltuSubcarrierToBitRateRatio
-                .~ (cfg ^. cfgFCLTUSubcarrierToBitRateRatio)
-                &  fcltuModulationFrequency
-                .~ (cfg ^. cfgFCLTUModulationFrequency)
-                &  fcltuModulationIndex
-                .~ (cfg ^. cfgFCLTUModulationIndex)
-                &  fcltuPlopInEffect
-                .~ (cfg ^. cfgFCLTUPlopInEffect)
+    let fcltu = fcltuStartState cfg appCfg
 
     var   <- newTVarIO fcltu
     q     <- newTBQueueIO 100
