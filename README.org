@@ -26,7 +26,7 @@ RAF is currently the most complete implementation:
  - Configurable are buffer size, latency limit, SII, PortID and AntennaID
  - Status reports are fully supported (immediate, periodic and stopping)
  - Sync Notifications support is there, but the API currently does not allow to send them
- - Get Parameter requests currently only support Buffer Size and Latency Limit (under implementation)
+ - Get Parameter requests are all supported
  - Currently, the production is always in running state
 
 ** FCLTU Implementation
@@ -34,9 +34,10 @@ RAF is currently the most complete implementation:
 FCLTU currently does support the following functionality:
  - All transport operations (BIND, START, UNBIND, STOP, TRANSFER DATA, ASYNC NOTIFY)
    - earliest and lates production times are passed on to the application
- - Currently, status reports and get parameter invocations are not supported yet
- - Configurable are currently the SII, the PortID and the associated TM PortID on which the acknowledege TM should be sent back.
+ - Status reports are fully supproted (immediate, peridoic and stopping)
+ - Get Parameter requests are all supported, for SLE versions 3, 4 and 5
+ - The configuration has now a lot more fields. A lot are just directly passed to the GET PARAMETER requests and are not directly processed. Details will follow.
 
-** RCF Implementation 
+** RCF Implementation
 
 RCF is currently not implemented. The configuration values are already there, but no coding has been done for RCF.
