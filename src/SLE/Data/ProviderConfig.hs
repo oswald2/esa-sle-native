@@ -200,7 +200,7 @@ defaultFCLTUConfig = FCLTUConfig
     , _cfgFCLTUPort                      = 5009
     , _cfgFCLTUPortID                    = "TCPORT"
     , _cfgFCLTUAssociatedTMPort          = "TMPORT"
-    , _cfgFCLTUAcquisitionSequenceLength = 65535
+    , _cfgFCLTUAcquisitionSequenceLength = 4
     , _cfgFCLTUBitlockRequired           = True
     , _cfgFCLTURFAvailableRequired       = True
     , _cfgFCLTUGVCIDVersion              = 1
@@ -210,7 +210,7 @@ defaultFCLTUConfig = FCLTUConfig
     , _cfgFCLTUModulationFrequency       = 100000
     , _cfgFCLTUModulationIndex           = 1
     , _cfgFCLTUPlopInEffect              = PLOP2
-    , _cfgFCLTUPlop1InitSequenceLength   = 65535
+    , _cfgFCLTUPlop1InitSequenceLength   = 4
     , _cfgFCLTUProtocolAbortMode         = Abort
     , _cfgFCLTUNotificationMode          = Deferred
     }

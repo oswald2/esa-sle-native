@@ -66,8 +66,8 @@ sleProcedure cfg hdl = do
     -- sendScheduleImmediately cfg hdl 1 
     -- sendSchedule cfg hdl 1 
 
-    sendGetParameter cfg hdl 1 ParAcquisitionSequenceLength
-    threadDelay 1_000_000
+    -- sendGetParameter cfg hdl 1 ParAcquisitionSequenceLength
+    -- threadDelay 1_000_000
 
     -- sendGetParameter cfg hdl 1 ParPlop1IdleSequenceLength
     -- threadDelay 1_000_000
@@ -108,8 +108,8 @@ sleProcedure cfg hdl = do
     -- sendGetParameter cfg hdl 1 ParPlopInEffect
     -- threadDelay 1_000_000
 
-    -- sendGetParameter cfg hdl 1 ParReportingCycle
-    -- threadDelay 1_000_000
+    sendGetParameter cfg hdl 1 ParReportingCycle
+    threadDelay 1_000_000
 
     -- sendGetParameter cfg hdl 1 ParReturnTimeoutPeriod
     -- threadDelay 1_000_000
@@ -117,8 +117,8 @@ sleProcedure cfg hdl = do
     -- sendGetParameter cfg hdl 1 ParMinimumDelayTime
     -- threadDelay 1_000_000
 
-    sendGetParameter cfg hdl 1 ParMinReportingCycle
-    threadDelay 1_000_000
+    -- sendGetParameter cfg hdl 1 ParMinReportingCycle
+    -- threadDelay 1_000_000
 
     -- sendGetParameter cfg hdl 1 ParNotificationMode
     -- threadDelay 1_000_000
