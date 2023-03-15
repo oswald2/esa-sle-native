@@ -115,6 +115,7 @@ processInitState cfg var _state ppdu@(SlePduBind pdu) = do
                                                                                                                                                                                                                                                                                                 -- check the requested SLE Version 
             if (pdu ^. sleVersionNumber /= VersionNumber 3)
                     && (pdu ^. sleVersionNumber /= VersionNumber 4)
+                    && (pdu ^. sleVersionNumber /= VersionNumber 5)
                 then Left
                     ( "Version not supported: "
                         <> display (pdu ^. sleVersionNumber)
