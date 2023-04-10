@@ -433,6 +433,38 @@ sleBindReturn =
     , End (Container Context 101)
     ]
 
+sleBindNegReturn :: [ASN1]
+sleBindNegReturn =
+    [ Start (Container Context 101)
+    , Other Context 0 ""
+    , ASN1String
+        (ASN1CharacterString { characterEncoding         = Visible
+                             , getCharacterStringRawData = "SLE_PROVIDER"
+                             }
+        )
+    , Other Context 1 "\STX"
+    , End (Container Context 101)
+    ]
+
+
+sleUnbind :: [ASN1]
+sleUnbind =
+    [ Start (Container Context 102)
+    , Other Context 0 ""
+    , IntVal 0
+    , End (Container Context 102)
+    ]
+
+
+sleUnbindBindReturn :: [ASN1]
+sleUnbindBindReturn =
+    [ Start (Container Context 103)
+    , Other Context 0 ""
+    , Other Context 0 B.empty
+    , End (Container Context 103)
+    ]
+
+
 startWithTimes :: [ASN1]
 startWithTimes =
     [ {- Start (Container Context 0)
