@@ -115,6 +115,7 @@ processInitState cfg var _state ppdu@(SlePduBind pdu) = do
                                                                                                                                                                                                                                                                                                 -- check the requested SLE Version 
             if (pdu ^. sleVersionNumber /= VersionNumber 3)
                     && (pdu ^. sleVersionNumber /= VersionNumber 4)
+                    && (pdu ^. sleVersionNumber /= VersionNumber 5)
                 then Left
                     ( "Version not supported: "
                         <> display (pdu ^. sleVersionNumber)
@@ -368,7 +369,7 @@ processBoundState _cfg _var _state (SlePduStop _) = do
 
 processBoundState cfg var state (SlePduGetParameter pdu) = do
     logDebug "processBoundState: GET PARAMETER"
-    sleRaiseEvent (SLEGetParameterReceived pdu)
+    sleRaiseEvent (SLEGetParameterReceived (cfg ^. cfgRAFSII) pdu)
     processGetParameter cfg var state pdu
     return ServiceBound
 
@@ -474,7 +475,7 @@ processActiveState cfg var state ppdu@(SlePduScheduleStatusReport pdu) = do
 
 processActiveState cfg var state (SlePduGetParameter pdu) = do
     logDebug "processActiveState: GET PARAMETER"
-    sleRaiseEvent (SLEGetParameterReceived pdu)
+    sleRaiseEvent (SLEGetParameterReceived (cfg ^. cfgRAFSII) pdu)
     processGetParameter cfg var state pdu
     return ServiceActive
 

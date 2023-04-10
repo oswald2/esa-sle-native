@@ -20,16 +20,17 @@ perfFunc :: Word64 -> IO ()
 perfFunc len = T.putStrLn $ "Sent " <> fromString (show len) <> " bytes"
 
 startClient
-    :: ApplicationIdentifier
+    :: UserConfig 
+    -> ApplicationIdentifier
     -> ConnectAddr
     -> SleEventHandler
     -> SleHandle
     -> IO ()
-startClient appID addr eventHandler hdl = do
+startClient cfg appID addr eventHandler hdl = do
     defLogOptions <- logOptionsHandle stdout True
     let logOptions = setLogMinLevel LevelDebug defLogOptions
     withLogFunc logOptions $ \logFunc -> do
-        state <- initialState defaultUserConfig logFunc eventHandler hdl
+        state <- initialState cfg logFunc eventHandler hdl
 
         runRIO state $ do
             connectSLE appID hdl addr perfFunc

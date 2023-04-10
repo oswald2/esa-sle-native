@@ -87,14 +87,17 @@ main = do
 
         -- port = 55529
     T.putStrLn $ "Running Server using config:\n" <> T.pack (ppShow cfg)
-    startServer cfg
+
+    let appCfg = ConfigFromApp { appSCID = 1 }
+
+    startServer cfg appCfg
     return ()
 
 perfFunc :: Word64 -> IO ()
 perfFunc len = T.putStrLn $ "Sent " <> fromString (show len) <> " bytes"
 
 
-handler :: TVar (Maybe FCLTUVar) -> SleEvent -> IO () 
+handler :: TVar (Maybe FCLTUVar) -> SleEvent -> IO ()
 handler var (SLEFcltuTransferData _sii _fcltuIdx _tmIdx inv) = do
     now   <- getCurrentTime
     fcltu <- readTVarIO var
@@ -113,15 +116,15 @@ handler _ event = do
 
 
 
-startServer :: ProviderConfig -> IO ()
-startServer cfg = do
+startServer :: ProviderConfig -> ConfigFromApp -> IO ()
+startServer cfg appCfg = do
     defLogOptions <- logOptionsHandle stdout True
     let logOptions = setLogMinLevel LevelDebug defLogOptions
 
     var <- newTVarIO Nothing
 
     withLogFunc logOptions $ \logFunc -> do
-        state <- initialState cfg logFunc (handler var)
+        state <- initialState cfg logFunc (handler var) appCfg
 
         runRIO state $ do
             logDebug "Starting listening on SLE..."
@@ -129,7 +132,7 @@ startServer cfg = do
             v <- getFCLTUVar (FCLTUIdx 0)
             atomically $ writeTVar var v
 
-            race_ (runFCLTUs perfFunc) action
+            race_ (runFCLTUs perfFunc appCfg) action
 
 action :: RIO ProviderState ()
 action = do

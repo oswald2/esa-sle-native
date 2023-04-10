@@ -129,10 +129,11 @@ onDisconnect = do
     return ()
 
 processSLEMsg
-    :: (MonadUnliftIO m, MonadReader env m, HasLogFunc env)
+    :: (MonadUnliftIO m, MonadReader env m, HasLogFunc env, HasCommonConfig env)
     => ApplicationIdentifier
     -> ConduitT TMLMessage Void m ()
 processSLEMsg appId = do
+    cfg <- view commonCfg
     awaitForever $ \msg -> do
         let encSle = msg ^. tmlMsgData
         case decodeASN1 DER (BL.fromStrict encSle) of
@@ -140,7 +141,9 @@ processSLEMsg appId = do
                 logError $ "Error decoding ASN1 message: " <> displayShow err
             Right ls -> do
                 lift $ logDebug $ "Received ASN1: " <> fromString (ppShow ls)
-                let result = parseASN1 (slePduParser appId) ls
+                let result = parseASN1
+                        (slePduParser (cfg ^. cfgVersion) appId)
+                        ls
                 case result of
                     Left err ->
                         logError $ "Error decoding SLE message: " <> display err
@@ -155,6 +158,7 @@ processServerSLEMsg
     -> (SlePdu -> m ())
     -> ConduitT TMLMessage Void m ()
 processServerSLEMsg appID processSlePdu = do
+    cfg <- view commonCfg
     await >>= \case
         Nothing  -> return ()
         Just tlm -> do
@@ -166,7 +170,10 @@ processServerSLEMsg appID processSlePdu = do
                         <> displayShow err
                 Right ls -> do
                     logDebug $ "Received ASN1: " <> fromString (ppShow ls)
-                    let result = parseASN1 (slePduParser appID) ls
+                    let
+                        result = parseASN1
+                            (slePduParser (cfg ^. cfgVersion) appID)
+                            ls
                     case result of
                         Left err ->
                             logError $ "Error decoding SLE PDU: " <> display err

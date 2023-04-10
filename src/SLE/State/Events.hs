@@ -46,7 +46,7 @@ data SleEvent =
   | SLEFcltuStopSucceed !SII
   | SLEFcltuTransferData !SII !FCLTUIdx !TMIdx !FcltuTransDataInvocation
   | SLEFcltuTransDataFailed !SII
-  | SLEGetParameterReceived !GetParameterInvocation
+  | SLEGetParameterReceived !SII !GetParameterInvocation
   | SLEFcltuScheduleStatusReceived !SII !SleScheduleStatusReport
   | SLEFcltuScheduleStatusSuccess !SII
   | SLEFcltuScheduleStatusFailed !SII !Text 

@@ -22,6 +22,17 @@ module SLE.Data.FCLTUOps
     , UplinkStatus(..)
     , FcltuAsyncNotify(..)
     , CltuStatusReport(..)
+    , FcltuGetParameterReturn(..)
+    , encodeFcltuGetParameterReturn
+    , DiagnosticFcltuGet(..)
+    , FcltuGetParameter(..)
+    , FcltuDiagFcltuGetSpecific(..)
+    , GvcID(..)
+    , VChannel(..)
+    , ClcwGvcID(..)
+    , NotificationMode(..)
+    , ProtocolAbortMode(..)
+    , parseFcltuGetParameterReturn
     , parseFcltuStart
     , parseFcltuThrowEvent
     , parseFcltuTransDataInvocation
@@ -71,6 +82,9 @@ module SLE.Data.FCLTUOps
     , fcltuStatusNumProcessed
     , fcltuStatusNumRadiated
     , fcltuStatusBufferAvailable
+    , fgpCredentials
+    , fgpInvokeID
+    , fgpResult
     ) where
 
 import           RIO
@@ -87,6 +101,7 @@ import           Data.ASN1.Types
 
 import           SLE.Data.Common
 import           SLE.Data.HexBytes
+import           SLE.Data.ProviderConfig        ( PLOP(..) )
 
 --import           Text.Show.Pretty
 
@@ -899,3 +914,713 @@ parseCltuStatusReport = content
             , _fcltuStatusNumRadiated      = fromIntegral numRadiated
             , _fcltuStatusBufferAvailable  = fromIntegral bufAvailable
             }
+
+
+data VChannel = MasterChannel | VirtualChannel !Word8
+    deriving (Show, Generic)
+
+vChannel :: VChannel -> ASN1
+vChannel MasterChannel       = Other Context 0 B.empty
+vChannel (VirtualChannel vc) = Other Context 1 (B.singleton vc)
+
+
+data GvcID = GvcID
+    { _gvcidSCID    :: !Word16
+    , _gvcidVersion :: !Word8
+    , _gvcidVCID    :: !VChannel
+    }
+    deriving (Show, Generic)
+
+gvcid :: GvcID -> [ASN1]
+gvcid GvcID {..} =
+    [ IntVal (fromIntegral _gvcidSCID)
+    , IntVal (fromIntegral _gvcidVersion)
+    , vChannel _gvcidVCID
+    ]
+
+parseGvcid :: Parser GvcID
+parseGvcid = do
+    scid    <- parseIntVal
+    version <- parseIntVal
+    chan    <- choiceParser (\_ -> return MasterChannel)
+                            (\bs -> return (VirtualChannel (bs `B.index` 0)))
+                            "Error parsing FCLTU GVCID"
+    return GvcID { _gvcidSCID    = fromIntegral scid
+                 , _gvcidVersion = fromIntegral version
+                 , _gvcidVCID    = chan
+                 }
+
+
+
+data ClcwGvcID = Configured GvcID | NotConfigured
+    deriving(Show, Generic)
+
+clcwGvcID :: ClcwGvcID -> [ASN1]
+clcwGvcID (Configured vcid) = Start Sequence : gvcid vcid ++ [End Sequence]
+clcwGvcID NotConfigured     = [Other Context 1 ""]
+
+parseClcwGvcID :: Parser ClcwGvcID
+parseClcwGvcID = do
+    x <- get
+    case x of
+        Other Context 1 _ : rest -> do
+            put rest
+            return NotConfigured
+        Start Sequence : rest -> do
+            put rest
+            vcid <- parseGvcid
+            parseEndSequence
+            return (Configured vcid)
+        asn1 -> do
+            throwError
+                $  "Error parsing CLCW Global GVCID, unexpected ASN1: "
+                <> fromString (show asn1)
+
+
+
+data FcltuGetParameter =
+    FcltuAcquisitionSequenceLength !Word16
+    | FcltuPlop1IdleSequenceLength !Word16
+    | FcltuBitLockRequired !Bool
+    | FcltuRFAvailableRequired !Bool
+    | FcltuClcwGlobalVcID !ClcwGvcID
+    | FcltuPhysicalChannel !Text
+    | FcltuDeliveryMode !DeliveryMode
+    | FcltuCltuIdentification !CltuIdentification
+    | FcltuEventIdentification !EventInvocationID
+    | FcltuSubcarrierToBitRateRatio !Word16
+    | FcltuMaxCltuLen !Word16
+    | FcltuModulationFrequency !Word32
+    | FcltuModulationIndex !Int16
+    | FcltuPlopInEffect !PLOP
+    | FcltuReportingCycle !(Maybe Word16)
+    | FcltuReturnTimeout !Word16
+    | FcltuMinimumDelayTime !Word32
+    | FcltuMinReportingCycle !Word16
+    | FcltuNotificationReport !NotificationMode
+    | FcltuProtocolAbortMode !ProtocolAbortMode
+    deriving (Show, Generic)
+
+plop :: PLOP -> ASN1
+plop PLOP1 = IntVal 0
+plop PLOP2 = IntVal 1
+
+parsePlop :: Parser PLOP
+parsePlop = do
+    x <- parseIntVal
+    case x of
+        0 -> return PLOP1
+        1 -> return PLOP2
+        v -> throwError $ "Parsing PLOP field: illegal value: " <> fromString
+            (show v)
+
+fcltuGetParameterV4 :: Proxy 'SLE4 -> FcltuGetParameter -> [ASN1]
+fcltuGetParameterV4 _ = fcltuGetParameter
+
+fcltuGetParameterV5 :: Proxy 'SLE5 -> FcltuGetParameter -> [ASN1]
+fcltuGetParameterV5 _ = fcltuGetParameter
+
+fcltuGetParameter :: FcltuGetParameter -> [ASN1]
+fcltuGetParameter (FcltuAcquisitionSequenceLength size) =
+    [ Start (Container Context 0)
+    , parameterName ParAcquisitionSequenceLength
+    , IntVal (fromIntegral size)
+    , End (Container Context 0)
+    ]
+fcltuGetParameter (FcltuPlop1IdleSequenceLength size) =
+    [ Start (Container Context 12)
+    , parameterName ParPlop1IdleSequenceLength
+    , IntVal (fromIntegral size)
+    , End (Container Context 12)
+    ]
+fcltuGetParameter (FcltuBitLockRequired yes) =
+    [ Start (Container Context 1)
+    , parameterName ParBitLockRequired
+    , if yes then IntVal 0 else IntVal 1
+    , End (Container Context 1)
+    ]
+fcltuGetParameter (FcltuRFAvailableRequired yes) =
+    [ Start (Container Context 17)
+    , parameterName ParRfAvailableRequired
+    , if yes then IntVal 0 else IntVal 1
+    , End (Container Context 17)
+    ]
+fcltuGetParameter (FcltuPhysicalChannel chan) =
+    [ Start (Container Context 3)
+    , parameterName ParClcwPhysicalChannel
+    , visibleString chan
+    , End (Container Context 3)
+    ]
+fcltuGetParameter (FcltuDeliveryMode val) =
+    [ Start (Container Context 4)
+    , parameterName ParDeliveryMode
+    , deliveryMode val
+    , End (Container Context 4)
+    ]
+fcltuGetParameter (FcltuCltuIdentification val) =
+    [ Start (Container Context 5)
+    , parameterName ParExpectedSlduIdentification
+    , cltuIdentification val
+    , End (Container Context 5)
+    ]
+fcltuGetParameter (FcltuEventIdentification val) =
+    [ Start (Container Context 6)
+    , parameterName ParExpectedEventInvocationIdentification
+    , eventInvocationID val
+    , End (Container Context 6)
+    ]
+fcltuGetParameter (FcltuSubcarrierToBitRateRatio val) =
+    [ Start (Container Context 18)
+    , parameterName ParSubcarrierToBitRateRatio
+    , IntVal (fromIntegral val)
+    , End (Container Context 18)
+    ]
+fcltuGetParameter (FcltuMaxCltuLen val) =
+    [ Start (Container Context 7)
+    , parameterName ParMaximumSlduLength
+    , IntVal (fromIntegral val)
+    , End (Container Context 7)
+    ]
+fcltuGetParameter (FcltuModulationFrequency val) =
+    [ Start (Container Context 9)
+    , parameterName ParModulationFrequency
+    , IntVal (fromIntegral val)
+    , End (Container Context 9)
+    ]
+fcltuGetParameter (FcltuModulationIndex val) =
+    [ Start (Container Context 10)
+    , parameterName ParModulationIndex
+    , IntVal (fromIntegral val)
+    , End (Container Context 10)
+    ]
+fcltuGetParameter (FcltuPlopInEffect val) =
+    [ Start (Container Context 13)
+    , parameterName ParPlopInEffect
+    , plop val
+    , End (Container Context 13)
+    ]
+fcltuGetParameter (FcltuReportingCycle Nothing) =
+    [ Start (Container Context 15)
+    , parameterName ParReportingCycle
+    , Other Context 0 B.empty
+    , End (Container Context 15)
+    ]
+fcltuGetParameter (FcltuReportingCycle (Just val)) =
+    [ Start (Container Context 15)
+    , parameterName ParReportingCycle
+    , Other Context 1 (encWord16 val)
+    , End (Container Context 15)
+    ]
+fcltuGetParameter (FcltuReturnTimeout val) =
+    [ Start (Container Context 16)
+    , parameterName ParReturnTimeoutPeriod
+    , IntVal (fromIntegral val)
+    , End (Container Context 16)
+    ]
+fcltuGetParameter (FcltuProtocolAbortMode val) =
+    [ Start (Container Context 14)
+    , parameterName ParProtocolAbortMode
+    , protocolAbortMode val
+    , End (Container Context 14)
+    ]
+fcltuGetParameter (FcltuMinimumDelayTime val) =
+    [ Start (Container Context 8)
+    , parameterName ParMinimumDelayTime
+    , IntVal (fromIntegral val)
+    , End (Container Context 8)
+    ]
+fcltuGetParameter (FcltuMinReportingCycle val) =
+    [ Start (Container Context 19)
+    , parameterName ParMinReportingCycle
+    , IntVal (fromIntegral val)
+    , End (Container Context 19)
+    ]
+fcltuGetParameter (FcltuNotificationReport val) =
+    [ Start (Container Context 11)
+    , parameterName ParNotificationMode
+    , notificationMode val
+    , End (Container Context 11)
+    ]
+
+fcltuGetParameter (FcltuClcwGlobalVcID vcid) =
+    [Start (Container Context 2), parameterName ParClcwGlobalVCID]
+        ++ clcwGvcID vcid
+        ++ [End (Container Context 2)]
+
+
+
+
+fcltuGetParameterV3 :: Proxy 'SLE3 -> FcltuGetParameter -> [ASN1]
+fcltuGetParameterV3 _ (FcltuAcquisitionSequenceLength size) =
+    [ Start (Container Context 12)
+    , parameterName ParAcquisitionSequenceLength
+    , IntVal (fromIntegral size)
+    , End (Container Context 12)
+    ]
+fcltuGetParameterV3 _ (FcltuPlop1IdleSequenceLength size) =
+    [ Start (Container Context 17)
+    , parameterName ParPlop1IdleSequenceLength
+    , IntVal (fromIntegral size)
+    , End (Container Context 17)
+    ]
+fcltuGetParameterV3 _ (FcltuBitLockRequired yes) =
+    [ Start (Container Context 0)
+    , parameterName ParBitLockRequired
+    , if yes then IntVal 0 else IntVal 1
+    , End (Container Context 0)
+    ]
+fcltuGetParameterV3 _ (FcltuRFAvailableRequired yes) =
+    [ Start (Container Context 11)
+    , parameterName ParRfAvailableRequired
+    , if yes then IntVal 0 else IntVal 1
+    , End (Container Context 11)
+    ]
+fcltuGetParameterV3 _ (FcltuPhysicalChannel chan) =
+    [ Start (Container Context 14)
+    , parameterName ParClcwPhysicalChannel
+    , visibleString chan
+    , End (Container Context 14)
+    ]
+fcltuGetParameterV3 _ (FcltuDeliveryMode val) =
+    [ Start (Container Context 4)
+    , parameterName ParDeliveryMode
+    , deliveryMode val
+    , End (Container Context 4)
+    ]
+fcltuGetParameterV3 _ (FcltuCltuIdentification val) =
+    [ Start (Container Context 1)
+    , parameterName ParExpectedSlduIdentification
+    , cltuIdentification val
+    , End (Container Context 1)
+    ]
+fcltuGetParameterV3 _ (FcltuEventIdentification val) =
+    [ Start (Container Context 2)
+    , parameterName ParExpectedEventInvocationIdentification
+    , eventInvocationID val
+    , End (Container Context 2)
+    ]
+fcltuGetParameterV3 _ (FcltuSubcarrierToBitRateRatio val) =
+    [ Start (Container Context 3)
+    , parameterName ParSubcarrierToBitRateRatio
+    , IntVal (fromIntegral val)
+    , End (Container Context 3)
+    ]
+fcltuGetParameterV3 _ (FcltuMaxCltuLen val) =
+    [ Start (Container Context 5)
+    , parameterName ParMaximumSlduLength
+    , IntVal (fromIntegral val)
+    , End (Container Context 5)
+    ]
+fcltuGetParameterV3 _ (FcltuModulationFrequency val) =
+    [ Start (Container Context 6)
+    , parameterName ParModulationFrequency
+    , IntVal (fromIntegral val)
+    , End (Container Context 6)
+    ]
+fcltuGetParameterV3 _ (FcltuModulationIndex val) =
+    [ Start (Container Context 7)
+    , parameterName ParModulationIndex
+    , IntVal (fromIntegral val)
+    , End (Container Context 7)
+    ]
+fcltuGetParameterV3 _ (FcltuPlopInEffect val) =
+    [ Start (Container Context 8)
+    , parameterName ParPlopInEffect
+    , plop val
+    , End (Container Context 8)
+    ]
+fcltuGetParameterV3 _ (FcltuReportingCycle Nothing) =
+    [ Start (Container Context 9)
+    , parameterName ParReportingCycle
+    , Other Context 0 B.empty
+    , End (Container Context 9)
+    ]
+fcltuGetParameterV3 _ (FcltuReportingCycle (Just val)) =
+    [ Start (Container Context 9)
+    , parameterName ParReportingCycle
+    , Other Context 1 (encWord16 val)
+    , End (Container Context 9)
+    ]
+fcltuGetParameterV3 _ (FcltuReturnTimeout val) =
+    [ Start (Container Context 10)
+    , parameterName ParReturnTimeoutPeriod
+    , IntVal (fromIntegral val)
+    , End (Container Context 10)
+    ]
+
+fcltuGetParameterV3 _ (FcltuClcwGlobalVcID vcid) =
+    [Start (Container Context 13), parameterName ParClcwGlobalVCID]
+        ++ clcwGvcID vcid
+        ++ [End (Container Context 13)]
+
+fcltuGetParameterV3 _ _ = []
+
+
+parseFcltuGetParameterV4 :: Proxy 'SLE4 -> Parser FcltuGetParameter
+parseFcltuGetParameterV4 _ = parseFcltuGetParameter
+
+parseFcltuGetParameterV5 :: Proxy 'SLE5 -> Parser FcltuGetParameter
+parseFcltuGetParameterV5 _ = parseFcltuGetParameter
+
+parseFcltuGetParameter :: Parser FcltuGetParameter
+parseFcltuGetParameter = do
+    x <- get
+    case x of
+        Start (Container Context 0) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseIntVal
+            parseEndContainer 0
+            return (FcltuAcquisitionSequenceLength (fromIntegral val))
+        Start (Container Context 12) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseIntVal
+            parseEndContainer 12
+            return (FcltuPlop1IdleSequenceLength (fromIntegral val))
+        Start (Container Context 1) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseIntVal
+            parseEndContainer 1
+            let yes = if val == 0 then True else False
+            return (FcltuBitLockRequired yes)
+        Start (Container Context 17) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseIntVal
+            parseEndContainer 17
+            let yes = if val == 0 then True else False
+            return (FcltuRFAvailableRequired yes)
+        Start (Container Context 2) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseClcwGvcID
+            parseEndContainer 2
+            return (FcltuClcwGlobalVcID val)
+        Start (Container Context 3) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseVisibleString
+            parseEndContainer 3
+            return (FcltuPhysicalChannel val)
+        Start (Container Context 4) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseDeliveryMode
+            parseEndContainer 4
+            return (FcltuDeliveryMode val)
+        Start (Container Context 5) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseCltuIdentification
+            parseEndContainer 5
+            return (FcltuCltuIdentification val)
+        Start (Container Context 6) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseEventInvocationID
+            parseEndContainer 6
+            return (FcltuEventIdentification val)
+        Start (Container Context 18) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseIntVal
+            parseEndContainer 18
+            return (FcltuSubcarrierToBitRateRatio (fromIntegral val))
+        Start (Container Context 7) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseIntVal
+            parseEndContainer 7
+            return (FcltuMaxCltuLen (fromIntegral val))
+        Start (Container Context 9) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseIntVal
+            parseEndContainer 9
+            return (FcltuModulationFrequency (fromIntegral val))
+        Start (Container Context 10) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseIntVal
+            parseEndContainer 10
+            return (FcltuModulationIndex (fromIntegral val))
+        Start (Container Context 13) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parsePlop
+            parseEndContainer 13
+            return (FcltuPlopInEffect val)
+        Start (Container Context 15) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseChoice (\_ -> return Nothing)
+                               (return . decWord16)
+                               "Error parsing reporting cycle"
+            parseEndContainer 15
+            return (FcltuReportingCycle val)
+        Start (Container Context 16) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseIntVal
+            parseEndContainer 16
+            return (FcltuReturnTimeout (fromIntegral val))
+        Start (Container Context 8) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseIntVal
+            parseEndContainer 8
+            return (FcltuMinimumDelayTime (fromIntegral val))
+        Start (Container Context 19) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseIntVal
+            parseEndContainer 19
+            return (FcltuMinReportingCycle (fromIntegral val))
+        Start (Container Context 11) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseNotificationMode
+            parseEndContainer 11
+            return (FcltuNotificationReport val)
+        Start (Container Context 14) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseProtocolAbortMode
+            parseEndContainer 14
+            return (FcltuProtocolAbortMode val)
+        asn1 -> do
+            put asn1
+            throwError
+                $ "Error parsing returned parameter value: unexpected ASN1 value: "
+                <> fromString (show asn1)
+
+
+
+
+parseFcltuGetParameterV3 :: Proxy 'SLE3 -> Parser FcltuGetParameter
+parseFcltuGetParameterV3 _ = do
+    x <- get
+    case x of
+        Start (Container Context 12) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseIntVal
+            parseEndContainer 12
+            return (FcltuAcquisitionSequenceLength (fromIntegral val))
+        Start (Container Context 17) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseIntVal
+            parseEndContainer 17
+            return (FcltuPlop1IdleSequenceLength (fromIntegral val))
+        Start (Container Context 0) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseIntVal
+            parseEndContainer 0
+            let yes = if val == 0 then True else False
+            return (FcltuBitLockRequired yes)
+        Start (Container Context 11) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseIntVal
+            parseEndContainer 11
+            let yes = if val == 0 then True else False
+            return (FcltuRFAvailableRequired yes)
+        Start (Container Context 13) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseClcwGvcID
+            parseEndContainer 13
+            return (FcltuClcwGlobalVcID val)
+        Start (Container Context 14) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseVisibleString
+            parseEndContainer 14
+            return (FcltuPhysicalChannel val)
+        Start (Container Context 4) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseDeliveryMode
+            parseEndContainer 4
+            return (FcltuDeliveryMode val)
+        Start (Container Context 1) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseCltuIdentification
+            parseEndContainer 1
+            return (FcltuCltuIdentification val)
+        Start (Container Context 2) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseEventInvocationID
+            parseEndContainer 2
+            return (FcltuEventIdentification val)
+        Start (Container Context 3) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseIntVal
+            parseEndContainer 3
+            return (FcltuSubcarrierToBitRateRatio (fromIntegral val))
+        Start (Container Context 5) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseIntVal
+            parseEndContainer 5
+            return (FcltuMaxCltuLen (fromIntegral val))
+        Start (Container Context 6) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseIntVal
+            parseEndContainer 6
+            return (FcltuModulationFrequency (fromIntegral val))
+        Start (Container Context 7) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseIntVal
+            parseEndContainer 7
+            return (FcltuModulationIndex (fromIntegral val))
+        Start (Container Context 8) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parsePlop
+            parseEndContainer 8
+            return (FcltuPlopInEffect val)
+        Start (Container Context 9) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseChoice (\_ -> return Nothing)
+                               (return . decWord16)
+                               "Error parsing reporting cycle"
+            parseEndContainer 9
+            return (FcltuReportingCycle val)
+        Start (Container Context 10) : rest -> do
+            put rest
+            void $ parseParameterName
+            val <- parseIntVal
+            parseEndContainer 10
+            return (FcltuReturnTimeout (fromIntegral val))
+        asn1 -> do
+            put asn1
+            throwError
+                $ "Error parsing returned parameter value: unexpected ASN1 value: "
+                <> fromString (show asn1)
+
+data FcltuDiagFcltuGetSpecific = FcltuUnknownParameter | FcltuDiagInvalid
+    deriving(Eq, Ord, Enum, Show, Generic)
+
+fcltuDiagFcltuGetSpecific :: FcltuDiagFcltuGetSpecific -> ASN1
+fcltuDiagFcltuGetSpecific FcltuUnknownParameter = IntVal 0
+fcltuDiagFcltuGetSpecific FcltuDiagInvalid      = IntVal 0
+
+parseFcltuDiagFcltuGetSpecific :: Parser FcltuDiagFcltuGetSpecific
+parseFcltuDiagFcltuGetSpecific = do
+    x <- parseIntVal
+    case x of
+        0 -> return FcltuUnknownParameter
+        _ -> return FcltuDiagInvalid
+
+
+
+data DiagnosticFcltuGet = DiagFcltuGetCommon Diagnostics | DiagFcltuGetSpecific FcltuDiagFcltuGetSpecific
+    deriving(Show, Generic)
+
+diagnosticFcltuGet :: DiagnosticFcltuGet -> ASN1
+diagnosticFcltuGet (DiagFcltuGetCommon diag) =
+    Other Context 0 (encodeASN1' DER [diagnostics diag])
+diagnosticFcltuGet (DiagFcltuGetSpecific diag) =
+    Other Context 1 (encodeASN1' DER [fcltuDiagFcltuGetSpecific diag])
+
+
+parseDiagnosticFcltuGet :: Parser DiagnosticFcltuGet
+parseDiagnosticFcltuGet = do
+    res <- parseEitherASN1 parseDiagnostics parseFcltuDiagFcltuGetSpecific
+    case res of
+        Left  diag -> return $ DiagFcltuGetCommon diag
+        Right diag -> return $ DiagFcltuGetSpecific diag
+
+eitherFcltuGetResult
+    :: SleVersion -> Either DiagnosticFcltuGet FcltuGetParameter -> [ASN1]
+eitherFcltuGetResult _version (Left diag) =
+    [ Start (Container Context 1)
+    , diagnosticFcltuGet diag
+    , End (Container Context 1)
+    ]
+eitherFcltuGetResult version (Right param) =
+    Start (Container Context 0)
+        :  case version of
+               SLE3 -> fcltuGetParameterV3 (Proxy :: Proxy 'SLE3) param
+               SLE4 -> fcltuGetParameterV4 (Proxy :: Proxy 'SLE4) param
+               SLE5 -> fcltuGetParameterV5 (Proxy :: Proxy 'SLE5) param
+        ++ [End (Container Context 0)]
+
+
+parseEitherFcltuGetResult
+    :: SleVersion -> Parser (Either DiagnosticFcltuGet FcltuGetParameter)
+parseEitherFcltuGetResult version = do
+    x <- get
+    case x of
+        Start (Container Context 0) : rest -> do
+            put rest
+            param <- case version of
+                SLE3 -> parseFcltuGetParameterV3 (Proxy :: Proxy 'SLE3)
+                SLE4 -> parseFcltuGetParameterV4 (Proxy :: Proxy 'SLE4)
+                SLE5 -> parseFcltuGetParameterV5 (Proxy :: Proxy 'SLE5)
+            parseEndContainer 0
+            return (Right param)
+        Start (Container Context 1) : rest -> do
+            put rest
+            diag <- parseDiagnosticFcltuGet
+            parseEndContainer 1
+            return (Left diag)
+        asn1 ->
+            throwError
+                $ "Error parsing returned parameter value: unexpected ASN1 value: "
+                <> fromString (show asn1)
+
+
+data FcltuGetParameterReturn = FcltuGetParameterReturn
+    { _fgpCredentials :: !Credentials
+    , _fgpInvokeID    :: !Word16
+    , _fgpResult      :: !(Either DiagnosticFcltuGet FcltuGetParameter)
+    }
+    deriving (Show, Generic)
+makeLenses ''FcltuGetParameterReturn
+
+fcltuGetParameterReturn :: SleVersion -> FcltuGetParameterReturn -> [ASN1]
+fcltuGetParameterReturn version FcltuGetParameterReturn {..} =
+    [ Start (Container Context 7)
+        , credentials _fgpCredentials
+        , IntVal (fromIntegral _fgpInvokeID)
+        ]
+        ++ eitherFcltuGetResult version _fgpResult
+        ++ [End (Container Context 7)]
+
+-- instance EncodeASN1 FcltuGetParameterReturn where
+--     encode val = encodeASN1' DER (fcltuGetParameterReturn val)
+
+encodeFcltuGetParameterReturn
+    :: SleVersion -> FcltuGetParameterReturn -> ByteString
+encodeFcltuGetParameterReturn version val =
+    -- let enc = fcltuGetParameterReturn version val
+    -- in  trace ("Encoded GetParameterReturn:\n" <> fromString (show enc))
+    --         $ encodeASN1' DER enc
+    encodeASN1' DER (fcltuGetParameterReturn version val)
+
+parseFcltuGetParameterReturn :: SleVersion -> Parser FcltuGetParameterReturn
+parseFcltuGetParameterReturn version = content
+  where
+    endContainer = parseBasicASN1 (== End (Container Context 7)) (const ())
+
+    content      = do
+        creds    <- parseCredentials
+        invokeID <- parseIntVal
+        result   <- parseEitherFcltuGetResult version
+        void endContainer
+        return FcltuGetParameterReturn { _fgpCredentials = creds
+                                       , _fgpInvokeID    = fromIntegral invokeID
+                                       , _fgpResult      = result
+                                       }

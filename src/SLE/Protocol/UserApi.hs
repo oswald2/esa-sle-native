@@ -10,6 +10,7 @@ module SLE.Protocol.UserApi
     , stopFCLTU
     , sendFCLTUData
     , rafGetParameter
+    , fcltuGetParameter
     ) where
 
 import           RIO
@@ -46,7 +47,7 @@ bind cfg hdl creds appID port attrs = do
                                   (cfg ^. cfgLocal)
                                   port
                                   appID
-                                  (cfg ^. cfgVersion)
+                                  (sleVersionToNumber (cfg ^. cfgVersion))
                                   (ServiceInstanceIdentifier attrs)
     -- send it to the lower layers
     writeSLE hdl (SLEPdu (SlePduBind bnd))
@@ -171,3 +172,19 @@ sendFCLTUData _cfg hdl creds invokeID cltuID earliest latest delay notif frame
                 , _fcltuData                      = bsToHex frame
                 }
         writeSLE hdl (SLEPdu (SlePduFcltuTransferData pdu))
+
+
+fcltuGetParameter
+    :: (MonadIO m)
+    => CommonConfig
+    -> SleHandle
+    -> Credentials
+    -> Word16
+    -> ParameterName
+    -> m ()
+fcltuGetParameter _cfg hdl creds invokeID paramName = do
+    let pdu = GetParameterInvocation { _gpCredentials = creds
+                                     , _gpInvokeID    = invokeID
+                                     , _gpParameter   = paramName
+                                     }
+    writeSLE hdl (SLEPdu (SlePduGetParameter pdu))

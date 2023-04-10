@@ -1,6 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 module SLE.State.FCLTUState
     ( FCLTU
+    , ConfigFromApp(..)
     , FCLTUVar
     , SleFcltuCmd(..)
     , newFCLTUVarIO
@@ -36,6 +37,7 @@ module SLE.State.FCLTUState
     , fcltuCltusProcessed
     , fcltuCltusRadiated
     , fcltuInitiator
+    , fcltuBitLock
     , fcltuSetInitiator
     , fcltuGetInitiator
     , fcltuGetPeer
@@ -43,6 +45,15 @@ module SLE.State.FCLTUState
     , fcltuStopSchedule
     , fcltuStartSchedule
     , fcltuGetReportSchedule
+    , fcltuSetRFAndBitLock
+    , fcltuSCID
+    , fcltuEventID
+    , fcltuSubcarrierToBitRateRatio
+    , fcltuModulationFrequency
+    , fcltuModulationIndex
+    , fcltuPlopInEffect
+    , fcltuNotificationMode
+    , fcltuProtocolAbortMode
     ) where
 
 import           RIO
@@ -63,19 +74,29 @@ import           SLE.Data.ProviderConfig
 import           SLE.Data.WriteCmd
 
 data FCLTU = FCLTU
-    { _fcltuSII                :: !SII
-    , _fcltuState              :: !ServiceState
-    , _fcltuProdNotification   :: !SlduStatusNotification
-    , _fcltuStartRadiationTime :: !CCSDSTime
-    , _fcltuCltuID             :: !CltuIdentification
-    , _fcltuLastProcessed      :: !CltuLastProcessed
-    , _fcltuLastOK             :: !CltuLastOk
-    , _fcltuProdStatus         :: !ProductionStatus
-    , _fcltuUplinkStatus       :: !UplinkStatus
-    , _fcltuCltusReceived      :: !Word64
-    , _fcltuCltusProcessed     :: !Word64
-    , _fcltuCltusRadiated      :: !Word64
-    , _fcltuInitiator          :: !(Maybe Peer)
+    { _fcltuSII                      :: !SII
+    , _fcltuState                    :: !ServiceState
+    , _fcltuProdNotification         :: !SlduStatusNotification
+    , _fcltuStartRadiationTime       :: !CCSDSTime
+    , _fcltuCltuID                   :: !CltuIdentification
+    , _fcltuLastProcessed            :: !CltuLastProcessed
+    , _fcltuLastOK                   :: !CltuLastOk
+    , _fcltuProdStatus               :: !ProductionStatus
+    , _fcltuUplinkStatus             :: !UplinkStatus
+    , _fcltuCltusReceived            :: !Word64
+    , _fcltuCltusProcessed           :: !Word64
+    , _fcltuCltusRadiated            :: !Word64
+    , _fcltuInitiator                :: !(Maybe Peer)
+    , _fcltuBitLock                  :: !Bool
+    , _fcltuRFAvailable              :: !Bool
+    , _fcltuSCID                     :: !Word16
+    , _fcltuEventID                  :: !EventInvocationID
+    , _fcltuSubcarrierToBitRateRatio :: !Word16
+    , _fcltuModulationFrequency      :: !Word32
+    , _fcltuModulationIndex          :: !Int16
+    , _fcltuPlopInEffect             :: !PLOP
+    , _fcltuNotificationMode         :: !NotificationMode
+    , _fcltuProtocolAbortMode        :: !ProtocolAbortMode
     }
 makeLenses ''FCLTU
 
@@ -97,21 +118,32 @@ data FCLTUVar = FCLTUVar
 makeLenses ''FCLTUVar
 
 
-fcltuStartState :: FCLTUConfig -> FCLTU
-fcltuStartState cfg = FCLTU { _fcltuSII                = cfg ^. cfgFCLTUSII
-                            , _fcltuState              = ServiceInit
-                            , _fcltuProdNotification   = ProduceNotification
-                            , _fcltuStartRadiationTime = ccsdsNullTime
-                            , _fcltuCltuID             = CltuIdentification 0
-                            , _fcltuLastProcessed      = NoCltuProcessed
-                            , _fcltuLastOK             = NoCltuOk
-                            , _fcltuProdStatus         = ProdOperational
-                            , _fcltuUplinkStatus       = UplinkNominal
-                            , _fcltuCltusReceived      = 0
-                            , _fcltuCltusProcessed     = 0
-                            , _fcltuCltusRadiated      = 0
-                            , _fcltuInitiator          = Nothing
-                            }
+fcltuStartState :: FCLTUConfig -> ConfigFromApp -> FCLTU
+fcltuStartState cfg appCfg = FCLTU
+    { _fcltuSII                      = cfg ^. cfgFCLTUSII
+    , _fcltuState                    = ServiceInit
+    , _fcltuProdNotification         = ProduceNotification
+    , _fcltuStartRadiationTime       = ccsdsNullTime
+    , _fcltuCltuID                   = CltuIdentification 0
+    , _fcltuLastProcessed            = NoCltuProcessed
+    , _fcltuLastOK                   = NoCltuOk
+    , _fcltuProdStatus               = ProdOperational
+    , _fcltuUplinkStatus             = UplinkNominal
+    , _fcltuCltusReceived            = 0
+    , _fcltuCltusProcessed           = 0
+    , _fcltuCltusRadiated            = 0
+    , _fcltuInitiator                = Nothing
+    , _fcltuBitLock                  = True
+    , _fcltuRFAvailable              = True
+    , _fcltuSCID                     = appSCID appCfg
+    , _fcltuEventID                  = EventInvocationID 0
+    , _fcltuSubcarrierToBitRateRatio = cfg ^. cfgFCLTUSubcarrierToBitRateRatio
+    , _fcltuModulationFrequency      = cfg ^. cfgFCLTUModulationFrequency
+    , _fcltuModulationIndex          = cfg ^. cfgFCLTUModulationIndex
+    , _fcltuPlopInEffect             = cfg ^. cfgFCLTUPlopInEffect
+    , _fcltuNotificationMode         = cfg ^. cfgFCLTUNotificationMode
+    , _fcltuProtocolAbortMode        = cfg ^. cfgFCLTUProtocolAbortMode
+    }
 
 
 newFCLTUVarIO
@@ -120,9 +152,11 @@ newFCLTUVarIO
     -> FCLTUConfig
     -> FCLTUIdx
     -> TMIdx
+    -> ConfigFromApp
     -> m FCLTUVar
-newFCLTUVarIO commonCfg cfg idx tmIdx = do
-    let fcltu = fcltuStartState cfg
+newFCLTUVarIO commonCfg cfg idx tmIdx appCfg = do
+    let fcltu = fcltuStartState cfg appCfg
+
     var   <- newTVarIO fcltu
     q     <- newTBQueueIO 100
     hdl   <- newSleHandle (TCFCLTU idx) 1 -- buffer size is 1 as we don't use a buffer
@@ -174,9 +208,9 @@ setCltuID
 setCltuID var cltuID = _fcltuProdNotification <$> modifyFCLTUState var update
     where update st = st & fcltuCltuID .~ cltuID & fcltuCltusReceived +~ 1
 
-fcltuResetState :: (MonadIO m) => FCLTUVar -> m ()
-fcltuResetState var =
-    atomically $ writeFCLTUVar var (fcltuStartState (var ^. fcltuVarCfg))
+fcltuResetState :: (MonadIO m) => FCLTUVar -> ConfigFromApp -> m ()
+fcltuResetState var appCfg =
+    atomically $ writeFCLTUVar var (fcltuStartState (var ^. fcltuVarCfg) appCfg)
 
 fcltuSetInitiator :: (MonadIO m) => FCLTUVar -> Maybe Peer -> m ()
 fcltuSetInitiator var newAuthority = modifyFCLTU var f
@@ -192,7 +226,8 @@ fcltuGetPeer var authority = HM.lookup authority (_fcltuPeers var)
 fcltuSendStatusReport :: (MonadIO m) => FCLTUVar -> m ()
 fcltuSendStatusReport var = do
     fcltu <- readFCLTUVarIO var
-    let pdu = SLEPdu $ SlePduFcltuStatusReport CltuStatusReport
+    let
+        pdu = SLEPdu $ SlePduFcltuStatusReport CltuStatusReport
             { _fcltuStatusCredentials      = Nothing
             , _fcltuStatusLastProcessed    = fcltu ^. fcltuLastProcessed
             , _fcltuStatusLastOk           = fcltu ^. fcltuLastOK
@@ -233,3 +268,9 @@ fcltuGetReportSchedule var = do
     case val of
         Nothing         -> return Nothing
         Just (_, sched) -> return (Just sched)
+
+
+fcltuSetRFAndBitLock :: (MonadIO m) => FCLTUVar -> Bool -> Bool -> m ()
+fcltuSetRFAndBitLock var rf bitlock = do
+    modifyFCLTU var (\s -> s & fcltuBitLock .~ bitlock & fcltuRFAvailable .~ rf)
+

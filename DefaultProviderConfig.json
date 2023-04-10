@@ -23,14 +23,29 @@
             "cfgMinHeartBeat": 3,
             "cfgServerInitTime": 30
         },
-        "_cfgVersion": 3
+        "_cfgVersion": "SLE4"
     },
     "_cfgFCLTUs": [
         {
+            "_cfgFCLTUAcquisitionSequenceLength": 4,
             "_cfgFCLTUAssociatedTMPort": "TMPORT",
+            "_cfgFCLTUBitlockRequired": true,
+            "_cfgFCLTUClcwChannel": "PARAGONTT",
+            "_cfgFCLTUGVCIDChannelType": {
+                "tag": "MasterChannel"
+            },
+            "_cfgFCLTUGVCIDVersion": 1,
+            "_cfgFCLTUModulationFrequency": 100000,
+            "_cfgFCLTUModulationIndex": 1,
+            "_cfgFCLTUNotificationMode": "Deferred",
+            "_cfgFCLTUPlop1InitSequenceLength": 4,
+            "_cfgFCLTUPlopInEffect": "PLOP2",
             "_cfgFCLTUPort": 5009,
             "_cfgFCLTUPortID": "TCPORT",
-            "_cfgFCLTUSII": "sagr=3.spack=facility-PASS1.fsl-fg=1.cltu=cltu1"
+            "_cfgFCLTUProtocolAbortMode": "Abort",
+            "_cfgFCLTURFAvailableRequired": true,
+            "_cfgFCLTUSII": "sagr=3.spack=facility-PASS1.fsl-fg=1.cltu=cltu1",
+            "_cfgFCLTUSubcarrierToBitRateRatio": 10
         }
     ],
     "_cfgRAFs": [
@@ -40,11 +55,11 @@
                 "tag": "LocalForm"
             },
             "_cfgRAFBufferSize": 100,
+            "_cfgRAFDeliveryMode": "DelRtnCompleteOnline",
             "_cfgRAFLatency": 1000000,
             "_cfgRAFPort": 5100,
             "_cfgRAFPortID": "TMPORT",
-            "_cfgRAFSII": "sagr=3.spack=facility-PASS1.rsl-fg=1.raf=onlc1",
-            "_cfgRAFDeliveryMode": "DelRtnCompleteOnline"
+            "_cfgRAFSII": "sagr=3.spack=facility-PASS1.rsl-fg=1.raf=onlc1"
         }
     ],
     "_cfgRCFs": [

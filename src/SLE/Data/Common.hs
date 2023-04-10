@@ -3,11 +3,14 @@
 module SLE.Data.Common
     ( SII(..)
     , mkSII
+    , SleVersion(..)
     , ServiceState(..)
     , IntPosShort(..)
     , intPosShort
     , encWord16
     , decWord16
+    , encWord8
+    , decWord8
     , Credentials
     , credentials
     , ISP1Credentials(..)
@@ -45,6 +48,7 @@ module SLE.Data.Common
     , parseOctetString
     , parseChoice
     , parseChoiceASN1
+    , choiceParser
     , Diagnostics(..)
     , diagnostics
     , parseDiagnostics
@@ -100,6 +104,12 @@ module SLE.Data.Common
     , DeliveryMode(..)
     , parseDeliveryMode
     , deliveryMode
+    , NotificationMode(..)
+    , notificationMode
+    , parseNotificationMode
+    , ProtocolAbortMode(..)
+    , protocolAbortMode
+    , parseProtocolAbortMode
     ) where
 
 import           RIO
@@ -141,6 +151,12 @@ import           Text.Builder                  as TB
                                                 )
 
 -- import           Text.Show.Pretty        hiding ( Time )
+
+data SleVersion = SLE3 | SLE4 | SLE5
+    deriving stock (Read, Show, Generic)
+    deriving anyclass (FromJSON, ToJSON)
+
+
 
 
 newtype SII = SII Text
@@ -296,6 +312,24 @@ parseChoice choice0 choice1 errTxt = do
             throwError $ "parseChoice: expected choice, got " <> fromString
                 (show o)
         [] -> throwError errTxt
+
+choiceParser
+    :: (ByteString -> Parser b) -> (ByteString -> Parser b) -> Text -> Parser b
+choiceParser choice0 choice1 errTxt = do
+    x <- get
+    case x of
+        ((Other Context 0 bs) : rest) -> do
+            put rest
+            choice0 bs
+        ((Other Context 1 bs) : rest) -> do
+            put rest
+            choice1 bs
+        a@(o : _) -> do
+            put a
+            throwError $ "parseChoice: expected choice, got " <> fromString
+                (show o)
+        [] -> throwError errTxt
+
 
 
 parseChoiceASN1 :: Parser b -> Parser b -> Text -> Parser b
@@ -507,7 +541,7 @@ parseBasicASN1 p f = do
             --     (ppShow rest)
             if p val
                 then do
-                    put rest 
+                    put rest
                     -- traceM "Match."
                     return (f val)
                 else do
@@ -924,7 +958,7 @@ data ParameterName =
     | ParDirectiveInvocationOnline
     | ParExpectedDirectiveIdentification
     | ParExpectedEventInvocationIdentification
-    | ParExpectedSludIdentification
+    | ParExpectedSlduIdentification
     | ParFopSlidingWindow
     | ParFopState
     | ParLatencyLimit
@@ -986,7 +1020,7 @@ parameterName ParDirectiveInvocation                   = IntVal 7
 parameterName ParDirectiveInvocationOnline             = IntVal 108
 parameterName ParExpectedDirectiveIdentification       = IntVal 8
 parameterName ParExpectedEventInvocationIdentification = IntVal 9
-parameterName ParExpectedSludIdentification            = IntVal 10
+parameterName ParExpectedSlduIdentification            = IntVal 10
 parameterName ParFopSlidingWindow                      = IntVal 11
 parameterName ParFopState                              = IntVal 12
 parameterName ParLatencyLimit                          = IntVal 15
@@ -1050,7 +1084,7 @@ parseParameterName = do
         108 -> return ParDirectiveInvocationOnline
         8   -> return ParExpectedDirectiveIdentification
         9   -> return ParExpectedEventInvocationIdentification
-        10  -> return ParExpectedSludIdentification
+        10  -> return ParExpectedSlduIdentification
         11  -> return ParFopSlidingWindow
         12  -> return ParFopState
         15  -> return ParLatencyLimit
@@ -1115,6 +1149,12 @@ decWord16 bs = case B.length bs of
         in  Just val
     _ -> Nothing
 
+encWord8 :: Word8 -> ByteString
+encWord8 val = B.singleton val
+
+decWord8 :: ByteString -> Maybe Word8
+decWord8 bs = if B.length bs >= 1 then Just $ bs `B.index` 0 else Nothing
+
 
 data ReportRequestType =
     ReportImmediately
@@ -1144,12 +1184,12 @@ parseReportRequestType = do
         Other Context 2 _ : rest -> do
             put rest
             return ReportStop
-        a@(asn1 : _) -> do 
+        a@(asn1 : _) -> do
             put a
             throwError
                 $  "parseReportRequestType: unexpected ASN1 sequence: "
                 <> fromString (show asn1)
-        asn1 -> do 
+        asn1 -> do
             put asn1
             throwError
                 $  "parseReportRequestType: unexpected ASN1 sequence: "
@@ -1278,8 +1318,8 @@ parseDiagScheduleResult = do
                     else do
                         throwError
                             $ "Error decoding ScheduleStatusReturn specific diagnostics: bytestring too short"
-        a@(asn1 : _rest) -> do 
-            put a 
+        a@(asn1 : _rest) -> do
+            put a
             throwError
                 $ "Error decoding ScheduleStatusReturn specific diagnostics: unexpected ASN1: "
                 <> fromString (show asn1)
@@ -1396,3 +1436,38 @@ parseDeliveryMode = do
                 $  "Could not parse Deliver Mode, illegal value: "
                 <> fromString (show v)
 
+data NotificationMode = Deferred | Immediate
+    deriving stock (Read, Show, Generic)
+    deriving anyclass (FromJSON, ToJSON)
+
+notificationMode :: NotificationMode -> ASN1
+notificationMode Deferred  = IntVal 0
+notificationMode Immediate = IntVal 1
+
+
+parseNotificationMode :: Parser NotificationMode
+parseNotificationMode = do
+    x <- parseIntVal
+    case x of
+        0 -> return Deferred
+        1 -> return Immediate
+        v -> throwError $ "Unexpected Notification Mode value: " <> fromString
+            (show v)
+
+data ProtocolAbortMode = Abort | Continue
+    deriving stock (Read, Show, Generic)
+    deriving anyclass (FromJSON, ToJSON)
+
+protocolAbortMode :: ProtocolAbortMode -> ASN1
+protocolAbortMode Abort    = IntVal 0
+protocolAbortMode Continue = IntVal 1
+
+parseProtocolAbortMode :: Parser ProtocolAbortMode
+parseProtocolAbortMode = do
+    x <- parseIntVal
+    case x of
+        0 -> return Abort
+        1 -> return Continue
+        v ->
+            throwError $ "Unexpected Protocol Abort Mode value: " <> fromString
+                (show v)

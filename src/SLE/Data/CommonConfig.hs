@@ -38,6 +38,7 @@ import           Control.Lens
 import           Data.Aeson
 
 import           SLE.Data.Bind
+import           SLE.Data.Common
 import           SLE.Data.HexBytes
 import           SLE.Data.TMLConfig      hiding ( loadConfigJSON
                                                 , writeConfigJSON
@@ -91,7 +92,7 @@ data CommonConfig = CommonConfig
     -- | The hash function to use for the credentials, see 'HashToUse'
     , _cfgSHAType   :: !HashToUse
     -- | The version number of SLE to be used. Currently supported are versions 3, 4 and 5.
-    , _cfgVersion   :: !VersionNumber
+    , _cfgVersion   :: !SleVersion
     -- | The password of the local entity in hex-ASCII
     , _cfgPassword  :: !HexBytes
     }
@@ -127,7 +128,7 @@ defaultCommonConfig = CommonConfig
     , _cfgLocal     = AuthorityIdentifier "PARAGONTT"
     , _cfgAuthorize = AuthNone
     , _cfgSHAType   = SHA1
-    , _cfgVersion   = VersionNumber 3
+    , _cfgVersion   = SLE3
     , _cfgPassword  = bsToHex
                           (B.pack
                               [ 0x00

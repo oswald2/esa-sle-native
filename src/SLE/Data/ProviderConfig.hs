@@ -15,6 +15,7 @@ actively used in ParagonTT.
 #-}
 module SLE.Data.ProviderConfig
     ( ProviderConfig(..)
+    , ConfigFromApp(..)
     , RAFConfig(..)
     , RAFIdx(..)
     , RCFConfig(..)
@@ -25,6 +26,8 @@ module SLE.Data.ProviderConfig
     , PusMasterChannel(..)
     , PusVirtualChannel(..)
     , RCFGvcid(..)
+    , FCLTUChannelType(..)
+    , PLOP(..)
     , configPretty
     , defaultProviderConfigFileName
     , defaultProviderConfig
@@ -52,6 +55,19 @@ module SLE.Data.ProviderConfig
     , cfgFCLTUPort
     , cfgFCLTUPortID
     , cfgFCLTUAssociatedTMPort
+    , cfgFCLTUAcquisitionSequenceLength
+    , cfgFCLTUBitlockRequired
+    , cfgFCLTURFAvailableRequired
+    , cfgFCLTUGVCIDVersion
+    , cfgFCLTUGVCIDChannelType
+    , cfgFCLTUClcwChannel
+    , cfgFCLTUSubcarrierToBitRateRatio
+    , cfgFCLTUModulationFrequency
+    , cfgFCLTUModulationIndex
+    , cfgFCLTUPlopInEffect
+    , cfgFCLTUPlop1InitSequenceLength
+    , cfgFCLTUProtocolAbortMode
+    , cfgFCLTUNotificationMode
     ) where
 
 
@@ -69,7 +85,14 @@ import qualified Data.List.NonEmpty            as N
 import           SLE.Data.Common
 import           SLE.Data.CommonConfig
 
--- | The config for Return All Frames (RAF) services. Lenses for the fields are created automatically.
+-- | This is the config type, which has to be provided from the application using the SLE library
+data ConfigFromApp = ConfigFromApp
+    {
+    -- | The spacecraft ID, provided by the application
+      appSCID :: !Word16
+    }
+
+
 data RAFConfig = RAFConfig
     {
     -- | The Service Instance ID of the RAF service (default: @SII "sagr=3.spack=facility-PASS1.rsl-fg=1.raf=onlc1"@)
@@ -187,20 +210,55 @@ defaultRCFConfig = RCFConfig
                               ]
     }
 
+-- | The channel typ for the FCLTU. Can be Master Channel or a Virtual Channel
+data FCLTUChannelType = MasterChannel | VirtualChannel !Word8
+    deriving stock (Show, Read, Generic)
+    deriving anyclass (FromJSON, ToJSON)
+
+-- | The PLOP type to be specified 
+data PLOP = PLOP1 | PLOP2
+    deriving stock (Show, Read, Generic)
+    deriving anyclass (FromJSON, ToJSON)
 
 -- | The config for the Forward Command Link Transmission Unit (FCLTU) service
 data FCLTUConfig = FCLTUConfig
     {
     -- | The service instance ID for this FCLTU service (default: @SII "sagr=3.spack=facility-PASS1.fsl-fg=1.cltu=cltu1"@)
-      _cfgFCLTUSII              :: !SII
+      _cfgFCLTUSII                       :: !SII
     -- | The TCP/IP port the provider should listen on for this FCLTU service
-    , _cfgFCLTUPort             :: !Word16
+    , _cfgFCLTUPort                      :: !Word16
     -- | The SLE Port ID for this FCLTU service
-    , _cfgFCLTUPortID           :: !Text
+    , _cfgFCLTUPortID                    :: !Text
     -- | The associated TM port. As there can be multiple RAF or RCF services specified, this setting specifies the 
     -- SLE Port ID of the TM service (RAF or RCF), which is used to send back acknowledges for TCs coming in on this 
     -- FCLTU link.
-    , _cfgFCLTUAssociatedTMPort :: !Text
+    , _cfgFCLTUAssociatedTMPort          :: !Text
+    -- | The CLTU acquisition sequence length to be used
+    , _cfgFCLTUAcquisitionSequenceLength :: !Word16
+    -- | If the Bitlock is required 
+    , _cfgFCLTUBitlockRequired           :: !Bool
+    -- | If it is required that the RF is available 
+    , _cfgFCLTURFAvailableRequired       :: !Bool
+    -- | The version number for the GVCID (Global Virtual Channel ID)
+    , _cfgFCLTUGVCIDVersion              :: !Word16
+    -- | The type of the global virtual channel. Can be a master channel or a virtual channel
+    , _cfgFCLTUGVCIDChannelType          :: !FCLTUChannelType
+    -- | The used CLCW channel
+    , _cfgFCLTUClcwChannel               :: !Text
+    -- | The subcarrier to bit-rate ratio to be configured 
+    , _cfgFCLTUSubcarrierToBitRateRatio  :: !Word16
+    -- | The modulation frequency
+    , _cfgFCLTUModulationFrequency       :: !Word32
+    -- | The modulation index 
+    , _cfgFCLTUModulationIndex           :: !Int16
+    -- | The Physical Layer Operations Procedure (PLOP). Allowed: PLOP1 and PLOP2
+    , _cfgFCLTUPlopInEffect              :: !PLOP
+    -- | The PLOP1 init sequence length in case PLOP1 is used 
+    , _cfgFCLTUPlop1InitSequenceLength   :: !Word16
+    -- | The protocol abort mode. 
+    , _cfgFCLTUProtocolAbortMode         :: !ProtocolAbortMode
+    -- | The notification mode 
+    , _cfgFCLTUNotificationMode          :: !NotificationMode
     }
     deriving stock (Show, Read, Generic)
     deriving anyclass (FromJSON, ToJSON)
@@ -209,16 +267,29 @@ data FCLTUConfig = FCLTUConfig
 defaultFCLTUConfig :: FCLTUConfig
 defaultFCLTUConfig = FCLTUConfig
     { _cfgFCLTUSII = SII "sagr=3.spack=facility-PASS1.fsl-fg=1.cltu=cltu1"
-    , _cfgFCLTUPort             = 5009
-    , _cfgFCLTUPortID           = "TCPORT"
-    , _cfgFCLTUAssociatedTMPort = "TMPORT"
+    , _cfgFCLTUPort                      = 5009
+    , _cfgFCLTUPortID                    = "TCPORT"
+    , _cfgFCLTUAssociatedTMPort          = "TMPORT"
+    , _cfgFCLTUAcquisitionSequenceLength = 4
+    , _cfgFCLTUBitlockRequired           = True
+    , _cfgFCLTURFAvailableRequired       = True
+    , _cfgFCLTUGVCIDVersion              = 1
+    , _cfgFCLTUGVCIDChannelType          = MasterChannel
+    , _cfgFCLTUClcwChannel               = "PARAGONTT"
+    , _cfgFCLTUSubcarrierToBitRateRatio  = 10
+    , _cfgFCLTUModulationFrequency       = 100000
+    , _cfgFCLTUModulationIndex           = 1
+    , _cfgFCLTUPlopInEffect              = PLOP2
+    , _cfgFCLTUPlop1InitSequenceLength   = 4
+    , _cfgFCLTUProtocolAbortMode         = Abort
+    , _cfgFCLTUNotificationMode          = Deferred
     }
 
 -- | The configuration of the SLE provider itself.
 data ProviderConfig = ProviderConfig
-    { 
+    {
     -- | The common configuration for SLE
-    _cfgCommon :: !CommonConfig
+      _cfgCommon :: !CommonConfig
     -- | A vector of RAF service configurations to be handled by this provider 
     , _cfgRAFs   :: !(Vector RAFConfig)
     -- | A vector of RCF service configurations to be handled by this provider (currently ignored)
