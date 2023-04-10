@@ -211,11 +211,12 @@ defaultRCFConfig = RCFConfig
     }
 
 -- | The channel typ for the FCLTU. Can be Master Channel or a Virtual Channel
-data FCLTUChannelType = MasterChannel | VirtualChannel !Word8
+data FCLTUChannelType = MasterChannel  -- ^ A master channel 
+    | VirtualChannel !Word8 -- ^ A virtual channel with the given VCID
     deriving stock (Show, Read, Generic)
     deriving anyclass (FromJSON, ToJSON)
 
--- | The PLOP type to be specified 
+-- | The The Physical Layer Operations Procedure (PLOP) type to be used 
 data PLOP = PLOP1 | PLOP2
     deriving stock (Show, Read, Generic)
     deriving anyclass (FromJSON, ToJSON)
