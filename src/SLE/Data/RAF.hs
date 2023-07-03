@@ -151,8 +151,7 @@ processInitState cfg var _state ppdu@(SlePduBind pdu) = do
             logError errmsg
             let ret = SLEPdu $ SlePduBindReturn SleBindReturn
                     { _sleBindRetCredentials = Nothing
-                    , _sleBindRetResponderID = AuthorityIdentifier
-                                                   (cfg ^. cfgRAFPortID)
+                    , _sleBindRetResponderID = cmCfg ^. cfgLocal
                     , _sleBindRetResult      = BindResDiag diag
                     }
             sendSlePdu var ret
